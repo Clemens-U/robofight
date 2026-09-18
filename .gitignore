@@ -1,0 +1,18 @@
+# Build output
+build/
+*.class
+robofight.apk
+robofight.apk.idsig
+
+# Signing — NEVER commit the keystore (holds the private key)
+robofight.keystore
+*.jks
+
+# Gradle (if it ever returns)
+.gradle/
+local.properties
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp

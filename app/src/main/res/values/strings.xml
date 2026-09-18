@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ROBOFIGHT</string>
+    <string name="editor_hint">edit firmware, then RUN</string>
+    <string name="status_idle">T:0   no fight yet — press RUN</string>
+</resources>
