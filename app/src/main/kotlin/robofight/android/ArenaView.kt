@@ -13,9 +13,8 @@ import robofight.world.World
 /**
  * Canvas renderer for the 20×20 arena.
  *
- * Draws the grid, bot glyphs (colored), direction indicators, and projectiles
- * using the engine's NES palette. The view is a square (width == height) and
- * each cell is width / 20.
+ * Draws the fight as a terminal-style character grid. The view stays square
+ * within whatever space RUN mode gives it, including landscape screens.
  *
  * The view does not own the [World] — it reads from the [RunController] and
  * calls invalidate() each frame to trigger onDraw().
@@ -26,40 +25,37 @@ class ArenaView @JvmOverloads constructor(
     defStyleAttr: Int = 0,
 ) : View(context, attrs, defStyleAttr) {
 
-    private val monospace: Typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+    private val pixelTypeface: Typeface =
+        Typeface.createFromAsset(context.assets, "fonts/PressStart2P-Regular.ttf")
 
     // --- paints ---
-    private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#0d0d14")
+    private val bgPaint = Paint().apply {
+        color = Color.parseColor("#000502")
     }
-    private val cellPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#161622")
+    private val cellPaint = Paint().apply {
+        color = Color.parseColor("#020c05")
     }
-    private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#222233")
+    private val gridPaint = Paint().apply {
+        color = Color.parseColor("#0b2b14")
         strokeWidth = 1f
     }
-    private val emptyDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#2a2a3a")
+    private val emptyDotPaint = Paint().apply {
+        color = Color.parseColor("#174525")
         textSize = 6f
         textAlign = Paint.Align.CENTER
-        typeface = monospace
+        typeface = pixelTypeface
     }
-    private val glyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val glyphPaint = Paint().apply {
         textAlign = Paint.Align.CENTER
-        typeface = monospace
+        typeface = pixelTypeface
     }
-    private val projPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-    }
-    private val projGlyphPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#FFFF00")
+    private val projGlyphPaint = Paint().apply {
+        color = Color.parseColor("#eaff93")
         textAlign = Paint.Align.CENTER
-        typeface = monospace
-        textSize = 14f
+        typeface = pixelTypeface
     }
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.parseColor("#334455")
+        color = Color.parseColor("#34ec5b")
         style = Paint.Style.STROKE
         strokeWidth = 3f
     }
@@ -70,10 +66,14 @@ class ArenaView @JvmOverloads constructor(
     private var cellSize: Float = 0f
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        // Force square: use the width spec, set height = width.
-        val w = MeasureSpec.getSize(widthMeasureSpec)
-        val height = w
-        setMeasuredDimension(w, height)
+        val maxWidth = MeasureSpec.getSize(widthMeasureSpec)
+        val maxHeight = MeasureSpec.getSize(heightMeasureSpec)
+        val size = when {
+            maxWidth == 0 -> maxHeight
+            maxHeight == 0 -> maxWidth
+            else -> minOf(maxWidth, maxHeight)
+        }
+        setMeasuredDimension(size, size)
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -86,12 +86,15 @@ class ArenaView @JvmOverloads constructor(
         // background
         canvas.drawRect(0f, 0f, w, h, bgPaint)
 
-        // grid cells
+        // Character cells and the faint idle glyph that makes the arena read
+        // like a real text-mode display instead of a modern game board.
+        emptyDotPaint.textSize = cellSize * 0.38f
         for (py in 0 until GRID) {
             for (px in 0 until GRID) {
                 val left = px * cellSize
                 val top = py * cellSize
                 canvas.drawRect(left, top, left + cellSize, top + cellSize, cellPaint)
+                canvas.drawText("·", left + cellSize / 2f, top + cellSize * 0.64f, emptyDotPaint)
             }
         }
 
@@ -103,15 +106,21 @@ class ArenaView @JvmOverloads constructor(
             canvas.drawLine(0f, y, w, y, gridPaint)
         }
 
-        val world = controller?.world ?: return
+        val world = controller?.world
+        if (world == null) {
+            glyphPaint.color = Color.parseColor("#34ec5b")
+            glyphPaint.textSize = cellSize * 0.75f
+            canvas.drawText("SYSTEM IDLE", w / 2f, h / 2f, glyphPaint)
+            canvas.drawRect(1.5f, 1.5f, w - 1.5f, h - 1.5f, borderPaint)
+            return
+        }
 
         // projectiles (under bots)
         for (p in world.projectiles) {
             val left = p.x * cellSize
             val top = p.y * cellSize
-            // filled square (the * glyph)
-            canvas.drawRect(left + cellSize * 0.25f, top + cellSize * 0.25f,
-                left + cellSize * 0.75f, top + cellSize * 0.75f, projPaint)
+            projGlyphPaint.textSize = cellSize * 0.72f
+            canvas.drawText("*", left + cellSize / 2f, top + cellSize * 0.72f, projGlyphPaint)
         }
 
         // bots
@@ -120,15 +129,14 @@ class ArenaView @JvmOverloads constructor(
             val left = b.px * cellSize
             val top = b.py * cellSize
 
-            // bot body (colored rectangle)
             glyphPaint.color = Color.parseColor(Palette.HEX[b.color % 15])
-            canvas.drawRect(left, top, left + cellSize, top + cellSize, glyphPaint)
-
-            // direction nose (white, in the cell)
-            val dirGlyph = DIR_GLYPH[b.facing % 4].toString()
-            emptyDotPaint.textSize = cellSize * 0.6f
-            emptyDotPaint.color = Color.WHITE
-            canvas.drawText(dirGlyph, left + cellSize / 2f, top + cellSize * 0.65f, emptyDotPaint)
+            glyphPaint.textSize = cellSize * 0.52f
+            canvas.drawText(
+                "${b.glyph}${DIR_GLYPH[b.facing % 4]}",
+                left + cellSize / 2f,
+                top + cellSize * 0.69f,
+                glyphPaint,
+            )
         }
 
         // border

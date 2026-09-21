@@ -2,6 +2,7 @@ package robofight.android
 
 import android.app.Activity
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -12,11 +13,12 @@ import android.os.Handler
 import android.os.Looper
 import android.text.Editable
 import android.text.InputType
-import android.text.TextWatcher
 import android.text.TextUtils
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -26,20 +28,23 @@ import android.widget.TextView
 import robofight.world.Presets
 
 /**
- * Native Android front-end for RoboFight.
+ * Two-screen native UI for RoboFight.
  *
- * Layout (per DESIGN.md §13): arena on top, control row, then a content area
- * that is either the FIRMWARE EDITOR or the FILE SHELL (top-line pseudo
- * buttons to switch), stats bar at the bottom.
- *
- * Shell commands: DIR, EDIT <name>, DEL <name>, NEW <name>, HELP — plus
- * tapping a file name in the DIR listing opens it in the editor.
- * Editor buttons: SAVE, NEW, SHELL.
- *
- * Files persist in SQLite (see BotFiles). All UI on the main thread; the
- * fight is advanced by a Handler that posts tick batches ~10×/s.
+ * SHELL is the firmware workspace (file terminal + editor). RUN is the arena.
+ * Keeping them separate gives text input room to resize above the soft keyboard
+ * and lets the arena use the full display while a fight is running.
  */
 class MainActivity : Activity() {
+
+    private enum class AppMode { SHELL, RUN }
+
+    private lateinit var shellScreen: LinearLayout
+    private lateinit var runScreen: LinearLayout
+    private lateinit var terminalPanel: LinearLayout
+    private lateinit var editorPanel: LinearLayout
+    private lateinit var shellTab: Button
+    private lateinit var runTab: Button
+    private lateinit var shellContext: TextView
 
     private lateinit var arena: ArenaView
     private lateinit var btnA: Button
@@ -47,35 +52,37 @@ class MainActivity : Activity() {
     private lateinit var btnRun: Button
     private lateinit var btnStep: Button
     private lateinit var btnReset: Button
+    private lateinit var statA: TextView
+    private lateinit var statB: TextView
 
-    // editor panel
-    private lateinit var editorPanel: LinearLayout
     private lateinit var editor: EditText
     private lateinit var btnSave: Button
     private lateinit var btnNew: Button
-    private lateinit var btnShellFromEditor: Button
+    private lateinit var btnTerminal: Button
+    private lateinit var btnFight: Button
 
-    // shell panel
-    private lateinit var shellPanel: LinearLayout
     private lateinit var btnDir: Button
     private lateinit var btnHelp: Button
+    private lateinit var btnEditCurrent: Button
     private lateinit var btnGo: Button
-    private lateinit var out: LinearLayout          // vertical: text rows + clickable file rows
+    private lateinit var out: LinearLayout
     private lateinit var scroll: ScrollView
     private lateinit var cmd: EditText
-    private var outText: TextView? = null           // current text-row buffer
+    private var outText: TextView? = null
 
     private lateinit var status: TextView
-
     private lateinit var controller: RunController
-    private val handler = Handler(Looper.getMainLooper())
     private lateinit var store: BotFiles
+    private val handler = Handler(Looper.getMainLooper())
+    private val pixelTypeface: Typeface by lazy {
+        Typeface.createFromAsset(assets, "fonts/PressStart2P-Regular.ttf")
+    }
 
-    /** Name of the file currently open in the editor (null = untitled). */
+    private var mode = AppMode.SHELL
     private var currentFile: String? = null
     private var editorDirty = false
+    private var autoRunning = false
 
-    // slots 0..4 = presets, slot 5 = MYBOT (uses whatever the editor holds)
     private val slots: List<BotSlot> by lazy {
         Presets.all().map { BotSlot(it.name, it.glyph, it.color, it.firmware) } +
             BotSlot("MYBOT", 'M', 12, "")
@@ -85,69 +92,78 @@ class MainActivity : Activity() {
 
     private val tickLoop = object : Runnable {
         override fun run() {
-            val w = controller.world ?: return
-            if (!w.finished) {
+            val world = controller.world ?: return
+            if (!world.finished) {
                 controller.step(2)
                 updateStats()
             }
-            if (!w.finished) handler.postDelayed(this, 100L)
-            else {
+            if (!world.finished) {
+                handler.postDelayed(this, 100L)
+            } else {
+                autoRunning = false
                 status.text = controller.status
                 btnRun.isEnabled = true
+                btnRun.text = "RUN AGAIN"
             }
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = C_BG
+        window.navigationBarColor = C_BG
         setContentView(buildLayout())
 
-        // Seed the DB + editor BEFORE the TextWatcher is attached, so the
-        // programmatic setText does not mark the editor dirty.
         store = BotFiles(this)
         seedFromAssets()
+        if (savedInstanceState != null) {
+            currentFile = savedInstanceState.getString(STATE_FILE)
+            editor.setText(savedInstanceState.getString(STATE_SOURCE, editor.text.toString()))
+            editorDirty = savedInstanceState.getBoolean(STATE_DIRTY)
+        }
 
         controller = RunController()
         arena.controller = controller
         controller.onFrame = { runOnUiThread { updateStats() } }
 
         editor.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun afterTextChanged(s: Editable?) { editorDirty = true }
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                editorDirty = true
+                updateShellContext()
+            }
         })
 
-        btnA.setOnClickListener { ai = (ai + 1) % 6; updateBtnTexts() }
-        btnB.setOnClickListener { bi = (bi + 1) % 6; updateBtnTexts() }
+        shellTab.setOnClickListener { showShellTerminal() }
+        runTab.setOnClickListener { showRunMode(startFight = false) }
+        btnA.setOnClickListener { ai = (ai + 1) % slots.size; updateBtnTexts() }
+        btnB.setOnClickListener { bi = (bi + 1) % slots.size; updateBtnTexts() }
         btnRun.setOnClickListener { doRun() }
         btnStep.setOnClickListener { doStep() }
         btnReset.setOnClickListener { doReset() }
 
         btnSave.setOnClickListener { saveFile() }
         btnNew.setOnClickListener { doNew(autoName()) }
-        btnShellFromEditor.setOnClickListener { showShell() }
+        btnTerminal.setOnClickListener { showShellTerminal() }
+        btnFight.setOnClickListener { showRunMode(startFight = true) }
 
-        // shell quick-buttons: DIR + HELP need no argument; GO executes whatever
-        // is typed in the command box ("EDIT BOT1", "DEL BOT1", "NEW BOT1", …)
         btnDir.setOnClickListener { runCmd("DIR") }
         btnHelp.setOnClickListener { runCmd("HELP") }
-        btnGo.setOnClickListener {
-            val line = cmd.text.toString().trim()
-            cmd.text.clear()
-            if (line.isNotEmpty()) runCmd(line)
+        btnEditCurrent.setOnClickListener {
+            val name = currentFile
+            if (name == null) runCmd("NEW ${autoName()}") else showEditor()
         }
-        // Enter / IME "Go" action executes the command — no need to tap GO
-        // (which can be hidden under the soft keyboard).
-        cmd.setOnEditorActionListener { _, _, _ ->
-            val line = cmd.text.toString().trim()
-            cmd.text.clear()
-            if (line.isNotEmpty()) runCmd(line)
-            true
-        }
+        btnGo.setOnClickListener { submitCommand() }
+        cmd.setOnEditorActionListener { _, _, _ -> submitCommand(); true }
 
         updateBtnTexts()
-        // start in the shell, with a DIR already on screen
-        showShell()
+        if (savedInstanceState?.getBoolean(STATE_RUN_MODE) == true) {
+            setMode(AppMode.RUN)
+        } else {
+            showShellTerminal()
+        }
+        printBoot()
         runCmd("DIR")
         updateStats()
     }
@@ -157,452 +173,700 @@ class MainActivity : Activity() {
         super.onDestroy()
     }
 
-    // ================= file shell =================
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString(STATE_FILE, currentFile)
+        outState.putString(STATE_SOURCE, editor.text.toString())
+        outState.putBoolean(STATE_DIRTY, editorDirty)
+        outState.putBoolean(STATE_RUN_MODE, mode == AppMode.RUN)
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun submitCommand() {
+        val line = cmd.text.toString().trim()
+        cmd.text.clear()
+        if (line.isNotEmpty()) runCmd(line)
+    }
 
     private fun autoName(): String {
         var n = 1
-        while (store.exists("BOT${n}")) n++
+        while (store.exists("BOT$n")) n++
         return "BOT$n"
     }
 
     private fun runCmd(line: String) {
-        showShell()
-        printLine("robofight> $line")
+        showShellTerminal(clearFocus = false)
+        printLine("RF:\\> $line")
         val parts = line.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
-        if (parts.isNotEmpty()) dispatch(parts[0].uppercase(), if (parts.size > 1) parts[1] else "")
+        if (parts.isNotEmpty()) dispatch(parts[0].uppercase(), parts.getOrElse(1) { "" })
         commitText()
         scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
     }
 
-    private fun dispatch(cmdWord: String, arg: String) {
-        when (cmdWord) {
+    private fun dispatch(command: String, arg: String) {
+        when (command) {
             "DIR", "D", "LS" -> printDir()
             "EDIT", "E", "OPEN" -> {
-                if (arg.isEmpty()) { printLine("usage: EDIT <name>   (or tap a name in DIR)"); return }
-                openFile(arg)
+                if (arg.isEmpty()) printLine("USAGE: EDIT <NAME>") else openFile(arg)
             }
             "DEL", "DELETE", "RM" -> {
-                if (arg.isEmpty()) { printLine("usage: DEL <name>"); return }
-                if (store.exists(arg)) {
-                    if (currentFile != null && currentFile.equals(arg, true)) {
+                if (arg.isEmpty()) {
+                    printLine("USAGE: DEL <NAME>")
+                } else if (!store.exists(arg)) {
+                    printLine("NO SUCH FILE: $arg")
+                } else {
+                    if (currentFile.equals(arg, ignoreCase = true)) {
                         currentFile = null
                         editor.text.clear()
                         editorDirty = false
                     }
-                    if (store.delete(arg)) printLine("deleted $arg")
-                    else printLine("delete failed: $arg")
-                } else {
-                    printLine("no such file: $arg")
+                    printLine(if (store.delete(arg)) "DELETED $arg" else "DELETE FAILED: $arg")
+                    updateShellContext()
                 }
             }
-            "NEW", "N" -> {
-                if (arg.isEmpty()) { printLine("usage: NEW <name>"); return }
-                doNew(arg)
-            }
+            "NEW", "N" -> if (arg.isEmpty()) printLine("USAGE: NEW <NAME>") else doNew(arg)
+            "RUN", "FIGHT" -> showRunMode(startFight = true)
             "HELP", "?" -> printHelp()
-            else -> printLine("unknown command: $cmdWord   (try HELP)")
+            "CLEAR", "CLS" -> { out.removeAllViews(); outText = null }
+            else -> printLine("UNKNOWN COMMAND: $command  // TRY HELP")
         }
     }
 
     private fun openFile(name: String) {
-        if (!store.exists(name)) { printLine("no such file: $name"); return }
+        if (!store.exists(name)) { printLine("NO SUCH FILE: $name"); return }
         val text = store.read(name) ?: ""
         val open = currentFile
-        if (editorDirty && open != null &&
-            !open.equals(name, true) && !editor.text.toString().isEmpty()) {
-            // don't silently lose unsaved work: save it first
+        if (editorDirty && open != null && !open.equals(name, true) && editor.text.isNotEmpty()) {
             store.upsert(open, editor.text.toString())
-            printLine("saved $open (unsaved changes kept)")
+            printLine("SAVED $open  // UNSAVED CHANGES KEPT")
         }
         editor.setText(text)
+        editor.setSelection(0)
         editorDirty = false
-        currentFile = name
-        status.text = "editing $name"
+        currentFile = name.uppercase()
+        status.text = "EDITING ${currentFile}"
         showEditor()
+        // EditText may scroll the caret into view after focus/layout. Post the
+        // reset so a newly loaded file consistently opens at line one.
+        editor.post {
+            editor.setSelection(0)
+            editor.scrollTo(0, 0)
+        }
     }
 
     private fun doNew(name: String) {
         if (store.exists(name)) {
-            printLine("$name already exists — opening it (use DEL first to replace)")
+            printLine("$name EXISTS  // OPENING")
             openFile(name)
             return
         }
         val open = currentFile
-        if (editorDirty && open != null && !editor.text.toString().isEmpty()) {
+        if (editorDirty && open != null && editor.text.isNotEmpty()) {
             store.upsert(open, editor.text.toString())
-            printLine("saved $open (unsaved changes kept)")
+            printLine("SAVED $open  // UNSAVED CHANGES KEPT")
         }
         store.upsert(name, "")
         editor.text.clear()
-        currentFile = name
+        currentFile = name.uppercase()
         editorDirty = false
-        printLine("created $name")
-        status.text = "new file $name"
+        printLine("CREATED ${currentFile}")
+        status.text = "NEW FILE ${currentFile}"
         showEditor()
     }
 
     private fun saveFile() {
         val name = currentFile
         if (name == null) {
-            status.text = "no file open — press NEW first"
-            showShell()
-            printLine("no file open (use NEW <name>)")
+            status.text = "NO FILE OPEN  // USE NEW <NAME>"
+            showShellTerminal()
+            printLine("NO FILE OPEN  // USE NEW <NAME>")
             commitText()
             return
         }
         store.upsert(name, editor.text.toString())
         editorDirty = false
-        status.text = "saved $name"
-        showShell()
-        printLine("saved $name   (${store.size(name)} bytes)")
-        commitText()
+        status.text = "SAVED $name  // ${store.size(name)} BYTES"
+        updateShellContext()
     }
 
-    // ---- terminal output (LinearLayout: text rows + clickable file rows) ----
-
-    private fun newOutText(): TextView = TextView(this).apply {
-        setTextColor(Color.parseColor("#3dff62"))
-        textSize = 12f
-        typeface = Typeface.MONOSPACE
-        setPadding(0, 0, 0, 0)
-    }
+    private fun newOutText() = terminalText(12f, C_GREEN)
 
     private fun commitText() {
-        val t = outText ?: return
-        if (t.text.isEmpty()) {
-            outText = null
-            return
-        }
-        out.addView(t)
+        val text = outText ?: return
+        if (text.text.isNotEmpty()) out.addView(text)
         outText = null
         scroll.requestLayout()
     }
 
-    private fun printLine(s: String) {
-        val t = outText ?: newOutText().also { outText = it }
-        if (t.text.isNotEmpty()) t.append("\n")
-        t.append(s)
+    private fun printLine(line: String) {
+        val text = outText ?: newOutText().also { outText = it }
+        if (text.text.isNotEmpty()) text.append("\n")
+        text.append(line)
+    }
+
+    private fun printBoot() {
+        printLine("ROBOFIGHT OS 0.4  // RF-8 COMBAT SYSTEM")
+        printLine("MEM 64K  GRID 20x20  LINK READY")
+        printLine("TYPE HELP FOR AVAILABLE COMMANDS")
+        printLine("")
+        commitText()
     }
 
     private fun printDir() {
         commitText()
         val files = store.list()
-        if (files.isEmpty()) {
-            printLine("  (no files — NEW <name> to create one)")
-            return
-        }
-        printLine("  NAME                BYTES   MODIFIED")
-        for (f in files) {
+        if (files.isEmpty()) { printLine("  NO FILES  // NEW <NAME>"); return }
+        printLine("  NAME                 SIZE   MODIFIED")
+        commitText()
+        for (file in files) {
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
-                setPadding(0, px2(2), 0, px2(2))
                 gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(3), 0, dp(3))
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { printLine("OPENING ${file.name} ..."); openFile(file.name) }
             }
-            val nameView = TextView(this).apply {
-                val base = "  " + f.name
-                val sp = android.text.SpannableStringBuilder(base)
-                sp.setSpan(android.text.style.UnderlineSpan(), 2, base.length,
-                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                text = sp
-                textSize = 12f
-                typeface = Typeface.MONOSPACE
-                setTextColor(Color.parseColor("#b8ffb8"))
+            val name = terminalText(12f, C_BRIGHT).apply {
+                text = "  > ${file.name}"
                 setSingleLine(true)
                 ellipsize = TextUtils.TruncateAt.END
-                setOnClickListener {
-                    printLine("opening ${f.name} ...")
-                    openFile(f.name)
-                }
             }
-            val bytesView = TextView(this).apply {
-                text = f.bytes.toString().padStart(6)
-                textSize = 12f
-                typeface = Typeface.MONOSPACE
-                setTextColor(Color.parseColor("#3dff62"))
-            }
-            val modView = TextView(this).apply {
-                text = " " + store.fmtTime(f.modified)
-                textSize = 12f
-                typeface = Typeface.MONOSPACE
-                setTextColor(Color.parseColor("#1e7a38"))
-            }
-            row.addView(nameView, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            row.addView(bytesView)
-            row.addView(modView)
+            val bytes = terminalText(12f, C_GREEN).apply { text = file.bytes.toString().padStart(6) }
+            val modified = terminalText(11f, C_DIM).apply { text = "  ${store.fmtTime(file.modified)}" }
+            row.addView(name, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(bytes)
+            row.addView(modified)
             out.addView(row)
         }
-        printLine("  (tap a name to open it)")
+        printLine("  // TAP A FILE TO EDIT")
     }
-
-    private fun px2(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
     private fun printHelp() {
-        printLine("DIR                list files")
-        printLine("EDIT <name>        open file in the editor")
-        printLine("DEL <name>         delete a file")
-        printLine("NEW <name>         create + open a new file")
-        printLine("HELP               this text")
-        printLine("buttons:          DIR  HELP  GO (runs the typed command)")
-        printLine("editor:           SAVE  NEW  SHELL   (tap a DIR name to open)")
+        printLine("DIR              LIST FIRMWARE")
+        printLine("EDIT <NAME>      OPEN IN EDITOR")
+        printLine("NEW <NAME>       CREATE FIRMWARE")
+        printLine("DEL <NAME>       DELETE FIRMWARE")
+        printLine("RUN              ENTER ARENA + FIGHT")
+        printLine("CLEAR            CLEAR TERMINAL")
+        printLine("HELP             SHOW COMMANDS")
     }
 
-    // ---- panel switching ----
-
-    private fun showShell() {
-        commitText()
-        shellPanel.visibility = View.VISIBLE
+    private fun showShellTerminal(clearFocus: Boolean = true) {
+        // A fight only executes while its screen is visible. Keep autoRunning so
+        // returning to RUN resumes the same world rather than starting over.
+        handler.removeCallbacks(tickLoop)
+        setMode(AppMode.SHELL)
+        terminalPanel.visibility = View.VISIBLE
         editorPanel.visibility = View.GONE
-        cmd.clearFocus()
+        if (clearFocus) cmd.clearFocus()
+        updateShellContext()
     }
 
     private fun showEditor() {
-        commitText()
-        shellPanel.visibility = View.GONE
+        handler.removeCallbacks(tickLoop)
+        setMode(AppMode.SHELL)
+        terminalPanel.visibility = View.GONE
         editorPanel.visibility = View.VISIBLE
+        updateShellContext()
         editor.requestFocus()
     }
 
-    /** First launch: copy MYBOT.asm (or a preset) into the DB so the shell
-     *  always has at least one file. */
+    private fun showRunMode(startFight: Boolean) {
+        setMode(AppMode.RUN)
+        hideKeyboard()
+        if (startFight) {
+            doRun()
+        } else if (autoRunning && controller.world?.finished == false) {
+            handler.removeCallbacks(tickLoop)
+            handler.postDelayed(tickLoop, 100L)
+        }
+    }
+
+    private fun setMode(next: AppMode) {
+        mode = next
+        shellScreen.visibility = if (next == AppMode.SHELL) View.VISIBLE else View.GONE
+        runScreen.visibility = if (next == AppMode.RUN) View.VISIBLE else View.GONE
+        styleModeTab(shellTab, next == AppMode.SHELL)
+        styleModeTab(runTab, next == AppMode.RUN)
+    }
+
+    private fun hideKeyboard() {
+        currentFocus?.let { focus ->
+            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
+                .hideSoftInputFromWindow(focus.windowToken, 0)
+            focus.clearFocus()
+        }
+    }
+
+    private fun updateShellContext() {
+        if (!::shellContext.isInitialized) return
+        val file = currentFile ?: "NO FILE"
+        shellContext.text = "WORKSPACE / $file${if (editorDirty) " *" else ""}"
+    }
+
     private fun seedFromAssets() {
         if (store.count() > 0) {
-            val mybot = store.read("MYBOT")
-            if (mybot != null && mybot.isNotEmpty()) {
-                editor.setText(mybot)
+            store.read("MYBOT")?.takeIf { it.isNotEmpty() }?.let {
+                editor.setText(it)
+                editor.setSelection(0)
                 editorDirty = false
                 currentFile = "MYBOT"
             }
             return
         }
-        val src = loadAsset("MYBOT.asm") ?: slots[4].firmware
-        store.upsert("MYBOT", src)
-        editor.setText(src)
+        val source = loadAsset("MYBOT.asm") ?: slots[4].firmware
+        store.upsert("MYBOT", source)
+        editor.setText(source)
+        editor.setSelection(0)
         editorDirty = false
         currentFile = "MYBOT"
     }
 
-    // ================= fight control (unchanged) =================
-
     private fun updateBtnTexts() {
-        btnA.text = "A: ${slots[ai].name}"
-        btnB.text = "B: ${slots[bi].name}"
+        btnA.text = "A  ${slots[ai].name}  >"
+        btnB.text = "B  ${slots[bi].name}  >"
+        if (::statA.isInitialized && ::controller.isInitialized) updateStats()
     }
 
     private fun doRun() {
         handler.removeCallbacks(tickLoop)
-        val mybotSrc = editor.text.toString()
-        slots[5].firmware = mybotSrc
-        val ok = controller.start(slots[ai], slots[bi], mybotSrc)
-        if (!ok) {
-            status.text = controller.status
+        val mybotSource = editor.text.toString()
+        slots[5].firmware = mybotSource
+        if (!controller.start(slots[ai], slots[bi], mybotSource)) {
+            autoRunning = false
+            status.text = "ASSEMBLER ERROR  // ${controller.status.uppercase()}"
+            btnRun.isEnabled = true
+            btnRun.text = "RUN"
             return
         }
+        autoRunning = true
         btnRun.isEnabled = false
+        btnRun.text = "RUNNING"
         updateStats()
         handler.postDelayed(tickLoop, 100L)
     }
 
     private fun doStep() {
-        if (controller.world == null) doRun()
-        val w = controller.world ?: return
-        if (w.finished) return
-        controller.step(1)
-        status.text = if (w.finished) controller.status else "step ${w.tick}"
+        handler.removeCallbacks(tickLoop)
+        autoRunning = false
+        btnRun.isEnabled = true
+        btnRun.text = "RUN"
+        if (controller.world == null) {
+            val mybotSource = editor.text.toString()
+            slots[5].firmware = mybotSource
+            if (!controller.start(slots[ai], slots[bi], mybotSource)) {
+                status.text = "ASSEMBLER ERROR  // ${controller.status.uppercase()}"
+                return
+            }
+        }
+        val world = controller.world ?: return
+        if (!world.finished) controller.step(1)
         updateStats()
     }
 
     private fun doReset() {
         handler.removeCallbacks(tickLoop)
+        autoRunning = false
         controller.reset()
         btnRun.isEnabled = true
+        btnRun.text = "RUN"
         updateStats()
     }
 
     private fun updateStats() {
-        val w = controller.world
-        status.text = if (w == null) {
-            "T:0   no fight yet — press RUN"
+        val world = controller.world
+        if (world == null) {
+            statA.text = "HP ---   SH --\nHIT --   DMG ---"
+            statB.text = "HP ---   SH --\nHIT --   DMG ---"
+            status.text =
+            "SYS READY  // SELECT BOTS AND RUN"
         } else {
-            val a = w.bots[0]; val b = w.bots[1]
-            "T:${w.tick}  ${a.name}: HP${a.hp} SH${a.shots} HIT${a.hits} D${a.dmgDealt}" +
-                "   ${b.name}: HP${b.hp} SH${b.shots} HIT${b.hits} D${b.dmgDealt}"
+            val a = world.bots[0]
+            val b = world.bots[1]
+            statA.text = botStats(a.hp, a.shots, a.hits, a.dmgDealt)
+            statB.text = botStats(b.hp, b.shots, b.hits, b.dmgDealt)
+            val state = if (world.finished) controller.status else "EXECUTING"
+            status.text = "T+${world.tick.toString().padStart(3, '0')}  // $state"
         }
-        arena.invalidate()   // repaint the arena whenever the world state changes
+        arena.invalidate()
     }
+
+    private fun botStats(hp: Int, shots: Int, hits: Int, damage: Int) =
+        "HP ${hp.toString().padStart(3)}   SH ${shots.toString().padStart(2)}\n" +
+            "HIT ${hits.toString().padStart(2)}  DMG ${damage.toString().padStart(3)}"
 
     private fun loadAsset(name: String): String? = try {
         assets.open(name).bufferedReader().use { it.readText() }
-    } catch (e: Exception) {
-        null
+    } catch (_: Exception) { null }
+
+    private fun buildLayout(): ViewGroup {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(C_BG)
+        }
+
+        val masthead = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(8), dp(8), dp(7))
+            background = panelBackground(C_DARK, C_BORDER)
+        }
+        masthead.addView(terminalText(18f, C_BRIGHT).apply {
+            text = "ROBOFIGHT"
+            typeface = pixelTypeface
+        })
+        masthead.addView(BlinkCursor(this), LinearLayout.LayoutParams(dp(9), dp(20)).apply {
+            marginStart = dp(2)
+            marginEnd = dp(8)
+        })
+        masthead.addView(terminalText(10f, C_DIM).apply {
+            text = "RF-8 / ONLINE"
+            gravity = Gravity.END
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        root.addView(masthead)
+
+        val tabs = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(8), dp(7), dp(8), dp(7))
+        }
+        shellTab = terminalButton("[ SHELL ]", strong = true)
+        runTab = terminalButton("[ RUN ]", strong = true)
+        tabs.addView(shellTab, LinearLayout.LayoutParams(0, dp(46), 1f))
+        tabs.addView(runTab, LinearLayout.LayoutParams(0, dp(46), 1f).apply { marginStart = dp(6) })
+        root.addView(tabs)
+
+        val screenHost = FrameLayout(this)
+        shellScreen = buildShellScreen()
+        runScreen = buildRunScreen()
+        screenHost.addView(shellScreen, matchFrame())
+        screenHost.addView(runScreen, matchFrame())
+        root.addView(screenHost, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+
+        status = terminalText(11f, C_BRIGHT).apply {
+            setPadding(dp(10), dp(7), dp(10), dp(8))
+            setSingleLine(true)
+            ellipsize = TextUtils.TruncateAt.END
+            background = panelBackground(C_DARK, C_BORDER)
+        }
+        root.addView(status)
+        return root
     }
 
-    // ---- layout (built in code; the build only needs strings/colors) ----
-    private fun buildLayout(): ViewGroup {
-        val dp = resources.displayMetrics.density
-        fun px(v: Int) = (v * dp).toInt()
-
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-
-        root.addView(TextView(this).apply {
-            text = "ROBOFIGHT"
-            setTextColor(Color.parseColor("#FCFCFC"))
-            textSize = 20f
-            setPadding(px(12), px(6), px(12), px(4))
-            typeface = Typeface.MONOSPACE
-        })
-
-        arena = ArenaView(this)
-        // Arena is a *weighted* element (not a fixed px height) so it yields
-        // space to the content panel below when the soft keyboard resizes the
-        // window — otherwise the terminal + command box get crushed to ~2px and
-        // become untappable (the GO button ended up hidden under the arena).
-        root.addView(arena, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(px(6), px(6), px(6), px(6))
-        }
-        fun mkBtn(label: String, parent: LinearLayout): Button {
-            val b = Button(this)
-            b.text = label
-            b.textSize = 12f
-            b.setTextColor(Color.WHITE)
-            b.setPadding(px(4), px(2), px(4), px(2))
-            parent.addView(b, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            return b
-        }
-        btnA = mkBtn("A: HUNTER", row)
-        btnB = mkBtn("B: TURTLE", row)
-        btnRun = mkBtn("RUN", row)
-        btnStep = mkBtn("STEP", row)
-        btnReset = mkBtn("RESET", row)
-        root.addView(row)
-
-        // ---- content area: editor panel XOR shell panel ----
-        val content = FrameLayout(this)
-        root.addView(content, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-
-        // -- editor panel --
-        editorPanel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val editorTop = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(px(6), px(0), px(6), px(4))
-        }
-        fun editorBtn(label: String): Button = mkBtn(label, editorTop).apply {
-            isAllCaps = false
-        }
-        btnSave = editorBtn("SAVE")
-        btnNew = editorBtn("NEW")
-        btnShellFromEditor = editorBtn("SHELL")
-        editorPanel.addView(editorTop)
-
-        editor = EditText(this).apply {
-            background = null
-            hint = "edit firmware, then RUN"
-            setHintTextColor(Color.parseColor("#1e6e33"))
-            setTextColor(Color.parseColor("#3dff62"))
-            textSize = 13f
-            minLines = 3
-            gravity = Gravity.TOP or Gravity.START
-            typeface = Typeface.MONOSPACE
-            // TYPE_CLASS_TEXT is REQUIRED: with only TYPE_TEXT_FLAG_MULTI_LINE set,
-            // TextView.isSingleLine() returns true and the text renders as one
-            // horizontally-scrolling line (newlines invisible).
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
-        }
-        val editorFrame = FrameLayout(this)
-        editorFrame.background = GradientDrawable().apply {
-            setColor(Color.parseColor("#020803"))
-            setStroke((2 * dp).toInt(), Color.parseColor("#2e7d3a"))
-            cornerRadius = 6f * dp
-        }
-        editorFrame.setPadding(px(6), px(6), px(6), px(6))
-        editorFrame.addView(editor, FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        editorFrame.addView(Scanlines(this), FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        editorPanel.addView(editorFrame, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-        content.addView(editorPanel, FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-
-        // -- shell panel --
-        shellPanel = LinearLayout(this).apply {
+    private fun buildShellScreen(): LinearLayout {
+        val shell = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#020803"))
-                setStroke((2 * dp).toInt(), Color.parseColor("#2e7d3a"))
-                cornerRadius = 6f * dp
-            }
-            setPadding(px(6), px(4), px(6), px(6))
+            setPadding(dp(8), 0, dp(8), dp(8))
         }
-        val shellTop = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(px(0), px(0), px(0), px(4))
-        }
-        fun shellBtn(label: String): Button = mkBtn(label, shellTop).apply {
-            isAllCaps = true
-        }
-        btnDir = shellBtn("DIR")
-        btnHelp = shellBtn("HELP")
-        btnGo = shellBtn("GO")
-        shellPanel.addView(shellTop)
+        shellContext = terminalText(11f, C_DIM).apply { setPadding(dp(4), 0, dp(4), dp(6)) }
+        shell.addView(shellContext)
 
-        // output: a vertical LinearLayout so it can hold plain text rows AND
-        // clickable file rows (a TextView can't host child views).
+        val host = FrameLayout(this)
+        terminalPanel = buildTerminalPanel()
+        editorPanel = buildEditorPanel()
+        host.addView(terminalPanel, matchFrame())
+        host.addView(editorPanel, matchFrame())
+        shell.addView(host, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        return shell
+    }
+
+    private fun buildTerminalPanel(): LinearLayout {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(7), dp(8), dp(7))
+            background = panelBackground(C_PANEL, C_GREEN_DARK)
+        }
+        val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        btnDir = terminalButton("DIR")
+        btnHelp = terminalButton("HELP")
+        btnEditCurrent = terminalButton("EDIT")
+        actions.addView(btnDir, weightedButton())
+        actions.addView(btnHelp, weightedButton(dp(5)))
+        actions.addView(btnEditCurrent, weightedButton(dp(5)))
+        panel.addView(actions)
+
         out = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            isClickable = true
-            setPadding(0, 0, px(4), px(4))
+            setPadding(dp(2), dp(8), dp(2), dp(6))
         }
-        scroll = ScrollView(this)
-        scroll.isFillViewport = true
-        scroll.addView(out, FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        shellPanel.addView(scroll, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        scroll = ScrollView(this).apply {
+            isFillViewport = true
+            addView(out, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        panel.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
+        val commandRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = panelBackground(C_BLACK, C_BORDER)
+            setPadding(dp(7), dp(2), dp(3), dp(2))
+        }
+        commandRow.addView(terminalText(14f, C_BRIGHT).apply { text = "RF:\\>" })
         cmd = EditText(this).apply {
-            hint = "type: EDIT name · DEL name · NEW name → GO"
-            setHintTextColor(Color.parseColor("#1e6e33"))
-            setTextColor(Color.parseColor("#b8ffb8"))
-            textSize = 13f
-            typeface = Typeface.MONOSPACE
-            inputType = InputType.TYPE_CLASS_TEXT or
-                InputType.TYPE_TEXT_FLAG_CAP_WORDS
+            hint = "TYPE COMMAND"
+            setHintTextColor(C_DIM)
+            setTextColor(C_BRIGHT)
+            textSize = 11f
+            typeface = pixelTypeface
+            usePixelTextRendering()
+            background = null
+            setPadding(dp(7), 0, dp(4), 0)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_GO
             setSingleLine(true)
         }
-        shellPanel.addView(cmd)
+        commandRow.addView(cmd, LinearLayout.LayoutParams(0, dp(48), 1f))
+        btnGo = terminalButton("ENTER", strong = true)
+        commandRow.addView(btnGo, LinearLayout.LayoutParams(dp(74), dp(40)))
+        panel.addView(commandRow)
+        return panel
+    }
 
-        content.addView(shellPanel, FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-
-        status = TextView(this).apply {
-            textSize = 12f
-            setTextColor(Color.parseColor("#99FF99"))
-            setPadding(px(12), px(8), px(12), px(8))
-            typeface = Typeface.MONOSPACE
+    private fun buildEditorPanel(): LinearLayout {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(7), dp(7), dp(7), dp(7))
+            background = panelBackground(C_PANEL, C_GREEN_DARK)
         }
-        root.addView(status)
+        val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        btnSave = terminalButton("SAVE", strong = true)
+        btnNew = terminalButton("NEW")
+        btnTerminal = terminalButton("TERM")
+        btnFight = terminalButton("FIGHT >", strong = true)
+        actions.addView(btnSave, weightedButton())
+        actions.addView(btnNew, weightedButton(dp(4)))
+        actions.addView(btnTerminal, weightedButton(dp(4)))
+        actions.addView(btnFight, weightedButton(dp(4)))
+        panel.addView(actions)
 
-        return root
+        val editorFrame = FrameLayout(this).apply {
+            background = panelBackground(C_BLACK, C_BORDER)
+            setPadding(dp(5), dp(5), dp(5), dp(5))
+        }
+        editor = EditText(this).apply {
+            background = null
+            hint = "; ENTER RF-8 FIRMWARE HERE"
+            setHintTextColor(C_DIM)
+            setTextColor(C_BRIGHT)
+            textSize = 10f
+            gravity = Gravity.TOP or Gravity.START
+            typeface = pixelTypeface
+            usePixelTextRendering()
+            setLineSpacing(dp(3).toFloat(), 1f)
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        }
+        editorFrame.addView(editor, matchFrame())
+        editorFrame.addView(Scanlines(this), matchFrame())
+        panel.addView(editorFrame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply {
+            topMargin = dp(7)
+        })
+        return panel
+    }
+
+    private fun buildRunScreen(): LinearLayout {
+        val run = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), 0, dp(8), dp(8))
+        }
+        run.addView(terminalText(11f, C_DIM).apply {
+            text = "ARENA / LIVE EXECUTION"
+            setPadding(dp(4), 0, dp(4), dp(6))
+        })
+
+        val arenaFrame = FrameLayout(this).apply {
+            background = panelBackground(C_PANEL, C_GREEN_DARK)
+            setPadding(dp(6), dp(6), dp(6), dp(6))
+        }
+        arena = ArenaView(this)
+        arenaFrame.addView(arena, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER
+        ))
+        btnA = terminalButton("A  HUNTER  >")
+        btnB = terminalButton("B  TURTLE  >")
+        btnRun = terminalButton("RUN", strong = true)
+        btnStep = terminalButton("STEP")
+        btnReset = terminalButton("RESET")
+        statA = runStatView()
+        statB = runStatView()
+
+        if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            val body = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            body.addView(arenaFrame, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.45f))
+
+            val console = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(8), 0, 0, 0)
+            }
+            fun consoleItem(top: Int = 0) =
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply {
+                    topMargin = dp(top)
+                }
+            console.addView(terminalText(11f, C_DIM).apply { text = "COMBATANTS" })
+            console.addView(btnA, consoleItem(5))
+            console.addView(statA, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(44)
+            ))
+            console.addView(btnB, consoleItem(5))
+            console.addView(statB, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(44)
+            ))
+            console.addView(terminalText(11f, C_DIM).apply {
+                text = "EXECUTION"
+                gravity = Gravity.BOTTOM
+                setPadding(0, dp(4), 0, dp(3))
+            })
+            console.addView(btnRun, consoleItem())
+            console.addView(btnStep, consoleItem(5))
+            console.addView(btnReset, consoleItem(5))
+            body.addView(console, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+            run.addView(body, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        } else {
+            run.addView(arenaFrame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+            val slotsRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(0, dp(7), 0, 0)
+            }
+            slotsRow.addView(btnA, weightedButton())
+            slotsRow.addView(btnB, weightedButton(dp(6)))
+            run.addView(slotsRow)
+
+            val statsRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(0, dp(3), 0, 0)
+            }
+            statsRow.addView(statA, LinearLayout.LayoutParams(0, dp(50), 1f))
+            statsRow.addView(statB, LinearLayout.LayoutParams(0, dp(50), 1f).apply {
+                marginStart = dp(6)
+            })
+            run.addView(statsRow)
+
+            val controls = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(0, dp(6), 0, 0)
+            }
+            controls.addView(btnRun, weightedButton())
+            controls.addView(btnStep, weightedButton(dp(6)))
+            controls.addView(btnReset, weightedButton(dp(6)))
+            run.addView(controls)
+        }
+        return run
+    }
+
+    private fun runStatView() = terminalText(10f, C_GREEN).apply {
+        gravity = Gravity.CENTER
+        setPadding(dp(3), 0, dp(3), 0)
+        background = panelBackground(C_DARK, C_GREEN_DARK)
+        maxLines = 2
+    }
+
+    private fun terminalText(size: Float, color: Int) = TextView(this).apply {
+        textSize = size * 0.82f
+        setTextColor(color)
+        typeface = pixelTypeface
+        usePixelTextRendering()
+        setLineSpacing(dp(3).toFloat(), 1f)
+        includeFontPadding = false
+    }
+
+    private fun terminalButton(label: String, strong: Boolean = false) = Button(this).apply {
+        text = label
+        textSize = 9f
+        setTextColor(if (strong) C_BLACK else C_BRIGHT)
+        typeface = pixelTypeface
+        usePixelTextRendering()
+        isAllCaps = false
+        minHeight = 0
+        minimumHeight = 0
+        setPadding(dp(5), 0, dp(5), 0)
+        background = panelBackground(if (strong) C_GREEN else C_BLACK, C_GREEN_DARK)
+    }
+
+    private fun styleModeTab(button: Button, selected: Boolean) {
+        button.setTextColor(if (selected) C_BLACK else C_GREEN)
+        button.background = panelBackground(if (selected) C_GREEN else C_BLACK, C_GREEN)
+    }
+
+    private fun weightedButton(startMargin: Int = 0) = LinearLayout.LayoutParams(0, dp(42), 1f).apply {
+        marginStart = startMargin
+    }
+
+    private fun matchFrame() = FrameLayout.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
+    )
+
+    private fun panelBackground(fill: Int, stroke: Int) = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        setColor(fill)
+        setStroke(dp(1), stroke)
+        cornerRadius = 0f
+    }
+
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+
+    /** Preserve the font's deliberate square pixels instead of smoothing them. */
+    private fun TextView.usePixelTextRendering() {
+        paintFlags = paintFlags and Paint.ANTI_ALIAS_FLAG.inv() and Paint.SUBPIXEL_TEXT_FLAG.inv()
+        paint.isDither = false
+    }
+
+    companion object {
+        private const val STATE_FILE = "state.file"
+        private const val STATE_SOURCE = "state.source"
+        private const val STATE_DIRTY = "state.dirty"
+        private const val STATE_RUN_MODE = "state.runMode"
+        private val C_BG = Color.rgb(1, 7, 3)
+        private val C_BLACK = Color.rgb(0, 3, 1)
+        private val C_PANEL = Color.rgb(2, 13, 6)
+        private val C_DARK = Color.rgb(2, 18, 8)
+        private val C_GREEN_DARK = Color.rgb(20, 92, 42)
+        private val C_BORDER = Color.rgb(36, 132, 61)
+        private val C_DIM = Color.rgb(48, 130, 67)
+        private val C_GREEN = Color.rgb(52, 236, 91)
+        private val C_BRIGHT = Color.rgb(180, 255, 190)
     }
 }
 
-/** Faint horizontal CRT scanlines drawn over the editor (non-interactive). */
+/** Faint CRT scanlines; non-interactive so the editor underneath keeps focus. */
 private class Scanlines(context: Context) : View(context) {
-    private val paint = Paint().apply { color = Color.argb(28, 0, 0, 0) }
-    init { isFocusable = false; isFocusableInTouchMode = false }
+    private val paint = Paint().apply { color = Color.argb(24, 0, 0, 0) }
+    init {
+        isFocusable = false
+        isClickable = false
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
     override fun onDraw(canvas: Canvas) {
-        super.onDraw(canvas)
         var y = 0f
-        val w = width.toFloat()
         while (y < height) {
-            canvas.drawLine(0f, y, w, y, paint)
+            canvas.drawLine(0f, y, width.toFloat(), y, paint)
             y += 4f
         }
+    }
+}
+
+/** Hardware-style block cursor used in the masthead even before an input has focus. */
+private class BlinkCursor(context: Context) : View(context) {
+    private val paint = Paint().apply { color = Color.rgb(52, 236, 91) }
+    private var lit = true
+    private val blink = object : Runnable {
+        override fun run() {
+            lit = !lit
+            invalidate()
+            postDelayed(this, 520L)
+        }
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        postDelayed(blink, 520L)
+    }
+
+    override fun onDetachedFromWindow() {
+        removeCallbacks(blink)
+        super.onDetachedFromWindow()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        if (lit) canvas.drawRect(0f, height * 0.18f, width.toFloat(), height.toFloat(), paint)
     }
 }
