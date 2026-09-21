@@ -9,12 +9,13 @@ import robofight.world.Palette.ORANGE
 /** Canned firmware for the 5 starter bots. */
 object Presets {
     val HUNTER = """
-        ; HUNTER — face the nearest enemy (clockwise), step in, fire
-top:    IN     DIST            ; nearest enemy distance -> A
-        JZ     idle            ; nothing there? idle
-        IN     ANGLE           ; A = steps clockwise until we face it
-loop:   JZ     face            ; already facing?
-        TURN   R               ; rotate one step clockwise
+        ; HUNTER — face the nearest enemy,
+        ; step in, fire
+top:    IN     DIST            ; nearest enemy
+        JZ     idle            ; none? idle
+        IN     ANGLE           ; turns to face
+loop:   JZ     face
+        TURN   R               ; one step cw
         DEC    A
         JMP    loop
 face:   MOVE
@@ -25,10 +26,11 @@ idle:   WAIT
 """.trimIndent()
 
     val TURTLE = """
-        ; TURTLE — shield up; only fires when an enemy is adjacent
+        ; TURTLE — shield up; fires only
+        ; when an enemy is adjacent
 loop:   IN     DIST
         JZ     idle
-        CMP    #1            ; adjacent?
+        CMP    #1              ; adjacent?
         JNE    hold
         SHOOT
         JMP    loop
@@ -39,8 +41,9 @@ idle:   WAIT
 """.trimIndent()
 
     val SNAKE = """
-        ; SNAKE — strafe a few steps, flip 180°, fire on the flip
-        MOV    X, #3           ; steps before flipping
+        ; SNAKE — strafe 3 steps, flip,
+        ; fire on the flip
+        MOV    X, #3
 loop:   IN     DIST
         JZ     idle
         MOVE
@@ -57,7 +60,8 @@ idle:   WAIT
 """.trimIndent()
 
     val CHAOS = """
-        ; CHAOS — pure noise: MOVE 50% · SHOOT 25% · TURN R 12.5% · SHIELD 12.5%
+        ; CHAOS — random: move/shoot/
+        ; turn/shield
 loop:   IN     RAND
         AND    #1
         JZ     b
@@ -78,7 +82,8 @@ d:      SHIELD
 """.trimIndent()
 
     val WALKER = """
-        ; WALKER — march straight; bursts a shot every few steps
+        ; WALKER — march straight,
+        ; burst a shot every 3 steps
         MOV    X, #3
 loop:   MOVE
         DEC    X

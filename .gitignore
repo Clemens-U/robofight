@@ -16,3 +16,14 @@ local.properties
 .DS_Store
 Thumbs.db
 *.swp
+
+# stray dex/build artifacts
+*.dex
+
+# Android Studio caches (never commit)
+.idea/caches/
+
+# scratch / debug artifacts
+build.log
+shot.png
+window_dump.xml
