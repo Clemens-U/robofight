@@ -11,45 +11,45 @@ language** it runs.
 
 ---
 
-## 1. What's on the screen
+## 1. The two modes
 
 ```
 +--------------------------------------+
-|  ROBOFIGHT                            |  <- title
+|  ROBOFIGHT█              RF-8 / ONLINE|
 +--------------------------------------+
-|  . . . . H > . . . . . . . . . . T <  |
-|  . . . . . . . . . . . . . . . . . .  |  <- ARENA (20×20 grid)
-|  . . . . . * . . . . . . . . . . . .  |
+|       [ SHELL ]     [ RUN ]           |  <- mode switch
 +--------------------------------------+
-|  [A: HUNTER] [B: TURTLE] [RUN] [STEP]|  <- control row
-|                       [RESET]        |
+|  SHELL                                |  RUN
+|  DIR | HELP | EDIT                    |  20×20 arena
+|                                      |  A HUNTER >
+|  RF:\> EDIT MYBOT                    |  B TURTLE >
+|  ; edit RF-8 firmware                |  RUN STEP RESET
 +--------------------------------------+
-|  SAVE | NEW | SHELL                  |  <- EDITOR panel  ...
-|  ┌──────────────────────────────┐    |
-|  │  1  loop:  IN  DIST          │    |
-|  │  2        JZ  idle           │    |   ...  or  SHELL panel
-|  └──────────────────────────────┘    |
-|  DIR | HELP | GO                     |
-|  robofight> DIR                     |
-+--------------------------------------+
-|  T:12  H:HP80 SH3 HIT2 D20  T:HP90…  |  <- STATS bar
+|  SYS READY / TICK + BOT TELEMETRY     |  <- status line
 +--------------------------------------+
 ```
 
-The **content area** is a toggle: either the **FIRMWARE EDITOR** (type/assemble your
-code) or the **FILE SHELL** (a little terminal for managing saved firmware). Use the
-`SHELL` / editor buttons — or the shell's own buttons — to switch.
+The app has two deliberately separate modes with the same green-screen terminal
+design:
+
+- **SHELL** is the firmware workspace. Manage saved programs in the command terminal,
+  then open one in the full-height editor. The command line and editor remain above
+  the Android keyboard while you type. The block cursor in the title and the native
+  text cursor blink like an old terminal.
+- **RUN** dedicates the screen to the arena, bot selection, fight controls, and live
+  telemetry. Entering RUN dismisses the keyboard. A running fight pauses when you
+  return to SHELL and resumes when you come back.
 
 ---
 
 ## 2. Quick start (first fight in 30 seconds)
 
 1. **Open the app.** It starts in the **shell** with `MYBOT` already loaded.
-2. Tap **`A: HUNTER`** or **`B: TURTLE`** to cycle a slot — set **A or B to
-   `MYBOT`** so your own code actually fights (otherwise it's preset-vs-preset).
-3. Tap the **`SHELL`** button (or `NEW`/`SAVE` row) to show the **editor**; the
-   `MYBOT` firmware is there. Edit anything or leave it.
-4. Tap **`RUN`**. The arena ticks ~10×/s; the **stats bar** updates. When a bot
+2. Tap `MYBOT` in the `DIR` listing (or **EDIT**) to open it in the editor. Edit the
+   firmware, then tap **SAVE**. You can also leave the starter code unchanged.
+3. Tap **FIGHT >** or the top **[ RUN ]** mode tab. In RUN mode, tap the A or B bot
+   selector until one slot is `MYBOT` (otherwise it is preset-vs-preset).
+4. Tap **RUN**. The arena advances continuously; the bottom telemetry updates. When a bot
    hits 0 HP (or 200 ticks pass), the winner is shown.
 5. Tap **`STEP`** to advance one tick at a time, or **`RESET`** to clear.
 
@@ -61,7 +61,7 @@ code) or the **FILE SHELL** (a little terminal for managing saved firmware). Use
 
 ## 3. The file shell
 
-A small terminal for managing firmware. Type a command in the bottom box, tap **GO**;
+A small terminal for managing firmware. Type a command in the bottom box, tap **ENTER**;
 or use the quick buttons **DIR** / **HELP**.
 
 | Command | Aliases | Effect |
@@ -70,6 +70,8 @@ or use the quick buttons **DIR** / **HELP**.
 | `EDIT <name>` | `E`, `OPEN` | Load `MYBOT`, `BOT1`, … into the editor. |
 | `NEW <name>`  | `N` | Create + open a new (empty) file. Auto-named `BOT1`, `BOT2`, … |
 | `DEL <name>`  | `RM` | Delete a file. |
+| `RUN`   | `FIGHT` | Switch to RUN mode and start a fight. |
+| `CLEAR` | `CLS` | Clear the terminal output. |
 | `HELP` | `?` | Show this command list. |
 
 Notes:
@@ -83,7 +85,8 @@ Notes:
 |--------|--------|
 | **`SAVE`**  | Save the editor text to the current file. |
 | **`NEW`**   | Create a new auto-named file and open it blank. |
-| **`SHELL`** | Go back to the file shell. |
+| **`TERM`**  | Go back to the file terminal. |
+| **`FIGHT >`** | Switch to RUN mode and start the fight. |
 
 ---
 
