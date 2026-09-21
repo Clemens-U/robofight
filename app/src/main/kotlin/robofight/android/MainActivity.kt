@@ -136,6 +136,14 @@ class MainActivity : Activity() {
             cmd.text.clear()
             if (line.isNotEmpty()) runCmd(line)
         }
+        // Enter / IME "Go" action executes the command — no need to tap GO
+        // (which can be hidden under the soft keyboard).
+        cmd.setOnEditorActionListener { _, _, _ ->
+            val line = cmd.text.toString().trim()
+            cmd.text.clear()
+            if (line.isNotEmpty()) runCmd(line)
+            true
+        }
 
         updateBtnTexts()
         // start in the shell, with a DIR already on screen
@@ -444,7 +452,11 @@ class MainActivity : Activity() {
         })
 
         arena = ArenaView(this)
-        root.addView(arena, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(300)))
+        // Arena is a *weighted* element (not a fixed px height) so it yields
+        // space to the content panel below when the soft keyboard resizes the
+        // window — otherwise the terminal + command box get crushed to ~2px and
+        // become untappable (the GO button ended up hidden under the arena).
+        root.addView(arena, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -560,6 +572,7 @@ class MainActivity : Activity() {
             typeface = Typeface.MONOSPACE
             inputType = InputType.TYPE_CLASS_TEXT or
                 InputType.TYPE_TEXT_FLAG_CAP_WORDS
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_GO
             setSingleLine(true)
         }
         shellPanel.addView(cmd)
