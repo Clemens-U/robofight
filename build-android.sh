@@ -50,14 +50,16 @@ echo "[2/7] aapt2 link (base.apk)…"
 
 echo "[3/7] kotlinc (engine + app → app-cls)…"
 "$JAVA" -cp "$KOTLINC_JAR" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler \
-  engine/src/robofight/isa/ISA.kt \
-  engine/src/robofight/assembler/Assembler.kt \
-  engine/src/robofight/vm/Vm.kt \
-  engine/src/robofight/world/World.kt \
-  engine/src/robofight/world/TextGrid.kt \
-  engine/src/robofight/world/Presets.kt \
-  engine/src/robofight/world/Simulator.kt \
+  engine/src/main/kotlin/robofight/isa/ISA.kt \
+  engine/src/main/kotlin/robofight/assembler/Assembler.kt \
+  engine/src/main/kotlin/robofight/vm/Vm.kt \
+  engine/src/main/kotlin/robofight/world/World.kt \
+  engine/src/main/kotlin/robofight/world/TextGrid.kt \
+  engine/src/main/kotlin/robofight/world/Presets.kt \
+  engine/src/main/kotlin/robofight/world/Simulator.kt \
   app/src/main/kotlin/robofight/android/BotSlot.kt \
+  app/src/main/kotlin/robofight/android/BotFiles.kt \
+  app/src/main/kotlin/robofight/android/Firmware.kt \
   app/src/main/kotlin/robofight/android/RunController.kt \
   app/src/main/kotlin/robofight/android/ArenaView.kt \
   app/src/main/kotlin/robofight/android/MainActivity.kt \
@@ -82,15 +84,28 @@ echo "[5/7] d8 dex (engine + kotlin-stdlib → classes.dex)…"
 test -f build/classes.dex || { echo "d8 produced no classes.dex"; exit 1; }
 echo "   classes.dex: $(du -h build/classes.dex | cut -f1)"
 
-echo "[6/7] inject classes.dex + MYBOT.asm → stage → zipalign"
+echo "[6/7] inject classes.dex + assets + firmware → stage → zipalign"
 "$PY" - <<'PYEOF'
-import shutil, zipfile
+import os, shutil, zipfile
 shutil.copyfile("build/base.apk", "build/staged.apk")
 with zipfile.ZipFile("build/staged.apk", "a") as z:
     z.write("build/classes.dex", "classes.dex")
-    z.write("app/src/main/assets/MYBOT.asm", "assets/MYBOT.asm")
+    # regular app assets (MYBOT.asm, fonts, …)
+    for root, _, files in os.walk("app/src/main/assets"):
+        for f in files:
+            src = os.path.join(root, f)
+            arc = os.path.relpath(src, "app/src/main/assets").replace(os.sep, "/")
+            z.write(src, "assets/" + arc)
+    # repo firmware/ dir → assets/firmware/ (seed source for preset files;
+    # the app reads them at first launch and stores them in the SQLite db)
+    if os.path.isdir("firmware"):
+        for f in sorted(os.listdir("firmware")):
+            if f.endswith(".asm"):
+                z.write(os.path.join("firmware", f), "assets/firmware/" + f)
 names = zipfile.ZipFile("build/staged.apk").namelist()
 assert "classes.dex" in names and "assets/MYBOT.asm" in names
+assert any(n.startswith("assets/fonts/") for n in names), "font asset missing"
+assert sum(1 for n in names if n.startswith("assets/firmware/") and n.endswith(".asm")) >= 5, "firmware assets missing"
 print("   entries:", names)
 PYEOF
 "$ZIPALIGN" -f 4 build/staged.apk build/aligned.apk

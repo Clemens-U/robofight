@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<!-- package= is required by the offline aapt2 (build-android.sh); AGP also
+     accepts it alongside the namespace in app/build.gradle.kts -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="robofight.android">
 
     <application
         android:label="ROBOFIGHT"

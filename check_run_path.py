@@ -48,13 +48,13 @@ J = r'C:\Program Files\Android\Android Studio\jbr\bin\java.exe'
 KJAR = r'C:\Users\Clemens\tools\kotlinc\lib\kotlin-compiler.jar'
 KSTD = r'C:\Users\Clemens\tools\kotlinc\lib\kotlin-stdlib.jar'
 srcs = [
-    "engine/src/robofight/isa/ISA.kt",
-    "engine/src/robofight/assembler/Assembler.kt",
-    "engine/src/robofight/vm/Vm.kt",
-    "engine/src/robofight/world/World.kt",
-    "engine/src/robofight/world/TextGrid.kt",
-    "engine/src/robofight/world/Presets.kt",
-    "engine/src/robofight/world/Simulator.kt",
+    "engine/src/main/kotlin/robofight/isa/ISA.kt",
+    "engine/src/main/kotlin/robofight/assembler/Assembler.kt",
+    "engine/src/main/kotlin/robofight/vm/Vm.kt",
+    "engine/src/main/kotlin/robofight/world/World.kt",
+    "engine/src/main/kotlin/robofight/world/TextGrid.kt",
+    "engine/src/main/kotlin/robofight/world/Presets.kt",
+    "engine/src/main/kotlin/robofight/world/Simulator.kt",
     "build/Driver.kt",
 ]
 c = subprocess.run([J, "-cp", KJAR, "org.jetbrains.kotlin.cli.jvm.K2JVMCompiler"] + srcs + ["-d", "build/driver-cls"],
