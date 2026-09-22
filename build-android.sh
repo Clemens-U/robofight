@@ -31,9 +31,9 @@ D8="$SDK/build-tools/36.0.0/lib/d8.jar"
 APKSIGNER="$SDK/build-tools/36.0.0/lib/apksigner.jar"
 ZIPALIGN="$SDK/build-tools/36.0.0/zipalign.exe"
 PY=/c/Users/Clemens/AppData/Local/hermes/hermes-agent/venv/Scripts/python
-KEYSTORE=robofight.keystore
-KS_PASS=robofight123
-ALIAS=robofight
+KEYSTORE="${ROBOFIGHT_KEYSTORE:-robofight.keystore}"
+KS_PASS="${ROBOFIGHT_KS_PASS:-robofight123}"
+ALIAS="${ROBOFIGHT_ALIAS:-robofight}"
 
 # clean
 rm -rf build

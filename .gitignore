@@ -20,8 +20,8 @@ Thumbs.db
 # stray dex/build artifacts
 *.dex
 
-# Android Studio caches (never commit)
-.idea/caches/
+# Android Studio IDE config (per-machine, never commit)
+.idea/
 
 # scratch / debug artifacts
 build.log
