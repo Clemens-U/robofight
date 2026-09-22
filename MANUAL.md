@@ -171,15 +171,17 @@ I/O ports**, and one instruction per tick. Every line is `[label:]  MNEMONIC  [o
 | `DIR` | R/W | your facing: **0=W 1=N 2=E 3=S** |
 | `RX` / `RY` | R | your grid column / row |
 | `DIST` | R | distance to nearest enemy (**0 = none**) |
-| `ANGLE` | R | **how many steps clockwise** to face the nearest enemy (0–3) |
+| `ANGLE` | R | **how many steps clockwise** to face the nearest enemy (`0` = already facing, `255` = no enemy) |
 | `ENEMY_HP` | R | nearest enemy's HP |
 | `HEAT` | R | your current heat (0–5) |
 | `SHIELD` | R | 1 if shielded this tick, else 0 |
 | `RAND` | R | random byte 0–255 |
 | `FIRE` | W | (write 1 to shoot — `SHOOT` is the alias) |
 
-> **`ANGLE` is the key sensor.** `IN ANGLE` → turn right that many times → you face the
-> enemy. That's how HUNTER aims.
+> **`ANGLE` is the key sensor.** It reads back a *delta* (0–3): `0` means you're
+> already facing the nearest enemy, `N` means turn right `N` times to face it,
+> and `255` means there's no enemy. That's how HUNTER aims: `IN ANGLE` →
+> `JZ` already facing → else `TURN R` / `DEC` / loop until it reads `0`.
 
 ### Instructions (cheat sheet)
 | Group | Mnemonics |

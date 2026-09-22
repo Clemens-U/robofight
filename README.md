@@ -177,9 +177,10 @@ Key facts:
 | **Subroutines** | `CALL` `RET`, with a stack (`PUSH`/`POP`) |
 | **Combat** | 100 HP, 10 dmg/hit, heat cap 5 (≈1 shot/5 ticks), shield, win by KO or HP @ tick 200 |
 
-`ANGLE` is the star sensor: `IN ANGLE` → turn that many steps clockwise → you're
-facing the enemy. That's how `HUNTER` aims. The full cheat sheet, error formats,
-and worked examples are in **[MANUAL.md §7–§9](MANUAL.md)**.
+`ANGLE` is the star sensor: it reads back a *delta* (0–3) — `0` = already facing the
+enemy, `N` = turn right `N` steps to face it, `255` = no enemy. `IN ANGLE` → `JZ` if
+already facing, else count down `TURN R` steps. That's how `HUNTER` aims. The full
+cheat sheet, error formats, and worked examples are in **[MANUAL.md §7–§9](MANUAL.md)**.
 
 ---
 

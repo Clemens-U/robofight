@@ -150,10 +150,14 @@ class World {
 
     fun nearestEnemyHp(b: Bot): Int = enemies(b).minByOrNull { manhattan(b, it) }?.hp ?: 0
 
-    /** 0..3 = how many steps clockwise to face the nearest enemy */
+    /** 0..3 = how many steps clockwise to face the nearest enemy; 255 = none.
+     *  Returns a clockwise DELTA from the bot's current facing (not the target
+     *  direction itself) — firmware counts this many `TURN R` steps and tests
+     *  `JZ` when it reads back 0. */
     fun neededTurn(b: Bot): Int {
-        val e = enemies(b).minByOrNull { manhattan(b, it) } ?: return 0
-        return turnToward(b, e)
+        val e = enemies(b).minByOrNull { manhattan(b, it) } ?: return 255
+        val target = turnToward(b, e)
+        return (target - b.facing + 4) % 4
     }
 
     private fun enemies(b: Bot) = bots.filter { it.alive && it !== b }
