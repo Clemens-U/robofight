@@ -25,6 +25,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import robofight.world.Palette
 import robofight.world.Presets
 
 /**
@@ -83,10 +84,16 @@ class MainActivity : Activity() {
     private var editorDirty = false
     private var autoRunning = false
 
-    private val slots: List<BotSlot> by lazy {
-        Presets.all().map { BotSlot(it.name, it.glyph, it.color, it.firmware) } +
-            BotSlot("MYBOT", 'M', 12, "")
-    }
+    /**
+     * The RUN-screen bot slots: the five engine presets first, then one slot
+     * per user firmware file (MYBOT, BOT1, ...) in name order — rebuilt by
+     * [refreshSlots] whenever the file list changes.
+     *
+     * File slots resolve their source from the [BotFiles] store at fight time
+     * (see [sourceFor]), so the saved file always wins over unsaved editor
+     * text.
+     */
+    private val slots = ArrayList<BotSlot>()
     private var ai = 0
     private var bi = 1
 
@@ -214,12 +221,17 @@ class MainActivity : Activity() {
                 } else if (!store.exists(arg)) {
                     printLine("NO SUCH FILE: $arg")
                 } else {
+                    val wasFightBot = slots.any {
+                        it.isFile && it.name.equals(arg, ignoreCase = true)
+                    }
                     if (currentFile.equals(arg, ignoreCase = true)) {
                         currentFile = null
                         editor.text.clear()
                         editorDirty = false
                     }
                     printLine(if (store.delete(arg)) "DELETED $arg" else "DELETE FAILED: $arg")
+                    refreshSlots()
+                    if (wasFightBot) printLine("  // SLOT LIST UPDATED  // A/B NOW CYCLES REMAINING BOTS")
                     updateShellContext()
                 }
             }
@@ -264,11 +276,15 @@ class MainActivity : Activity() {
             store.upsert(open, editor.text.toString())
             printLine("SAVED $open  // UNSAVED CHANGES KEPT")
         }
-        store.upsert(name, "")
-        editor.text.clear()
+        // A new bot ships with the RF-8 cheat sheet as comments — the program
+        // is empty, so it assembles fine and RUN works immediately.
+        store.upsert(name, Firmware.NEW_TEMPLATE)
+        editor.setText(Firmware.NEW_TEMPLATE)
+        editor.setSelection(0)
         currentFile = name.uppercase()
         editorDirty = false
-        printLine("CREATED ${currentFile}")
+        refreshSlots()
+        printLine("CREATED ${currentFile}  // CHEAT SHEET LOADED")
         status.text = "NEW FILE ${currentFile}"
         showEditor()
     }
@@ -342,13 +358,15 @@ class MainActivity : Activity() {
     }
 
     private fun printHelp() {
-        printLine("DIR              LIST FIRMWARE")
-        printLine("EDIT <NAME>      OPEN IN EDITOR")
-        printLine("NEW <NAME>       CREATE FIRMWARE")
+        printLine("DIR              LIST FIRMWARE (PRESETS + YOUR BOTS)")
+        printLine("EDIT <NAME>      OPEN IN EDITOR (HUNTER.asm, MYBOT, BOT1, …)")
+        printLine("NEW <NAME>       CREATE FIRMWARE (STARTS WITH CHEAT SHEET)")
         printLine("DEL <NAME>       DELETE FIRMWARE")
         printLine("RUN              ENTER ARENA + FIGHT")
         printLine("CLEAR            CLEAR TERMINAL")
         printLine("HELP             SHOW COMMANDS")
+        printLine("")
+        printLine("IN RUN MODE: A/B SELECT ANY BOT, PRESET OR FILE")
     }
 
     private fun showShellTerminal(clearFocus: Boolean = true) {
@@ -404,23 +422,81 @@ class MainActivity : Activity() {
         shellContext.text = "WORKSPACE / $file${if (editorDirty) " *" else ""}"
     }
 
+    /**
+     * Seeds the firmware library (and backfills files after upgrades):
+     *
+     *  - `MYBOT` — your editable bot, from assets/MYBOT.asm.
+     *  - `HUNTER.asm` … `WALKER.asm` — the engine presets, from the
+     *    `firmware/` source files (nicer comments than the embedded strings;
+     *    packaged into the APK under assets/firmware/); falls back to the
+     *    [Presets] source if the asset is missing.
+     *
+     * Existing files are never overwritten, so edits survive app updates.
+     */
     private fun seedFromAssets() {
-        if (store.count() > 0) {
-            store.read("MYBOT")?.takeIf { it.isNotEmpty() }?.let {
-                editor.setText(it)
-                editor.setSelection(0)
-                editorDirty = false
-                currentFile = "MYBOT"
-            }
-            return
+        if (!store.exists("MYBOT")) {
+            store.upsert("MYBOT", loadAsset("MYBOT.asm") ?: Presets.WALKER)
         }
-        val source = loadAsset("MYBOT.asm") ?: slots[4].firmware
-        store.upsert("MYBOT", source)
-        editor.setText(source)
-        editor.setSelection(0)
-        editorDirty = false
-        currentFile = "MYBOT"
+        for (preset in Presets.all()) {
+            val name = "${preset.name}.asm"
+            if (!store.exists(name)) {
+                val source = loadAsset("firmware/${preset.name}.asm") ?:
+                    presetHeader(preset.name) + preset.firmware
+                store.upsert(name, source)
+            }
+        }
+        refreshSlots()
+        store.read("MYBOT")?.takeIf { it.isNotEmpty() }?.let {
+            editor.setText(it)
+            editor.setSelection(0)
+            editorDirty = false
+            currentFile = "MYBOT"
+        }
     }
+
+    /** Short comment header written above a preset's code when no firmware file exists. */
+    private fun presetHeader(name: String) =
+        "; ROBOFIGHT PRESET — ${name}\n" +
+        "; Starter firmware from the engine. Edit freely, then SAVE;\n" +
+        "; your version stays in the file store and is what RUN uses.\n\n"
+
+    /**
+     * Rebuild the user-file slots that follow the five preset slots: one per
+     * firmware file in the store, in name order. A/B selections are kept
+     * clamped to the last slot when the file an index referenced disappears.
+     */
+    private fun refreshSlots() {
+        slots.clear()
+        slots.addAll(Presets.all().map { BotSlot(it.name, it.glyph, it.color, it.firmware) })
+        for (file in store.list()) {
+            val (glyph, color) = slotIdentity(file.name)
+            slots.add(BotSlot(file.name, glyph, color, store.read(file.name) ?: "", isFile = true))
+        }
+        if (ai >= slots.size) ai = slots.size - 1
+        if (bi >= slots.size) bi = slots.size - 1
+    }
+
+    /**
+     * Glyph + palette color for a user-file slot: files named after a preset
+     * (HUNTER.asm, …) reuse that preset's identity, MYBOT keeps its yellow
+     * 'M', and everything else gets a stable color from its name.
+     */
+    private fun slotIdentity(name: String): Pair<Char, Int> {
+        val preset = Presets.all().firstOrNull {
+            it.name.equals(name.removeSuffix(".asm"), ignoreCase = true)
+        }
+        if (preset != null) return preset.glyph to preset.color
+        if (name.equals("MYBOT", ignoreCase = true)) return 'M' to Palette.YELLOW
+        return (name.firstOrNull() ?: '?') to ((name.hashCode() and 0x7FFFFFFF) % 14 + 1)
+    }
+
+    /**
+     * Resolve a slot's firmware at fight time: presets carry their built-in
+     * source, user files are read fresh from the [BotFiles] store — so the
+     * saved file always wins over unsaved editor text.
+     */
+    private fun sourceFor(slot: BotSlot): String =
+        if (slot.isFile) store.read(slot.name) ?: "" else slot.firmware
 
     private fun updateBtnTexts() {
         btnA.text = "A  ${slots[ai].name}  >"
@@ -430,9 +506,7 @@ class MainActivity : Activity() {
 
     private fun doRun() {
         handler.removeCallbacks(tickLoop)
-        val mybotSource = editor.text.toString()
-        slots[5].firmware = mybotSource
-        if (!controller.start(slots[ai], slots[bi], mybotSource)) {
+        if (!controller.start(slots[ai], slots[bi], ::sourceFor)) {
             autoRunning = false
             status.text = "ASSEMBLER ERROR  // ${controller.status.uppercase()}"
             btnRun.isEnabled = true
@@ -452,9 +526,7 @@ class MainActivity : Activity() {
         btnRun.isEnabled = true
         btnRun.text = "RUN"
         if (controller.world == null) {
-            val mybotSource = editor.text.toString()
-            slots[5].firmware = mybotSource
-            if (!controller.start(slots[ai], slots[bi], mybotSource)) {
+            if (!controller.start(slots[ai], slots[bi], ::sourceFor)) {
                 status.text = "ASSEMBLER ERROR  // ${controller.status.uppercase()}"
                 return
             }

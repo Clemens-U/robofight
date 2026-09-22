@@ -53,9 +53,9 @@ design:
    hits 0 HP (or 200 ticks pass), the winner is shown.
 5. Tap **`STEP`** to advance one tick at a time, or **`RESET`** to clear.
 
-> **The editor is always what runs as `MYBOT`.** Whatever text is in the editor box
-> becomes the `MYBOT` slot on `RUN`. Saved files are just a way to store/swap that
-> text — see the shell below.
+> **The *file* is what runs, not the editor.** On `RUN`, each slot reads its firmware
+> from the file store — for `MYBOT` that's the saved `MYBOT` file. Always **SAVE** after
+> editing, otherwise the fight uses the last saved version.
 
 ---
 
@@ -68,7 +68,7 @@ or use the quick buttons **DIR** / **HELP**.
 |---------|---------|--------|
 | `DIR`   | `D`, `LS` | List all saved firmware (name, bytes, modified). **Tap a name to open it** in the editor. |
 | `EDIT <name>` | `E`, `OPEN` | Load `MYBOT`, `BOT1`, … into the editor. |
-| `NEW <name>`  | `N` | Create + open a new (empty) file. Auto-named `BOT1`, `BOT2`, … |
+| `NEW <name>`  | `N` | Create + open a new file, pre-filled with the RF-8 cheat sheet as comments. Auto-named `BOT1`, `BOT2`, … |
 | `DEL <name>`  | `RM` | Delete a file. |
 | `RUN`   | `FIGHT` | Switch to RUN mode and start a fight. |
 | `CLEAR` | `CLS` | Clear the terminal output. |
@@ -84,7 +84,7 @@ Notes:
 | Button | Effect |
 |--------|--------|
 | **`SAVE`**  | Save the editor text to the current file. |
-| **`NEW`**   | Create a new auto-named file and open it blank. |
+| **`NEW`**   | Create a new auto-named file (cheat-sheet template) and open it. |
 | **`TERM`**  | Go back to the file terminal. |
 | **`FIGHT >`** | Switch to RUN mode and start the fight. |
 
@@ -92,19 +92,24 @@ Notes:
 
 ## 4. The bots you can fight
 
-Slots **A** and **B** each cycle through six options (tap to advance):
+Slots **A** and **B** each cycle through the whole roster (tap to advance): the five
+engine presets first, then **one slot per firmware file** in the store (`MYBOT`,
+`HUNTER.asm`, …, `BOT1`, …).
 
-| Slot | Bot | Color | Personality |
-|------|-----|-------|-------------|
-| 0 | **HUNTER** `H` | red | Faces nearest enemy, advances, fires. Aggressive. |
-| 1 | **TURTLE** `T` | green | Shields up; only fires when you're right on it. Defensive. |
-| 2 | **SNAKE** `S`  | cyan | Strafes in short bursts, fires on the flip. |
-| 3 | **CHAOS** `C`  | pink | Random move/shoot/turn/shield each tick. Unpredictable. |
-| 4 | **WALKER** `W` | orange | Marches straight, bursts a shot every few steps. Baseline. |
-| 5 | **MYBOT** `M`  | yellow | **Your code** — the text in the editor. |
+| Bot | Glyph | Color | Personality |
+|-----|-------|-------|-------------|
+| **HUNTER** | `H` | red | Faces nearest enemy, advances, fires. Aggressive. |
+| **TURTLE** | `T` | green | Shields up; only fires when you're right on it. Defensive. |
+| **SNAKE** | `S` | cyan | Strafes in short bursts, fires on the flip. |
+| **CHAOS** | `C` | pink | Random move/shoot/turn/shield each tick. Unpredictable. |
+| **WALKER** | `W` | orange | Marches straight, bursts a shot every few steps. Baseline. |
+| **MYBOT** | `M` | yellow | **Your code** — the saved `MYBOT` file. |
+| `*.asm` files | first letter | stable per name | Any firmware you created in the shell. |
 
-Set **A=MYBOT, B=HUNTER** for the classic "my bot vs a preset" match. Set both to
-different presets to watch canned firmware duel.
+- The presets are **also stored as files** (`HUNTER.asm` … `WALKER.asm`) on first
+  launch — open one, edit, `SAVE`, and your version is what the arena uses from then on.
+- Set **A=MYBOT, B=HUNTER** for the classic "my bot vs a preset" match, or pick any
+  two files for a custom duel. Deleting a file removes its slot automatically.
 
 ---
 

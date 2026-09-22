@@ -83,6 +83,23 @@ class BotFiles(context: Context) {
 
     fun delete(name: String): Boolean = db.delete("files", "name=?", arrayOf(name)) > 0
 
+    /**
+     * Rename a file (case-insensitive match) to [newName].
+     * Returns true when a rename happened, false when the file or the target
+     * name didn't exist / collided.
+     */
+    fun rename(oldName: String, newName: String): Boolean {
+        if (exists(newName)) return false
+        val id = db.rawQuery("SELECT id FROM files WHERE name=?", arrayOf(oldName))
+            .use { c -> if (c.moveToFirst()) c.getLong(0) else null } ?: return false
+        val now = System.currentTimeMillis()
+        val values = ContentValues().apply {
+            put("name", newName)
+            put("modified", now)
+        }
+        return db.update("files", values, "id=?", arrayOf(id.toString())) > 0
+    }
+
     private val fmt = SimpleDateFormat("MM-dd HH:mm", Locale.US)
     fun fmtTime(ms: Long): String = fmt.format(Date(ms))
 }
