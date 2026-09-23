@@ -9,7 +9,7 @@ const val MAX_HP = 100
 const val DAMAGE = 10
 const val HEAT_MAX = 5       // SHOOT sets heat=5; needs to cool to 0 before next shot
 const val HEAT_COOL = 1      // heat decrements per tick
-const val MAX_TICKS = 200
+const val MAX_TICKS = 1_000_000 // "endless" — cap is a safety net, not a game rule
 const val PROJ_LIFE = 40
 
 const val DIR_W = 0
