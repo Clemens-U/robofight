@@ -19,7 +19,7 @@ fun main() {
         TextGrid.render(w).trimEnd().lines().forEach { println("  $it") }
     }
 
-    banner("ROBOFIGHT · HUNTER vs TURTLE")
+    banner("OPCODE ARENA · HUNTER vs TURTLE")
 
     val h = Bot("HUNTER", 'H', 2, 10, 15, 1, Presets.HUNTER)
     val t = Bot("TURTLE", 'T', 4, 10, 5, 3, Presets.TURTLE)
@@ -33,7 +33,7 @@ fun main() {
     arena(w, "— final —")
     println("  " + Simulator.stats(w))
 
-    banner("ROBOFIGHT · 5-BOT MELEE")
+    banner("OPCODE ARENA · 5-BOT MELEE")
     val bots = Presets.all().map { Bot(it.name, it.glyph, it.color, it.x, it.y, 1, it.firmware) }
     val w2 = World(); bots.forEach { w2.add(it) }
     while (!w2.finished) w2.tickOnce()

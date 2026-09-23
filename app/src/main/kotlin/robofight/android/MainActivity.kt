@@ -22,6 +22,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -29,7 +30,7 @@ import robofight.world.Palette
 import robofight.world.Presets
 
 /**
- * Two-screen native UI for RoboFight.
+ * Two-screen native UI for Opcode Arena.
  *
  * SHELL is the firmware workspace (file terminal + editor). RUN is the arena.
  * Keeping them separate gives text input room to resize above the soft keyboard
@@ -334,7 +335,7 @@ class MainActivity : Activity() {
     }
 
     private fun printBoot() {
-        printLine("ROBOFIGHT OS 0.4  // RF-8 COMBAT SYSTEM")
+        printLine("OPCODE ARENA OS 0.4  // RF-8 COMBAT SYSTEM")
         printLine("MEM 64K  GRID 20x20  LINK READY")
         printLine("TYPE HELP FOR AVAILABLE COMMANDS")
         printLine("")
@@ -470,7 +471,7 @@ class MainActivity : Activity() {
 
     /** Short comment header written above a preset's code when no firmware file exists. */
     private fun presetHeader(name: String) =
-        "; ROBOFIGHT PRESET — ${name}\n" +
+        "; OPCODE ARENA PRESET — ${name}\n" +
         "; Starter firmware from the engine. Edit freely, then SAVE;\n" +
         "; your version stays in the file store and is what RUN uses.\n\n"
 
@@ -605,8 +606,15 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(8), dp(8), dp(7))
             background = panelBackground(C_DARK, C_BORDER)
         }
-        masthead.addView(terminalText(18f, C_BRIGHT).apply {
-            text = "ROBOFIGHT"
+        masthead.addView(ImageView(this).apply {
+            setImageResource(R.mipmap.ic_launcher)
+            contentDescription = getString(R.string.app_icon_description)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+        }, LinearLayout.LayoutParams(dp(36), dp(36)).apply {
+            marginEnd = dp(8)
+        })
+        masthead.addView(terminalText(14f, C_BRIGHT).apply {
+            text = "OPCODE ARENA"
             typeface = pixelTypeface
         })
         masthead.addView(BlinkCursor(this), LinearLayout.LayoutParams(dp(9), dp(20)).apply {

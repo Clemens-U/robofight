@@ -1,4 +1,4 @@
-; ROBOFIGHT MYBOT — your bot. Edit it,
+; OPCODE ARENA MYBOT — your bot. Edit it,
 ; then hit RUN.
 ; (RF-8 cheat sheet at the bottom.)
 ;

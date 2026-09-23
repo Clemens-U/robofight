@@ -1,4 +1,4 @@
-# RoboFight — Design Document (v0)
+# Opcode Arena — Design Document (v0)
 
 > Status: **design phase** (no code yet). This is the source of truth for what we build.
 > Target: Android (primary) + desktop (dev/test), **8-bit retro, ASCII text-grid**, combat-programming.
@@ -334,7 +334,7 @@ the 8-bit upscaled text-grid arena, line-based editor, and preset picker in LibG
 
 ```
 +-------------------------------+
-|  ROBOFIGHT   [RUN][STEP][QUIT]|   <- top bar (bitmap font)
+|  OPCODE ARENA [RUN][STEP][QUIT]|  <- top bar (bitmap font)
 +-------------------------------+
 |  . . . . . . . . . . . . . . |
 |  . . . H > * * * . . . T < . |   <- ARENA (upscaled TextGrid, ~50%)

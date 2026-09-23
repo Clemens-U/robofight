@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-#  RoboFight M3 — offline Android build (no Gradle)
+#  Opcode Arena M3 — offline Android build (no Gradle)
 #  Pipeline: aapt2 → kotlinc → jar → d8 → inject → zipalign → apksigner
 #
 #  Requirements (all already installed on this host):
@@ -9,7 +9,7 @@
 #    - Android SDK (aapt2, d8, apksigner, zipalign, android.jar)
 #    - python3 (for injecting entries into the APK; zip is not on PATH)
 #
-#  Output: robofight.apk (signed, installable on API 24+)
+#  Output: opcode-arena.apk (signed, installable on API 24+)
 #
 #  Run from the repo root:
 #    bash build-android.sh
@@ -88,6 +88,7 @@ echo "[3/7] kotlinc (engine + app → app-cls)…"
   app/src/main/kotlin/robofight/android/Firmware.kt \
   app/src/main/kotlin/robofight/android/RunController.kt \
   app/src/main/kotlin/robofight/android/ArenaView.kt \
+  app/src/main/kotlin/robofight/android/RetroSound.kt \
   app/src/main/kotlin/robofight/android/MainActivity.kt \
   -classpath "$ANDROID_JAR" \
   -jvm-target 11 \
@@ -142,16 +143,16 @@ if [ ! -f "$KEYSTORE" ]; then
     -keystore "$KEYSTORE" -alias "$ALIAS" \
     -keyalg RSA -keysize 2048 -validity 10000 \
     -storepass "$KS_PASS" -keypass "$KS_PASS" \
-    -dname "CN=RoboFight, OU=Dev, O=RoboFight, L=Berlin, ST=Berlin, C=DE"
+    -dname "CN=Opcode Arena, OU=Dev, O=Opcode Arena, L=Berlin, ST=Berlin, C=DE"
 fi
 "$JAVA" -cp "$APKSIGNER" com.android.apksigner.ApkSignerTool sign \
   --ks "$KEYSTORE" --ks-key-alias "$ALIAS" \
   --ks-pass pass:"$KS_PASS" --key-pass pass:"$KS_PASS" \
-  --out robofight.apk build/aligned.apk
+  --out opcode-arena.apk build/aligned.apk
 
 echo "verify…"
-"$JAVA" -cp "$APKSIGNER" com.android.apksigner.ApkSignerTool verify --verbose robofight.apk
+"$JAVA" -cp "$APKSIGNER" com.android.apksigner.ApkSignerTool verify --verbose opcode-arena.apk
 
 echo
-echo "BUILD OK → robofight.apk"
-ls -la robofight.apk
+echo "BUILD OK → opcode-arena.apk"
+ls -la opcode-arena.apk

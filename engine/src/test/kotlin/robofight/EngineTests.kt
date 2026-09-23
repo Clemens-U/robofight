@@ -5,7 +5,7 @@ import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 
 /**
- * Runs the RoboFight engine self-test suite (Tests.kt) inside JUnit so the 20
+ * Runs the Opcode Arena engine self-test suite (Tests.kt) inside JUnit so the 20
  * checks appear in Android Studio's test panel and in `:engine:test`.
  *
  * Tests.kt is kept verbatim (global `check()` + `main()` + `passed`/`failed`).
@@ -33,7 +33,7 @@ class EngineTests {
         }
         val output = captured.toString()
         check(failed == 0) {
-            "RoboFight engine suite failed ($failed failed, $passed passed):\n$output"
+            "Opcode Arena engine suite failed ($failed failed, $passed passed):\n$output"
         }
         println(output)
     }

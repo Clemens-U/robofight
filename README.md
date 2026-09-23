@@ -1,4 +1,4 @@
-# RoboFight
+# Opcode Arena
 
 > **An 8-bit combat-programming game for Android.** You are a combat-programmer:
 > you write *firmware* in a tiny assembly language for a robot on a 20×20 grid,
@@ -10,7 +10,7 @@
 
 ```
 +------------------------------+
-|  ROBOFIGHT        RF-8 ONLINE|
+|  OPCODE ARENA     RF-8 ONLINE|
 +------------------------------+
 |                              |
 |       . . . . . . . .        |
@@ -30,7 +30,7 @@
 +------------------------------+
 ```
 
-RoboFight is a small, self-contained game. There is no sprite pipeline, no asset
+Opcode Arena is a small, self-contained game. There is no sprite pipeline, no asset
 factory, no network — just a **pure-Kotlin CPU** (the "RF-8"), a deterministic
 turn-based world, and a native Android front-end that draws the arena as a grid of
 glyphs and gives you a green-screen terminal to write and run firmware.
@@ -132,7 +132,7 @@ Toolchain: **AGP 9.4.1** (with built-in Kotlin), **Kotlin 2.2.10**,
 `compileSdk 37`, `minSdk 24`, `targetSdk 34`. The engine is a plain
 `kotlin("jvm")` library; the app is a `com.android.application` module.
 
-**Offline / air-gapped.** `build-android.sh` builds and signs `robofight.apk`
+**Offline / air-gapped.** `build-android.sh` builds and signs `opcode-arena.apk`
 without any network access, driving the SDK's native tools directly
 (`aapt2 → kotlinc → jar → d8 → inject → zipalign → apksigner`). It's useful when
 Maven/AGP can't be reached. Note it is **host-specific** (it references the
@@ -186,7 +186,7 @@ cheat sheet, error formats, and worked examples are in **[MANUAL.md §7–§9](M
 
 ## How this was built (the honest version)
 
-**RoboFight was fully vibe-coded / agentic-coded.** It was built conversationally
+**Opcode Arena was fully vibe-coded / agentic-coded.** It was built conversationally
 with an AI coding agent: a person set the direction and the design spec, and the
 agent drove the implementation — writing the ISA, the VM, the world model, the
 Android UI, the tests, and even the offline build pipeline — and iterated against

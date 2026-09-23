@@ -1,4 +1,4 @@
-// RoboFight Android app — native Android front-end over the pure-Kotlin engine.
+// Opcode Arena Android app — native Android front-end over the pure-Kotlin engine.
 //
 // AGP 9.0+ has built-in Kotlin, so only `com.android.application` is applied
 // (org.jetbrains.kotlin.android is removed in AGP 9 and would fail the build).

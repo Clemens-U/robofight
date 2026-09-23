@@ -76,14 +76,14 @@ KSTD=C:/Users/Clemens/tools/kotlinc/lib/kotlin-stdlib.jar
 4. d8     app-cls + kotlin-stdlib  --lib android.jar  -> classes.dex
 5. add classes.dex into app.unsigned.apk
 6. zipalign -f 4 app.unsigned.apk app.aligned.apk
-7. apksigner sign --ks robofight.keystore app.aligned.apk robofight.apk
-8. adb install robofight.apk
+7. apksigner sign --ks robofight.keystore app.aligned.apk opcode-arena.apk
+8. adb install opcode-arena.apk
 ```
 (Gradle is the *preferred* long-term path per DESIGN.md §8, but only once a machine
 with real Maven egress for `com.android.tools` is available. Ship A without it first.)
 
 ## 6. Acceptance criteria (done = verified, not described)
-- [ ] `robofight.apk` builds offline and is signed.
+- [ ] `opcode-arena.apk` builds offline and is signed.
 - [ ] Installs on a device/emulator; opens to the editor screen.
 - [ ] Load a preset (e.g. HUNTER) + MYBOT, press RUN → arena ticks, glyphs render
       (H/T/*, NES colors), stats bar updates.
@@ -91,6 +91,6 @@ with real Maven egress for `com.android.tools` is available. Ship A without it f
 - [ ] `engine/` unit tests (20/20) still pass headless — engine untouched.
 
 ## 7. Open for the new session to decide (low stakes)
-- Package id / app label (default `robofight` / "ROBOFIGHT").
+- Package id remains `robofight.android`; app label is "Opcode Arena".
 - minSdk (default 24) vs target/compile 37.
 - Keep `desktop/` M2 CLI as a dev sandbox, or delete it.

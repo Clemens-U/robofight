@@ -1,5 +1,5 @@
 ; ============================================================
-;  ROBOFIGHT firmware — CHAOS
+;  OPCODE ARENA firmware — CHAOS
 ;  Pure noise: MOVE 50% | SHOOT 25% | TURN R 12.5% | SHIELD 12.5%
 ; ============================================================
 loop:  IN     RAND

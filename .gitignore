@@ -3,6 +3,8 @@ build/
 *.class
 robofight.apk
 robofight.apk.idsig
+opcode-arena.apk
+opcode-arena.apk.idsig
 
 # Signing — NEVER commit the keystore (holds the private key) or its password
 robofight.keystore

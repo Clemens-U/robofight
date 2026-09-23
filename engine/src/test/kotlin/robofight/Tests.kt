@@ -24,7 +24,7 @@ object NullEnv : Env {
 }
 
 fun main() {
-    println("== RoboFight engine tests ==")
+    println("== Opcode Arena engine tests ==")
 
     // ---- assembler ----
     run {

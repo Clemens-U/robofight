@@ -1,5 +1,5 @@
 ; ============================================================
-;  ROBOFIGHT firmware — TURTLE
+;  OPCODE ARENA firmware — TURTLE
 ;  Shield up at all times; only fires when an enemy is adjacent.
 ; ============================================================
 loop:  IN     DIST

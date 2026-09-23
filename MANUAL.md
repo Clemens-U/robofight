@@ -1,4 +1,4 @@
-# ROBOFIGHT — Manual (v1, first edition)
+# OPCODE ARENA — Manual (v1, first edition)
 
 > **The game in one line:** you are a combat-programmer. You write *firmware* in a
 > tiny assembly language for a robot on a 20×20 grid, then pit it against a preset
@@ -15,7 +15,7 @@ language** it runs.
 
 ```
 +--------------------------------------+
-|  ROBOFIGHT█              RF-8 / ONLINE|
+|  OPCODE ARENA█           RF-8 / ONLINE|
 +--------------------------------------+
 |       [ SHELL ]     [ RUN ]           |  <- mode switch
 +--------------------------------------+

@@ -14,6 +14,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "robofight"
+rootProject.name = "opcode-arena"
 include(":app")
 include(":engine")

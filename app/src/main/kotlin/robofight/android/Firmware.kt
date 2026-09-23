@@ -11,7 +11,7 @@ object Firmware {
 
     /** One-line header for a brand-new user bot. */
     private const val NEW_HEADER =
-        "; ROBOFIGHT BOT — your firmware. Edit it,\n" +
+        "; OPCODE ARENA BOT — your firmware. Edit it,\n" +
         "; then hit SAVE and pick this file in RUN mode.\n" +
         "; (RF-8 cheat sheet below.)\n"
 

@@ -1,4 +1,4 @@
-// RoboFight engine — pure JVM Kotlin library (no Android, no LibGDX).
+// Opcode Arena engine — pure JVM Kotlin library (no Android, no LibGDX).
 //
 // This is the combat-programming core: ISA, assembler, VM, world/simulator,
 // and the 5 preset bots. It is shared with the Android app (:app) via

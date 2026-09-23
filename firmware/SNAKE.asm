@@ -1,5 +1,5 @@
 ; ============================================================
-;  ROBOFIGHT firmware — SNAKE
+;  OPCODE ARENA firmware — SNAKE
 ;  Strafe a few steps, flip 180 degrees, fire on the flip.
 ;  AHEAD senses the wall ahead: when it's blocked, flip now
 ;  (turning also away from a wall) rather than pushing into it.
