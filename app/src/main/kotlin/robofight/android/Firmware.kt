@@ -37,12 +37,14 @@ object Firmware {
 ; SHOOT MOVE TURN L|R|#n
 ; SHIELD WAIT
 ; IN   DIST|ANGLE|HP|ENEMY_HP|
-;      RAND|X|Y|DIR|HEAT
+;      RAND|X|Y|DIR|HEAT|AHEAD
 ; OUT  DIR, A
 ; Ports:
 ;   DIST   dist to enemy (0=none)
 ;   ANGLE  cw turns to face it
 ;   RAND   random byte 0..255
+;   AHEAD  1 if wall/enemy blocks
+;          the cell in front, else 0
 ; =================================
 """.trimIndent()
 

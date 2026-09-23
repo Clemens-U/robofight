@@ -212,6 +212,36 @@ fun main() {
         println(TextGrid.render(w2).lines().joinToString("\n  ") { "  $it" })
     }
 
+    // ---- AHEAD sensor & RNG seeding ----
+    run {
+        println("\n[sensors: AHEAD & RAND]")
+        val w = World()
+        val a = Bot("A", 'A', 2, 0, 5, DIR_W, """
+            WAIT
+        """.trimIndent())
+        val b = Bot("B", 'B', 4, 5, 5, DIR_W, """
+            WAIT
+        """.trimIndent())
+        w.add(a); w.add(b)
+        // A at x=0 facing W → cell ahead is (-1,5), off-grid → wall → AHEAD=1.
+        // B at x=5 facing W → cell ahead is (4,5), free (A is at x=0) → 0.
+        check("AHEAD=1 at wall", a.portIn(11) == 1, "got ${a.portIn(11)}")
+        check("AHEAD=0 when cell ahead clear", b.portIn(11) == 0, "got ${b.portIn(11)}")
+        b.px = 1
+        check("AHEAD=1 when enemy ahead", b.portIn(11) == 1, "got ${b.portIn(11)}")
+
+        // setSeed is deterministic; a different seed gives a different stream.
+        val w1 = World(); w1.setSeed(42)
+        val w2 = World(); w2.setSeed(42)
+        val w3 = World(); w3.setSeed(43)
+        val s1 = (1..3).map { w1.nextRand() }
+        val s2 = (1..3).map { w2.nextRand() }
+        val s3 = (1..3).map { w3.nextRand() }
+        check("same seed → same RAND stream", s1 == s2, "$s1 vs $s2")
+        check("different seed → different RAND stream", s1 != s3, "$s1 vs $s3")
+        check("RAND in range 0..255", s1.all { it in 0..255 }, "$s1")
+    }
+
     println("\n== RESULT: $passed passed, $failed failed ==")
     if (failed > 0) kotlin.system.exitProcess(1)
 }

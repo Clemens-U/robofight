@@ -176,6 +176,7 @@ I/O ports**, and one instruction per tick. Every line is `[label:]  MNEMONIC  [o
 | `HEAT` | R | your current heat (0–5) |
 | `SHIELD` | R | 1 if shielded this tick, else 0 |
 | `RAND` | R | random byte 0–255 |
+| `AHEAD` | R | 1 if a wall or enemy blocks the cell directly in front of you, 0 if clear |
 | `FIRE` | W | (write 1 to shoot — `SHOOT` is the alias) |
 
 > **`ANGLE` is the key sensor.** It reads back a *delta* (0–3): `0` means you're

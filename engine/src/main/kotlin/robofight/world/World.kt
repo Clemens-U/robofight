@@ -73,6 +73,7 @@ class Bot(
             8 -> heat
             9 -> w.nearestEnemyHp(this)
             10 -> w.nextRand()
+            11 -> w.aheadBlocked(this)
             else -> 0
         }
     }
@@ -137,6 +138,14 @@ class World {
     }
 
     fun botAt(x: Int, y: Int): Bot? = bots.firstOrNull { it.alive && it.px == x && it.py == y }
+
+    /** 1 if the cell directly in front of [b] is a wall or an enemy, else 0. */
+    fun aheadBlocked(b: Bot): Int {
+        val (dx, dy) = delta(b.facing)
+        val nx = b.px + dx; val ny = b.py + dy
+        if (nx !in 0 until GRID || ny !in 0 until GRID) return 1
+        return if (botAt(nx, ny) != null) 1 else 0
+    }
 
     fun nextRand(): Int {
         rng = (rng * 1103515245 + 12345) and 0x7FFFFFFF

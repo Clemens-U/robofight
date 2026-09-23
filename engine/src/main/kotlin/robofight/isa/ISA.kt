@@ -34,10 +34,10 @@ object ISA {
     val PORT_NAMES = linkedMapOf(
         "HP" to 0, "DIR" to 1, "RX" to 2, "RY" to 3, "DIST" to 4,
         "ANGLE" to 5, "FIRE" to 6, "SHIELD" to 7, "HEAT" to 8,
-        "ENEMY_HP" to 9, "RAND" to 10,
+        "ENEMY_HP" to 9, "RAND" to 10, "AHEAD" to 11,
     )
     val PORT_NUMS = PORT_NAMES.values.toTypedArray()
-    const val NUM_PORTS = 11
+    const val NUM_PORTS = 12
 
     // ---- Register ids (for REG operand) ----
     const val REG_A = 0

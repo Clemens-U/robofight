@@ -171,7 +171,7 @@ Key facts:
 | | |
 |---|---|
 | **Registers** | `A` (accumulator), `X` (index/scratch), `Y` (scratch) |
-| **Sensors** (`IN`/`OUT`) | `HP` `DIR` `RX` `RY` `DIST` `ANGLE` `ENEMY_HP` `HEAT` `SHIELD` `RAND` `FIRE` |
+| **Sensors** (`IN`/`OUT`) | `HP` `DIR` `RX` `RY` `DIST` `ANGLE` `ENEMY_HP` `HEAT` `SHIELD` `RAND` `FIRE` `AHEAD` |
 | **Robot** | `MOVE` `TURN L`/`TURN R`/`TURN #n` `SHOOT` `SHIELD` `WAIT` `NOP` |
 | **Branch** | `JMP` `JZ` `JNZ` `JC` `JNC` `JN` `JNN` `JG` `JGE` `JL` `JLE` `JE` `JNE` |
 | **Subroutines** | `CALL` `RET`, with a stack (`PUSH`/`POP`) |
