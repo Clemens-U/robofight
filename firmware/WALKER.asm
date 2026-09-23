@@ -1,12 +1,18 @@
 ; ============================================================
 ;  ROBOFIGHT firmware — WALKER
-;  March straight; bursts a shot every few steps.
+;  March straight and burst a shot every few steps. When AHEAD
+;  reports the wall (or an enemy) straight ahead, turn to keep
+;  moving instead of stalling against it.
 ; ============================================================
       MOV    X, #3
-loop:  MOVE
+loop:  IN     AHEAD           ; wall / enemy straight ahead?
+      JNZ     turnaway
+      MOVE
       DEC    X
       JZ     burst
       JMP    loop
-burst: SHOOT
+turnaway: TURN   R           ; off the wall
+      JMP    loop
+burst:  SHOOT
       MOV    X, #3
       JMP    loop

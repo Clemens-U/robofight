@@ -10,7 +10,7 @@ import robofight.world.Palette.ORANGE
 object Presets {
     val HUNTER = """
         ; HUNTER — face the nearest enemy,
-        ; step in, fire
+        ; step in, fire; back off at a wall
 top:    IN     DIST            ; nearest enemy
         JZ     idle            ; none? idle
         IN     ANGLE           ; turns to face
@@ -18,8 +18,13 @@ loop:   JZ     face
         TURN   R               ; one step cw
         DEC    A
         JMP    loop
-face:   MOVE
+face:   IN     AHEAD           ; wall/enemy ahead?
+        JNZ    retreat
+        MOVE
         SHOOT
+        JMP    top
+retreat:TURN   R
+        TURN   R               ; pivot off the wall
         JMP    top
 idle:   WAIT
         JMP    top
@@ -42,10 +47,12 @@ idle:   WAIT
 
     val SNAKE = """
         ; SNAKE — strafe 3 steps, flip,
-        ; fire on the flip
+        ; fire on the flip; flip early at a wall
         MOV    X, #3
 loop:   IN     DIST
         JZ     idle
+        IN     AHEAD           ; wall/enemy ahead?
+        JNZ    flip
         MOVE
         DEC    X
         JZ     flip
@@ -83,11 +90,16 @@ d:      SHIELD
 
     val WALKER = """
         ; WALKER — march straight,
-        ; burst a shot every 3 steps
+        ; burst a shot every 3 steps;
+        ; turn off the wall
         MOV    X, #3
-loop:   MOVE
+loop:   IN     AHEAD           ; wall/enemy ahead?
+        JNZ    turnaway
+        MOVE
         DEC    X
         JZ     burst
+        JMP    loop
+turnaway:TURN   R
         JMP    loop
 burst:  SHOOT
         MOV    X, #3
