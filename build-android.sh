@@ -62,8 +62,15 @@ echo "[1/7] aapt2 compile res…"
 "$AAPT2" compile --dir app/src/main/res -o build/res.zip
 
 echo "[2/7] aapt2 link (base.apk)…"
+# Standalone aapt2 still requires a manifest package, while AGP 9 rejects the
+# legacy package attribute in the source manifest. Add it only to a temporary
+# manifest used by this offline pipeline.
+sed 's/<manifest /<manifest package="robofight.android" /' \
+  app/src/main/AndroidManifest.xml > build/AndroidManifest.xml
 "$AAPT2" link -o build/base.apk \
-  --manifest app/src/main/AndroidManifest.xml \
+  --manifest build/AndroidManifest.xml \
+  --min-sdk-version 24 \
+  --target-sdk-version 34 \
   -I "$ANDROID_JAR" \
   build/res.zip
 
