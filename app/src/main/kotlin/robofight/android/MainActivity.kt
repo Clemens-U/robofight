@@ -53,6 +53,7 @@ class MainActivity : Activity() {
     private lateinit var btnRun: Button
     private lateinit var btnStep: Button
     private lateinit var btnReset: Button
+    private lateinit var btnSound: Button
     private lateinit var statA: TextView
     private lateinit var statB: TextView
 
@@ -74,6 +75,7 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var controller: RunController
     private lateinit var store: BotFiles
+    private lateinit var sound: RetroSound
     private val handler = Handler(Looper.getMainLooper())
     private val pixelTypeface: Typeface by lazy {
         Typeface.createFromAsset(assets, "fonts/PressStart2P-Regular.ttf")
@@ -132,6 +134,16 @@ class MainActivity : Activity() {
         controller = RunController()
         arena.controller = controller
         controller.onFrame = { runOnUiThread { updateStats() } }
+        // Hit effects: the view renders sparks / shake / flash; we play the
+        // matching 8-bit SFX (or the shield "tink" when blocked).
+        controller.onHit = { e ->
+            arena.onHitEvent(e)
+            if (e.blocked) sound.playBlock() else sound.playHit()
+        }
+        // One KO / round-end boom (win or draw).
+        controller.onFinished = { sound.playBoom() }
+        sound = RetroSound.get(this)
+        btnSound.text = "SND ON"
 
         editor.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
@@ -149,6 +161,7 @@ class MainActivity : Activity() {
         btnRun.setOnClickListener { doRun() }
         btnStep.setOnClickListener { doStep() }
         btnReset.setOnClickListener { doReset() }
+        btnSound.setOnClickListener { toggleSound() }
 
         btnSave.setOnClickListener { saveFile() }
         btnNew.setOnClickListener { doNew(autoName()) }
@@ -177,6 +190,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         handler.removeCallbacks(tickLoop)
+        sound.release()
         super.onDestroy()
     }
 
@@ -504,6 +518,14 @@ class MainActivity : Activity() {
         if (::statA.isInitialized && ::controller.isInitialized) updateStats()
     }
 
+    private fun toggleSound() {
+        val next = !sound.isOn()
+        sound.on(next)
+        btnSound.text = if (next) "SND ON" else "SND OFF"
+        styleModeTab(btnSound, next)
+        if (next) sound.playHit() // audible confirmation
+    }
+
     private fun doRun() {
         handler.removeCallbacks(tickLoop)
         if (!controller.start(slots[ai], slots[bi], ::sourceFor)) {
@@ -759,6 +781,7 @@ class MainActivity : Activity() {
         btnRun = terminalButton("RUN", strong = true)
         btnStep = terminalButton("STEP")
         btnReset = terminalButton("RESET")
+        btnSound = terminalButton("SND ON", strong = true)
         statA = runStatView()
         statB = runStatView()
 
@@ -791,6 +814,7 @@ class MainActivity : Activity() {
             console.addView(btnRun, consoleItem())
             console.addView(btnStep, consoleItem(5))
             console.addView(btnReset, consoleItem(5))
+            console.addView(btnSound, consoleItem(5))
             body.addView(console, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
             run.addView(body, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         } else {
@@ -820,6 +844,7 @@ class MainActivity : Activity() {
             controls.addView(btnRun, weightedButton())
             controls.addView(btnStep, weightedButton(dp(6)))
             controls.addView(btnReset, weightedButton(dp(6)))
+            controls.addView(btnSound, weightedButton(dp(6)))
             run.addView(controls)
         }
         return run

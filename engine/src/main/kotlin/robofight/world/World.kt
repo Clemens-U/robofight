@@ -116,6 +116,22 @@ class Bot(
 
 data class Projectile(val owner: Bot, var x: Int, var y: Int, var dir: Int, var life: Int)
 
+/**
+ * A projectile connection event, raised by [World] when a shot reaches an
+ * enemy. The engine only reports the facts (who, where, damage, whether the
+ * victim's shield absorbed it); the front-end decides how to present it —
+ * spark particles, screen shake, sound. [blocked] is true when the victim's
+ * SHIELD ate the hit (no HP lost); otherwise [damage] HP were removed.
+ */
+data class HitEvent(
+    val victim: Bot,
+    val attacker: Bot,
+    val x: Int,
+    val y: Int,
+    val damage: Int,
+    val blocked: Boolean,
+)
+
 /** The arena: grid, bots, projectiles, deterministic tick resolution. */
 class World {
     val bots = ArrayList<Bot>()
@@ -128,6 +144,14 @@ class World {
         private set
     var lastLine = ""
         private set
+
+    /**
+     * Optional presentation hook for hit effects. The engine is pure and
+     * deterministic, so this stays null under the headless tests; an app
+     * (e.g. the Android arena) sets it to render sparks / shake / play sound.
+     * Invoked on the thread that calls [tickOnce], once per resolved shot.
+     */
+    var onHit: ((HitEvent) -> Unit)? = null
     private var rng = 12345
 
     fun setSeed(seed: Int) { rng = seed }
@@ -221,10 +245,15 @@ class World {
                 if (target == null) { p.x = nx; p.y = ny }
             }
             if (target != null) {
+                // The hit lands on the victim's cell; report it before/after
+                // mutating so a listener can read the fresh state.
                 if (!target.shielded) {
                     target.applyHit(DAMAGE)
                     p.owner.hits++
                     p.owner.dmgDealt += DAMAGE
+                    onHit?.invoke(HitEvent(target, p.owner, target.px, target.py, DAMAGE, false))
+                } else {
+                    onHit?.invoke(HitEvent(target, p.owner, target.px, target.py, 0, true))
                 }
                 continue // consumed
             }

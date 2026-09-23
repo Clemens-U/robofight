@@ -7,6 +7,7 @@ import robofight.world.DIR_N
 import robofight.world.DIR_S
 import robofight.world.DIR_W
 import robofight.world.GRID
+import robofight.world.HitEvent
 import robofight.world.World
 
 /**
@@ -33,6 +34,16 @@ class RunController {
 
     /** Called by the view each frame after ticking (to refresh stats / status bar). */
     var onFrame: (() -> Unit)? = null
+
+    /**
+     * Hit-effects hook, invoked (on the UI thread) each time a shot lands or is
+     * blocked. The view uses this for sparks / shake / flash; sound is a
+     * separate concern the activity wires from the same event.
+     */
+    var onHit: ((HitEvent) -> Unit)? = null
+
+    /** Fired exactly once when a fight transitions to finished (win or draw). */
+    var onFinished: (() -> Unit)? = null
 
     /**
      * Start a fresh fight between [a] and [b].
@@ -82,6 +93,9 @@ class RunController {
         w.add(Bot(a.name, a.glyph, a.color, ax, ay, faceToward(ax, ay, bx, by), sourceFor(a)))
         w.add(Bot(b.name, b.glyph, b.color, bx, by, faceToward(bx, by, ax, ay), sourceFor(b)))
         world = w
+        // Forward engine hit events to the front-end (sparks, shake, sound).
+        // set() replaces the previous world's hook on the next start().
+        w.onHit = { e -> onHit?.invoke(e) }
         onFrame?.invoke()
         return true
     }
@@ -101,6 +115,9 @@ class RunController {
         }
         if (w.finished) {
             status = w.winner?.let { "WINNER: ${it.name}" } ?: "DRAW"
+            // step() is only invoked while the fight is running (callers guard
+            // on !finished), so this fires exactly once, on the finishing tick.
+            onFinished?.invoke()
         }
         return advanced
     }
