@@ -72,7 +72,14 @@ sed 's/<manifest /<manifest package="robofight.android" /' \
   --min-sdk-version 24 \
   --target-sdk-version 34 \
   -I "$ANDROID_JAR" \
+  --java build/rjava \
   build/res.zip
+# aapt2 generated build/rjava/<pkg>/R.java — compile it so kotlinc can
+# resolve R.raw.* / R.id.* references (the AGP pipeline does this via the
+# generated R class; our offline pipeline must do it by hand).
+mkdir -p build/rcls
+find build/rjava -name '*.java' -print0 | xargs -0 \
+  "$JAVA_HOME/bin/javac.exe" --release 11 -cp "$ANDROID_JAR" -d build/rcls
 
 echo "[3/7] kotlinc (engine + app → app-cls)…"
 "$JAVA" -cp "$KOTLINC_JAR" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler \
@@ -90,11 +97,14 @@ echo "[3/7] kotlinc (engine + app → app-cls)…"
   app/src/main/kotlin/robofight/android/ArenaView.kt \
   app/src/main/kotlin/robofight/android/RetroSound.kt \
   app/src/main/kotlin/robofight/android/MainActivity.kt \
-  -classpath "$ANDROID_JAR" \
+  -classpath "$ANDROID_JAR;build/rcls" \
   -jvm-target 11 \
   -d build/app-cls
 
 echo "[4/7] package classes → app.jar"
+# Fold the compiled R class into app-cls so it ends up in app.jar → classes.dex
+# (RetroSound reads R.raw.* IDs at runtime, not just compile time).
+cp -r build/rcls/. build/app-cls/
 (cd build/app-cls && "$JAR" cf ../app.jar .)
 
 echo "[5/7] d8 dex (engine + kotlin-stdlib → classes.dex)…"
