@@ -2,6 +2,11 @@ package robofight.android
 
 import robofight.assembler.assemble
 import robofight.world.Bot
+import robofight.world.DIR_E
+import robofight.world.DIR_N
+import robofight.world.DIR_S
+import robofight.world.DIR_W
+import robofight.world.GRID
 import robofight.world.World
 
 /**
@@ -61,8 +66,21 @@ class RunController {
         status = "running…"
 
         val w = World()
-        w.add(Bot(a.name, a.glyph, a.color, 10, 15, 2, sourceFor(a)))
-        w.add(Bot(b.name, b.glyph, b.color, 10, 4, 3, sourceFor(b)))
+        // Each fight gets a fresh RNG seed so repeated fights differ (the
+        // engine's LCG otherwise starts at the same state every time).
+        val seed = kotlin.random.Random.nextLong().toInt()
+        w.setSeed(seed)
+        // Random, non-overlapping start cells; each bot faces the other along
+        // the dominant axis so the fight opens with a fair line of sight.
+        var ax = 0; var ay = 0; var bx = 0; var by = 0
+        do {
+            ax = kotlin.random.Random.nextInt(GRID)
+            ay = kotlin.random.Random.nextInt(GRID)
+            bx = kotlin.random.Random.nextInt(GRID)
+            by = kotlin.random.Random.nextInt(GRID)
+        } while (ax == bx && ay == by)
+        w.add(Bot(a.name, a.glyph, a.color, ax, ay, faceToward(ax, ay, bx, by), sourceFor(a)))
+        w.add(Bot(b.name, b.glyph, b.color, bx, by, faceToward(bx, by, ax, ay), sourceFor(b)))
         world = w
         onFrame?.invoke()
         return true
@@ -96,5 +114,17 @@ class RunController {
         errorMsg = ""
         errorBot = ""
         onFrame?.invoke()
+    }
+
+    /**
+     * Facing from (fx,fy) toward (tx,ty) along the dominant axis — mirrors the
+     * engine's [World] `turnToward` so the spawn matches how `ANGLE`/`TURN`
+     * would aim at the same target.
+     */
+    private fun faceToward(fx: Int, fy: Int, tx: Int, ty: Int): Int {
+        val dx = tx - fx
+        val dy = ty - fy
+        if (kotlin.math.abs(dx) >= kotlin.math.abs(dy)) return if (dx >= 0) DIR_E else DIR_W
+        return if (dy >= 0) DIR_S else DIR_N
     }
 }
