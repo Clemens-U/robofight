@@ -4,8 +4,10 @@ build/
 robofight.apk
 robofight.apk.idsig
 
-# Signing — NEVER commit the keystore (holds the private key)
+# Signing — NEVER commit the keystore (holds the private key) or its password
 robofight.keystore
+robofight.keystore.backup
+keystore.pass
 *.jks
 
 # Gradle (if it ever returns)

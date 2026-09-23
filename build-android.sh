@@ -32,8 +32,27 @@ APKSIGNER="$SDK/build-tools/36.0.0/lib/apksigner.jar"
 ZIPALIGN="$SDK/build-tools/36.0.0/zipalign.exe"
 PY=/c/Users/Clemens/AppData/Local/hermes/hermes-agent/venv/Scripts/python
 KEYSTORE="${ROBOFIGHT_KEYSTORE:-robofight.keystore}"
-KS_PASS="${ROBOFIGHT_KS_PASS:-robofight123}"
 ALIAS="${ROBOFIGHT_ALIAS:-robofight}"
+KEYSTORE_PASS_FILE="${ROBOFIGHT_KEYSTORE_PASS_FILE:-keystore.pass}"
+
+# ---- keystore password (SECRET — never hardcoded in this public repo) ----
+# Resolve it from the environment first, then from a local git-ignored file.
+# A second / CI system with neither gets an immediate, loud failure here
+# (before the long offline build starts) telling it to set ROBOFIGHT_KS_PASS.
+if [ -n "${ROBOFIGHT_KS_PASS:-}" ]; then
+  KS_PASS="$ROBOFIGHT_KS_PASS"
+elif [ -f "$KEYSTORE_PASS_FILE" ]; then
+  KS_PASS="$(head -n 1 "$KEYSTORE_PASS_FILE" | tr -d '\r\n')"
+fi
+if [ -z "${KS_PASS:-}" ]; then
+  echo "ERROR: keystore password is missing (ROBOFIGHT_KS_PASS is not set)." >&2
+  echo "  This secret is intentionally NOT stored in the (public) repo." >&2
+  echo "  Set it for this build, then re-run:" >&2
+  echo "    export ROBOFIGHT_KS_PASS='<store password>'" >&2
+  echo "  …or place it in a git-ignored local file:  $KEYSTORE_PASS_FILE" >&2
+  echo "  (You also need the keystore file itself present at: $KEYSTORE)" >&2
+  exit 1
+fi
 
 # clean
 rm -rf build
