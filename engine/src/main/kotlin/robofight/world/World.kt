@@ -7,8 +7,11 @@ import robofight.vm.Vm
 const val GRID = 20          // 20×20 arena
 const val MAX_HP = 100
 const val DAMAGE = 10
-const val HEAT_MAX = 5       // SHOOT sets heat=5; needs to cool to 0 before next shot
-const val HEAT_COOL = 1      // heat decrements per tick
+const val HEAT_MAX = 10       // heat cap — at the max, SHOOT & SHIELD are locked out
+const val HEAT_COOL = 1       // heat cooled by this every HEAT_COOL_EVERY ticks
+const val HEAT_COOL_EVERY = 2 // ticks per cool step — heat lingers, maxed robots sit out
+const val HEAT_SHOOT = 2      // heat added by SHOOT (piles up over time)
+const val HEAT_SHIELD = 2     // heat added by SHIELD
 const val MAX_TICKS = 1_000_000 // "endless" — cap is a safety net, not a game rule
 const val PROJ_LIFE = 40
 
@@ -84,10 +87,15 @@ class Bot(
 
     override fun shoot() {
         val w = world ?: return
-        if (heat > 0 || !alive) return
+        if (!alive) return
+        // Heat is cumulative: every shot adds HEAT_SHOOT and it only cools
+        // 1 per 2 ticks, so an active bot's heat piles up over the fight.
+        // When a shot would push heat past the max, the gun is locked until
+        // the heat has cooled enough to fire again.
+        if (heat + HEAT_SHOOT > HEAT_MAX) return
         val (dx, dy) = delta(facing)
         w.spawnProjectile(this, px + dx, py + dy, facing)
-        heat = HEAT_MAX
+        heat += HEAT_SHOOT
         shots++
     }
 
@@ -100,7 +108,12 @@ class Bot(
     }
 
     override fun shield() {
+        // Shielding strains the system too (+HEAT_SHIELD). When shielding
+        // would push heat past the max, the shield collapses — no protection
+        // — until the heat has been reduced enough to raise it again.
+        if (heat + HEAT_SHIELD > HEAT_MAX) return
         shielded = true
+        heat += HEAT_SHIELD
     }
 
     override fun turn(delta: Int) {
@@ -217,7 +230,7 @@ class World {
         for (b in bots) {
             if (!b.alive) continue
             b.shielded = false
-            if (b.heat > 0) b.heat--
+            if (tick % HEAT_COOL_EVERY == 0) b.heat = (b.heat - HEAT_COOL).coerceAtLeast(0)
             b.vm.step(b)
             if (b.vm.fault) { b.alive = false; b.hp = 0 }
             log.add("${b.name}[${b.vm.lastOp}]")

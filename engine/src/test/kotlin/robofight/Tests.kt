@@ -188,6 +188,66 @@ fun main() {
         w4.add(a4); w4.add(b4)
         repeat(3) { w4.tickOnce() }   // projectile takes 3 ticks to travel 4 cells
         check("projectile flies & hits at range 4", b4.hp == 90, "b4.hp=${b4.hp}")
+
+        // Heat is cumulative, so at full duty (SHOOT every tick) it piles up
+        // to the cap, then the gun is locked out until the heat has cooled
+        // enough to fire again (10, 9, 9 too hot for +2, 8 is fine)
+        val w5 = World()
+        val a5 = Bot("A", 'A', 2, 5, 0, DIR_E, "WAIT\n")
+        val d5 = Bot("D", 'D', 4, 19, 0, DIR_W, "WAIT\n")
+        w5.add(a5); w5.add(d5)
+        repeat(8) { w5.tickOnce(); a5.shoot() }
+        check("sustained SHOOT piles heat to the max", a5.heat == HEAT_MAX && a5.shots == 7,
+            "heat=${a5.heat} shots=${a5.shots}")
+        w5.tickOnce(); a5.shoot()   // no cool tick; 10+2 > 10 → locked out
+        w5.tickOnce(); a5.shoot()   // cool 10→9; 9+2 > 10 → still locked
+        w5.tickOnce(); a5.shoot()   // no cool tick; 9 still too hot
+        check("SHOOT locked out at max heat", a5.shots == 7 && a5.heat == 9,
+            "shots=${a5.shots} heat=${a5.heat}")
+        w5.tickOnce(); a5.shoot()   // cool 9→8; 8+2 = 10 → works again
+        check("SHOOT works again once heat cooled", a5.shots == 8 && a5.heat == HEAT_MAX,
+            "shots=${a5.shots} heat=${a5.heat}")
+
+        // SHIELD piles heat the same way: sustained shielding reaches the
+        // cap, collapses on the ticks it would overflow, and works again
+        // after cooling
+        val w6 = World()
+        val s = Bot("S", 'S', 4, 0, 0, DIR_S, "WAIT\n")
+        val d6 = Bot("D", 'D', 4, 19, 0, DIR_W, "WAIT\n")
+        w6.add(s); w6.add(d6)
+        repeat(8) { w6.tickOnce(); s.shield() }
+        check("sustained SHIELD piles heat to the max", s.heat == HEAT_MAX, "heat=${s.heat}")
+        var collapses = 0
+        repeat(3) {
+            w6.tickOnce()
+            s.shield()
+            if (!s.shielded && s.heat >= 5) collapses++   // shield tick that didn't shield
+        }
+        check("SHIELD collapses when it would overflow the max", collapses == 3,
+            "collapses=$collapses heat=${s.heat}")
+        w6.tickOnce(); s.shield()   // cool 9→8; works again
+        check("SHIELD works again once heat cooled", s.shielded && s.heat == HEAT_MAX,
+            "shielded=${s.shielded} heat=${s.heat}")
+
+        // A real firmware loop (SHOOT every other tick) still piles heat to
+        // the cap, and the gun is periodically locked out once it does.
+        // The dummy sits off the firing line (19,19) so it never dies and
+        // freezes the world mid-window.
+        val w7 = World()
+        val a7 = Bot("A", 'A', 2, 5, 0, DIR_E, """
+            top:  SHOOT
+            JMP    top
+        """.trimIndent())
+        val d7 = Bot("D", 'D', 4, 19, 19, DIR_N, "WAIT\n")
+        w7.add(a7); w7.add(d7)
+        var guard = 0
+        while (a7.heat < HEAT_MAX && guard < 30) { w7.tickOnce(); guard++ }
+        check("firmware SHOOT loop piles heat to the max", a7.heat == HEAT_MAX,
+            "heat=${a7.heat} tick=${w7.tick}")
+        val shotsAtMax = a7.shots
+        repeat(24) { w7.tickOnce() }
+        check("max heat periodically locks the gun (6 of 24 attempts fire)",
+            a7.shots - shotsAtMax == 6, "extra=${a7.shots - shotsAtMax}")
     }
 
     // ---- full fights ----
