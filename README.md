@@ -175,7 +175,7 @@ Key facts:
 | **Robot** | `MOVE` `TURN L`/`TURN R`/`TURN #n` `SHOOT` `SHIELD` `WAIT` `NOP` |
 | **Branch** | `JMP` `JZ` `JNZ` `JC` `JNC` `JN` `JNN` `JG` `JGE` `JL` `JLE` `JE` `JNE` |
 | **Subroutines** | `CALL` `RET`, with a stack (`PUSH`/`POP`) |
-| **Combat** | 100 HP, 10 dmg/hit, heat cap 5 (≈1 shot/5 ticks), shield, win by KO or HP @ tick 200 |
+| **Combat** | 100 HP, 10 dmg/hit, cumulative heat cap 10 (+2 per SHOOT/SHIELD, −1 every 2 ticks; maxed heat locks both until it cools), win by KO or HP @ tick 200 |
 
 `ANGLE` is the star sensor: it reads back a *delta* (0–3) — `0` = already facing the
 enemy, `N` = turn right `N` steps to face it, `255` = no enemy. `IN ANGLE` → `JZ` if

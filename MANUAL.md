@@ -136,10 +136,17 @@ Bots are colored per the table above. When a bot dies it disappears.
   hit, or hit a wall.
 - **Health:** every bot starts at **100 HP**. A hit does **10 damage** → 10 clean
   hits to KO.
-- **Heat (anti-spam):** `SHOOT` sets `HEAT` to 5; it cools by 1 each tick. **You
-  cannot fire while `HEAT > 0`** — so max sustained fire is ~1 shot / 5 ticks.
-- **Shield:** `SHIELD` protects a bot from one hit *that tick*. It resets every tick,
-  so it only matters the instant you raise it.
+- **Heat (anti-spam):** heat is **cumulative**. `SHOOT` and `SHIELD` each add
+  **+2** heat and heat cools by only **1 every 2 ticks** — the more you act,
+  the hotter your bot gets, and it stays hot. If an action would push heat
+  past the max (10) it is **locked out** until the heat has cooled enough to
+  perform it. Sustained fire settles at 1 shot / 4 ticks (at 10 you sit out
+  three ticks at 10 → 9 → 9, then fire from 8).
+- **Shield:** `SHIELD` protects a bot from one hit *that tick* and **adds heat
+  too**. It resets every tick, so it only matters the instant you raise it.
+  When heat is too high to shield, the shield **collapses** — no protection —
+  and `SHOOT` is locked out in the same way: the robot simply waits until the
+  heat has dropped and it can act again.
 - **Winning:** first to KO the opponent, or **highest HP after 200 ticks** (tie = draw).
 - **Projectiles** live up to 40 ticks; they vanish off-grid or on a hit.
 
@@ -173,7 +180,7 @@ I/O ports**, and one instruction per tick. Every line is `[label:]  MNEMONIC  [o
 | `DIST` | R | distance to nearest enemy (**0 = none**) |
 | `ANGLE` | R | **how many steps clockwise** to face the nearest enemy (`0` = already facing, `255` = no enemy) |
 | `ENEMY_HP` | R | nearest enemy's HP |
-| `HEAT` | R | your current heat (0–5) |
+| `HEAT` | R | your current heat (0–10; +2 per SHOOT/SHIELD, −1 every 2 ticks; too high = action locked out) |
 | `SHIELD` | R | 1 if shielded this tick, else 0 |
 | `RAND` | R | random byte 0–255 |
 | `AHEAD` | R | 1 if a wall or enemy blocks the cell directly in front of you, 0 if clear |

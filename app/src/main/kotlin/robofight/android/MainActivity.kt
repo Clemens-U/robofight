@@ -26,6 +26,9 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.text.SpannableStringBuilder
+import android.text.style.ForegroundColorSpan
+import robofight.world.HEAT_MAX
 import robofight.world.Palette
 import robofight.world.Presets
 
@@ -571,24 +574,46 @@ class MainActivity : Activity() {
     private fun updateStats() {
         val world = controller.world
         if (world == null) {
-            statA.text = "HP ---   SH --\nHIT --   DMG ---"
-            statB.text = "HP ---   SH --\nHIT --   DMG ---"
+            statA.text = statsBlock(null, null, null, null, null)
+            statB.text = statsBlock(null, null, null, null, null)
             status.text =
             "SYS READY  // SELECT BOTS AND RUN"
         } else {
             val a = world.bots[0]
             val b = world.bots[1]
-            statA.text = botStats(a.hp, a.shots, a.hits, a.dmgDealt)
-            statB.text = botStats(b.hp, b.shots, b.hits, b.dmgDealt)
+            statA.text = statsBlock(a.hp, a.shots, a.hits, a.dmgDealt, a.heat)
+            statB.text = statsBlock(b.hp, b.shots, b.hits, b.dmgDealt, b.heat)
             val state = if (world.finished) controller.status else "EXECUTING"
             status.text = "T+${world.tick.toString().padStart(3, '0')}  // $state"
         }
         arena.invalidate()
     }
 
-    private fun botStats(hp: Int, shots: Int, hits: Int, damage: Int) =
-        "HP ${hp.toString().padStart(3)}   SH ${shots.toString().padStart(2)}\n" +
-            "HIT ${hits.toString().padStart(2)}  DMG ${damage.toString().padStart(3)}"
+    /**
+     * One combatant's live readout. The HEAT line is a 10-cell bar (SHOOT &
+     * SHIELD add 2 each, it cools 1 every 2 ticks): filled cells are bright `#`,
+     * empty cells are dim `-`.
+     * Intensity contrast — not a new hue — so the strict green-phosphor look
+     * holds; the pixel font has no block glyphs, so the bar is pure ASCII.
+     * [heat] is null before a fight, rendering the whole bar empty/dim.
+     */
+    private fun statsBlock(hp: Int?, shots: Int?, hits: Int?, damage: Int?, heat: Int?): SpannableStringBuilder {
+        val out = SpannableStringBuilder()
+        if (hp == null) {
+            out.append("HP ---   SH --\nHIT --   DMG ---\nHEAT ")
+        } else {
+            out.append("HP ${hp.toString().padStart(3)}   SH ${shots.toString().padStart(2)}\n")
+            out.append("HIT ${hits.toString().padStart(2)}  DMG ${damage.toString().padStart(3)}\nHEAT ")
+        }
+        val barStart = out.length
+        for (i in 0 until HEAT_MAX) {
+            val filled = heat != null && i < heat
+            out.append(if (filled) '#' else '-')
+            val color = if (filled) C_BRIGHT else C_DIM
+            out.setSpan(ForegroundColorSpan(color), barStart + i, barStart + i + 1, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        return out
+    }
 
     private fun loadAsset(name: String): String? = try {
         assets.open(name).bufferedReader().use { it.readText() }
@@ -808,11 +833,11 @@ class MainActivity : Activity() {
             console.addView(terminalText(11f, C_DIM).apply { text = "COMBATANTS" })
             console.addView(btnA, consoleItem(5))
             console.addView(statA, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(44)
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(58)
             ))
             console.addView(btnB, consoleItem(5))
             console.addView(statB, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(44)
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(58)
             ))
             console.addView(terminalText(11f, C_DIM).apply {
                 text = "EXECUTION"
@@ -839,8 +864,8 @@ class MainActivity : Activity() {
                 orientation = LinearLayout.HORIZONTAL
                 setPadding(0, dp(3), 0, 0)
             }
-            statsRow.addView(statA, LinearLayout.LayoutParams(0, dp(50), 1f))
-            statsRow.addView(statB, LinearLayout.LayoutParams(0, dp(50), 1f).apply {
+            statsRow.addView(statA, LinearLayout.LayoutParams(0, dp(64), 1f))
+            statsRow.addView(statB, LinearLayout.LayoutParams(0, dp(64), 1f).apply {
                 marginStart = dp(6)
             })
             run.addView(statsRow)
@@ -862,7 +887,7 @@ class MainActivity : Activity() {
         gravity = Gravity.CENTER
         setPadding(dp(3), 0, dp(3), 0)
         background = panelBackground(C_DARK, C_GREEN_DARK)
-        maxLines = 2
+        maxLines = 3
     }
 
     private fun terminalText(size: Float, color: Int) = TextView(this).apply {
