@@ -28,7 +28,6 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
-import robofight.world.HEAT_MAX
 import robofight.world.Palette
 import robofight.world.Presets
 
@@ -590,9 +589,9 @@ class MainActivity : Activity() {
     }
 
     /**
-     * One combatant's live readout. The HEAT line is a 10-cell bar (SHOOT &
-     * SHIELD add 2 each, it cools 1 every 2 ticks): filled cells are bright `#`,
-     * empty cells are dim `-`.
+     * One combatant's live readout. The HEAT line is a 10-cell bar over the
+     * 0–100 scale (SHOOT & SHIELD add 10 each; it cools 2 per idle tick):
+     * cell i is bright `#` when heat >= (i+1)*10, else dim `-`.
      * Intensity contrast — not a new hue — so the strict green-phosphor look
      * holds; the pixel font has no block glyphs, so the bar is pure ASCII.
      * [heat] is null before a fight, rendering the whole bar empty/dim.
@@ -606,8 +605,8 @@ class MainActivity : Activity() {
             out.append("HIT ${hits.toString().padStart(2)}  DMG ${damage.toString().padStart(3)}\nHEAT ")
         }
         val barStart = out.length
-        for (i in 0 until HEAT_MAX) {
-            val filled = heat != null && i < heat
+        for (i in 0 until 10) {
+            val filled = heat != null && heat >= (i + 1) * 10
             out.append(if (filled) '#' else '-')
             val color = if (filled) C_BRIGHT else C_DIM
             out.setSpan(ForegroundColorSpan(color), barStart + i, barStart + i + 1, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
