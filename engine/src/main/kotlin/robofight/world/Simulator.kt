@@ -13,6 +13,11 @@ object Simulator {
             w.tickOnce()
             onTick?.invoke(w, w.tick)
         }
+        // If the tick limit (not a KO) ended the fight, resolve by HP —
+        // "highest HP after N ticks" (DESIGN.md §10). Without this, finished
+        // stays false and winner stays null, which is indistinguishable from
+        // a stalemate and breaks callers that check w.finished.
+        if (!w.finished) w.forceEnd()
         return w
     }
 

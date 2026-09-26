@@ -31,3 +31,5 @@ Thumbs.db
 build.log
 shot.png
 window_dump.xml
+# uiautomator hierarchy dumps (scratch, device-specific)
+ui_*.xml

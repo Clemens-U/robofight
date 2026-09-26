@@ -189,65 +189,140 @@ fun main() {
         repeat(3) { w4.tickOnce() }   // projectile takes 3 ticks to travel 4 cells
         check("projectile flies & hits at range 4", b4.hp == 90, "b4.hp=${b4.hp}")
 
-        // Heat is cumulative, so at full duty (SHOOT every tick) it piles up
-        // to the cap, then the gun is locked out until the heat has cooled
-        // enough to fire again (10, 9, 9 too hot for +2, 8 is fine)
+        // Heat is cumulative on a 0–100 scale: 10 SHOOTs reach the max, and
+        // heat only cools on ticks where no SHOOT/SHIELD added heat.
         val w5 = World()
-        val a5 = Bot("A", 'A', 2, 5, 0, DIR_E, "WAIT\n")
+        val a5 = Bot("A", 'A', 2, 0, 0, DIR_E, "WAIT\n")
         val d5 = Bot("D", 'D', 4, 19, 0, DIR_W, "WAIT\n")
         w5.add(a5); w5.add(d5)
-        repeat(8) { w5.tickOnce(); a5.shoot() }
-        check("sustained SHOOT piles heat to the max", a5.heat == HEAT_MAX && a5.shots == 7,
+        repeat(10) { a5.shoot() }
+        check("10 SHOOTs reach maximum heat", a5.heat == HEAT_MAX && a5.shots == 10,
             "heat=${a5.heat} shots=${a5.shots}")
-        w5.tickOnce(); a5.shoot()   // no cool tick; 10+2 > 10 → locked out
-        w5.tickOnce(); a5.shoot()   // cool 10→9; 9+2 > 10 → still locked
-        w5.tickOnce(); a5.shoot()   // no cool tick; 9 still too hot
-        check("SHOOT locked out at max heat", a5.shots == 7 && a5.heat == 9,
+        a5.shoot()                     // 100+10 > 100 → locked out
+        check("SHOOT locked out at max heat", a5.shots == 10 && a5.heat == HEAT_MAX,
             "shots=${a5.shots} heat=${a5.heat}")
-        w5.tickOnce(); a5.shoot()   // cool 9→8; 8+2 = 10 → works again
-        check("SHOOT works again once heat cooled", a5.shots == 8 && a5.heat == HEAT_MAX,
+        repeat(5) { w5.tickOnce() }    // 5 idle ticks cool 2 each: 100 → 90
+        a5.shoot()                     // 90+10 = 100 → works again
+        check("SHOOT works again at exactly 90 heat", a5.shots == 11 && a5.heat == HEAT_MAX,
             "shots=${a5.shots} heat=${a5.heat}")
 
-        // SHIELD piles heat the same way: sustained shielding reaches the
-        // cap, collapses on the ticks it would overflow, and works again
-        // after cooling
+        // Heat cools 2 per idle tick — 100 → 0 in 50 idle ticks (5 s at 100 ms/tick)
+        val w5b = World()
+        val a5b = Bot("A", 'A', 2, 5, 0, DIR_E, "WAIT\n")
+        val d5b = Bot("D", 'D', 4, 19, 0, DIR_W, "WAIT\n")
+        w5b.add(a5b); w5b.add(d5b)
+        a5b.heat = HEAT_MAX
+        var coolTicks = 0
+        while (a5b.heat > 0 && coolTicks < 200) { w5b.tickOnce(); coolTicks++ }
+        check("heat decays 100→0 in 50 idle ticks", a5b.heat == 0 && coolTicks == 50,
+            "heat=${a5b.heat} ticks=$coolTicks")
+
+        // SHIELD piles heat the same way: 10 shields reach the cap, it
+        // collapses on the ticks it would overflow, and works again at 90
         val w6 = World()
         val s = Bot("S", 'S', 4, 0, 0, DIR_S, "WAIT\n")
         val d6 = Bot("D", 'D', 4, 19, 0, DIR_W, "WAIT\n")
         w6.add(s); w6.add(d6)
-        repeat(8) { w6.tickOnce(); s.shield() }
-        check("sustained SHIELD piles heat to the max", s.heat == HEAT_MAX, "heat=${s.heat}")
+        repeat(10) { s.shield() }
+        check("10 SHIELDs reach maximum heat", s.heat == HEAT_MAX, "heat=${s.heat}")
         var collapses = 0
-        repeat(3) {
-            w6.tickOnce()
-            s.shield()
-            if (!s.shielded && s.heat >= 5) collapses++   // shield tick that didn't shield
+        repeat(4) {
+            w6.tickOnce()   // idle tick cools 2
+            s.shield()      // still > 90 → collapsed, no protection
+            if (!s.shielded && s.heat > 90) collapses++
         }
-        check("SHIELD collapses when it would overflow the max", collapses == 3,
+        check("SHIELD collapses while heat > 90", collapses == 4,
             "collapses=$collapses heat=${s.heat}")
-        w6.tickOnce(); s.shield()   // cool 9→8; works again
-        check("SHIELD works again once heat cooled", s.shielded && s.heat == HEAT_MAX,
+        w6.tickOnce()       // 92 → 90
+        s.shield()          // 90+10 = 100 → works again
+        check("SHIELD works again at exactly 90 heat", s.shielded && s.heat == HEAT_MAX,
             "shielded=${s.shielded} heat=${s.heat}")
 
-        // A real firmware loop (SHOOT every other tick) still piles heat to
-        // the cap, and the gun is periodically locked out once it does.
+        // A real firmware loop that fires 10 SHOOTs in a row reaches the
+        // max (as the spec says), and the gun is locked out until the heat
+        // cools back to 90. Burst = 10 SHOOTs then a short WAIT to breathe.
         // The dummy sits off the firing line (19,19) so it never dies and
         // freezes the world mid-window.
         val w7 = World()
         val a7 = Bot("A", 'A', 2, 5, 0, DIR_E, """
-            top:  SHOOT
-            JMP    top
+            burst:  SHOOT
+            SHOOT
+            SHOOT
+            SHOOT
+            SHOOT
+            SHOOT
+            SHOOT
+            SHOOT
+            SHOOT
+            SHOOT
+            JMP    burst
         """.trimIndent())
         val d7 = Bot("D", 'D', 4, 19, 19, DIR_N, "WAIT\n")
         w7.add(a7); w7.add(d7)
         var guard = 0
-        while (a7.heat < HEAT_MAX && guard < 30) { w7.tickOnce(); guard++ }
-        check("firmware SHOOT loop piles heat to the max", a7.heat == HEAT_MAX,
+        while (a7.heat < HEAT_MAX && guard < 100) { w7.tickOnce(); guard++ }
+        check("10 burst SHOOTs reach maximum heat", a7.heat == HEAT_MAX,
             "heat=${a7.heat} tick=${w7.tick}")
         val shotsAtMax = a7.shots
-        repeat(24) { w7.tickOnce() }
-        check("max heat periodically locks the gun (6 of 24 attempts fire)",
-            a7.shots - shotsAtMax == 6, "extra=${a7.shots - shotsAtMax}")
+        repeat(15) { w7.tickOnce() }
+        check("max heat locks the gun until it cools to 90 (2 of 15 fire)",
+            a7.shots - shotsAtMax == 2, "extra=${a7.shots - shotsAtMax}")
+
+        // Heat above 80% damages the bot at 2 HP/sec. At the engine's
+        // 10-ticks/sec model that is 0.2 HP/tick → 1 HP every 5 ticks.
+        // Pin heat at 100 (re-set before each tick since WAIT would cool it)
+        // so the rate is exact and deterministic.
+        val w8 = World()
+        val a8 = Bot("A", 'A', 2, 5, 5, DIR_E, "WAIT\n")
+        val d8 = Bot("D", 'D', 4, 19, 0, DIR_W, "WAIT\n")
+        w8.add(a8); w8.add(d8)
+        a8.heat = HEAT_MAX
+        repeat(5) { a8.heat = HEAT_MAX; w8.tickOnce() }
+        check("overheat: 1 HP lost after 5 ticks at heat 100",
+            a8.hp == MAX_HP - 1, "hp=${a8.hp} heat=${a8.heat}")
+        repeat(5) { a8.heat = HEAT_MAX; w8.tickOnce() }
+        check("overheat: 2 HP lost after 10 ticks (2 HP/sec at 10 ticks/sec)",
+            a8.hp == MAX_HP - 2, "hp=${a8.hp} heat=${a8.heat}")
+
+        // Heat at exactly 80 (the threshold) does NOT damage — "above 80%"
+        // means strictly greater than 80.
+        val w9 = World()
+        val a9 = Bot("A", 'A', 2, 5, 5, DIR_E, "WAIT\n")
+        val d9 = Bot("D", 'D', 4, 19, 0, DIR_W, "WAIT\n")
+        w9.add(a9); w9.add(d9)
+        a9.heat = HEAT_DAMAGE_THRESHOLD
+        repeat(10) { w9.tickOnce() }
+        check("heat at 80 (not above) → no damage",
+            a9.hp == MAX_HP, "hp=${a9.hp} heat=${a9.heat}")
+
+        // Heat just below 80 never damages — accumulator drains each tick.
+        val w10 = World()
+        val a10 = Bot("A", 'A', 2, 5, 5, DIR_E, "WAIT\n")
+        val d10 = Bot("D", 'D', 4, 19, 0, DIR_W, "WAIT\n")
+        w10.add(a10); w10.add(d10)
+        a10.heat = HEAT_DAMAGE_THRESHOLD - 1
+        repeat(10) { w10.tickOnce() }
+        check("heat below 80 → no damage",
+            a10.hp == MAX_HP, "hp=${a10.hp} heat=${a10.heat}")
+
+        // A bot can die from sustained overheating: 5 HP at 0.2 HP/tick
+        // → death after 25 ticks (5 × 5).
+        val w11 = World()
+        val a11 = Bot("A", 'A', 2, 5, 5, DIR_E, "WAIT\n")
+        val d11 = Bot("D", 'D', 4, 19, 0, DIR_W, "WAIT\n")
+        w11.add(a11); w11.add(d11)
+        a11.heat = HEAT_MAX
+        a11.hp = 5
+        var died11 = false
+        repeat(30) {
+            a11.heat = HEAT_MAX
+            if (!w11.finished) {
+                w11.tickOnce()
+                if (!a11.alive) died11 = true
+            }
+        }
+        check("overheat kills a bot at 5 HP after ~25 ticks",
+            died11 && a11.hp == 0, "alive=${a11.alive} hp=${a11.hp}")
     }
 
     // ---- full fights ----

@@ -136,12 +136,16 @@ Bots are colored per the table above. When a bot dies it disappears.
   hit, or hit a wall.
 - **Health:** every bot starts at **100 HP**. A hit does **10 damage** → 10 clean
   hits to KO.
-- **Heat (anti-spam):** heat is **cumulative**. `SHOOT` and `SHIELD` each add
-  **+2** heat and heat cools by only **1 every 2 ticks** — the more you act,
-  the hotter your bot gets, and it stays hot. If an action would push heat
-  past the max (10) it is **locked out** until the heat has cooled enough to
-  perform it. Sustained fire settles at 1 shot / 4 ticks (at 10 you sit out
-  three ticks at 10 → 9 → 9, then fire from 8).
+- **Heat (anti-spam):** heat is **cumulative**, measured 0–100. `SHOOT` and
+  `SHIELD` each add **+10** — 10 of either op maxes you out. Heat cools by
+  **2 per tick**, but only on ticks where you didn't shoot or shield (at
+  100 ms/tick that's 100 % → 0 % in 5 s). When an action would push heat past
+  the max it is **locked out** — with +10/op, both work again exactly at
+  **90**. Sustained full fire settles at 10 shots / 15 ticks.
+- **Overheat damage:** heat above **80** (80%) burns **2 HP per second**.
+  The damage accumulates fractionally (0.2 HP/tick at the engine's 10 ticks/sec)
+  and is applied as whole HP, so staying hot is lethal — shut down, idle, and
+  let heat cool below 80 to stop taking damage.
 - **Shield:** `SHIELD` protects a bot from one hit *that tick* and **adds heat
   too**. It resets every tick, so it only matters the instant you raise it.
   When heat is too high to shield, the shield **collapses** — no protection —
@@ -180,7 +184,7 @@ I/O ports**, and one instruction per tick. Every line is `[label:]  MNEMONIC  [o
 | `DIST` | R | distance to nearest enemy (**0 = none**) |
 | `ANGLE` | R | **how many steps clockwise** to face the nearest enemy (`0` = already facing, `255` = no enemy) |
 | `ENEMY_HP` | R | nearest enemy's HP |
-| `HEAT` | R | your current heat (0–10; +2 per SHOOT/SHIELD, −1 every 2 ticks; too high = action locked out) |
+| `HEAT` | R | your current heat (0–100; +10 per SHOOT/SHIELD, −2 per idle tick; at the max = action locked out until 90; **above 80 = 2 HP/sec self-damage**) |
 | `SHIELD` | R | 1 if shielded this tick, else 0 |
 | `RAND` | R | random byte 0–255 |
 | `AHEAD` | R | 1 if a wall or enemy blocks the cell directly in front of you, 0 if clear |

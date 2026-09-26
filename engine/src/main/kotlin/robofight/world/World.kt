@@ -7,11 +7,18 @@ import robofight.vm.Vm
 const val GRID = 20          // 20×20 arena
 const val MAX_HP = 100
 const val DAMAGE = 10
-const val HEAT_MAX = 10       // heat cap — at the max, SHOOT & SHIELD are locked out
-const val HEAT_COOL = 1       // heat cooled by this every HEAT_COOL_EVERY ticks
-const val HEAT_COOL_EVERY = 2 // ticks per cool step — heat lingers, maxed robots sit out
-const val HEAT_SHOOT = 2      // heat added by SHOOT (piles up over time)
-const val HEAT_SHIELD = 2     // heat added by SHIELD
+const val HEAT_MAX = 100     // heat cap (0–100) — 10 SHOOT/SHIELD reach the max
+const val HEAT_COOL = 2      // heat dropped per cool tick; 100→0 in 50 cool ticks = 5 s at 100 ms/tick
+const val HEAT_SHOOT = 10    // heat added by SHOOT
+const val HEAT_SHIELD = 10   // heat added by SHIELD
+const val HEAT_DAMAGE_THRESHOLD = 80   // heat (0–100) above which the bot takes self-damage
+const val HEAT_DAMAGE_PER_SEC = 2      // HP lost per second while heat > HEAT_DAMAGE_THRESHOLD
+const val TICKS_PER_SECOND = 10        // engine time model: 100 ms per tick (see §10 DESIGN.md)
+// Ops lock out when heat + HEAT_* > HEAT_MAX, i.e. they work again exactly
+// at 90 (90+10 = 100 is allowed, 92+10 > 100 is not).
+// Heat above HEAT_DAMAGE_THRESHOLD damages the bot at HEAT_DAMAGE_PER_SEC
+// (2 HP/sec → 0.2 HP/tick at 10 ticks/sec). Fractional damage accumulates
+// in Bot.heatOverload and is applied as whole HP once it reaches 1.0.
 const val MAX_TICKS = 1_000_000 // "endless" — cap is a safety net, not a game rule
 const val PROJ_LIFE = 40
 
@@ -35,6 +42,8 @@ class Bot(
     var facing = dir
     var hp = MAX_HP
     var heat = 0
+    var heatedThisTick = false  // set by shoot()/shield(); consumed by the cool step
+    var heatOverload = 0f       // fractional HP pending from overheating (applied as whole HP)
     var shielded = false      // resets every tick before the bot acts
     var alive = true
     var shots = 0
@@ -56,7 +65,7 @@ class Bot(
 
     fun reset(x: Int, y: Int, dir: Int) {
         px = x; py = y; facing = dir
-        hp = MAX_HP; heat = 0; shielded = false; alive = true
+        hp = MAX_HP; heat = 0; heatedThisTick = false; heatOverload = 0f; shielded = false; alive = true
         shots = 0; hits = 0; dmgDealt = 0; dmgTaken = 0
         load(fw)
     }
@@ -88,14 +97,15 @@ class Bot(
     override fun shoot() {
         val w = world ?: return
         if (!alive) return
-        // Heat is cumulative: every shot adds HEAT_SHOOT and it only cools
-        // 1 per 2 ticks, so an active bot's heat piles up over the fight.
-        // When a shot would push heat past the max, the gun is locked until
-        // the heat has cooled enough to fire again.
+        // Heat is cumulative (0–100): every shot adds HEAT_SHOOT, so 10 shots
+        // reach the max. The gun locks out while heat + HEAT_SHOOT > HEAT_MAX,
+        // i.e. it works again exactly at 90. Heat only cools on ticks where
+        // no SHOOT/SHIELD added heat.
         if (heat + HEAT_SHOOT > HEAT_MAX) return
         val (dx, dy) = delta(facing)
         w.spawnProjectile(this, px + dx, py + dy, facing)
         heat += HEAT_SHOOT
+        heatedThisTick = true
         shots++
     }
 
@@ -110,10 +120,11 @@ class Bot(
     override fun shield() {
         // Shielding strains the system too (+HEAT_SHIELD). When shielding
         // would push heat past the max, the shield collapses — no protection
-        // — until the heat has been reduced enough to raise it again.
+        // — until the heat has cooled back to 90.
         if (heat + HEAT_SHIELD > HEAT_MAX) return
         shielded = true
         heat += HEAT_SHIELD
+        heatedThisTick = true
     }
 
     override fun turn(delta: Int) {
@@ -230,9 +241,26 @@ class World {
         for (b in bots) {
             if (!b.alive) continue
             b.shielded = false
-            if (tick % HEAT_COOL_EVERY == 0) b.heat = (b.heat - HEAT_COOL).coerceAtLeast(0)
+            b.heatedThisTick = false
             b.vm.step(b)
             if (b.vm.fault) { b.alive = false; b.hp = 0 }
+            // Cool only on ticks where the bot added no heat (no SHOOT/SHIELD
+            // that ran) — an active bot stays hot, an idle one cools.
+            if (!b.heatedThisTick) b.heat = (b.heat - HEAT_COOL).coerceAtLeast(0)
+            // Heat above HEAT_DAMAGE_THRESHOLD burns the bot: 2 HP/sec
+            // (engine model: 10 ticks/sec → 0.2 HP/tick). Fractional damage
+            // accumulates in heatOverload and is applied as whole HP once
+            // it reaches 1.0. Drops below the threshold drains the accumulator.
+            if (b.alive && b.heat > HEAT_DAMAGE_THRESHOLD) {
+                b.heatOverload += HEAT_DAMAGE_PER_SEC.toFloat() / TICKS_PER_SECOND
+                val dmg = b.heatOverload.toInt()
+                if (dmg > 0) {
+                    b.heatOverload -= dmg
+                    b.applyHit(dmg)
+                }
+            } else {
+                b.heatOverload = 0f
+            }
             log.add("${b.name}[${b.vm.lastOp}]")
         }
         resolveProjectiles()
