@@ -108,7 +108,8 @@ class MainActivity : Activity() {
         override fun run() {
             val world = controller.world ?: return
             if (!world.finished) {
-                controller.step(2)
+                // The engine heat and damage rates are calibrated for 10 ticks/sec.
+                controller.step(1)
                 updateStats()
             }
             if (!world.finished) {
@@ -591,8 +592,9 @@ class MainActivity : Activity() {
     }
 
     /**
-     * One combatant's live readout. The HEAT line is a 10-cell bar over the
-     * 0–100 scale (SHOOT & SHIELD add 10 each; it cools 2 per idle tick):
+     * One combatant's live readout. The HEAT line shows the exact value plus
+     * a 10-cell bar over the 0–100 scale (SHOOT & SHIELD add 20 each; it cools
+     * 2 per idle tick):
      * cell i is bright `#` when heat >= (i+1)*10, else dim `-`.
      * Intensity contrast — not a new hue — so the strict green-phosphor look
      * holds; the pixel font has no block glyphs, so the bar is pure ASCII.
@@ -601,10 +603,11 @@ class MainActivity : Activity() {
     private fun statsBlock(hp: Int?, shots: Int?, hits: Int?, damage: Int?, heat: Int?): SpannableStringBuilder {
         val out = SpannableStringBuilder()
         if (hp == null) {
-            out.append("HP ---   SH --\nHIT --   DMG ---\nHEAT ")
+            out.append("HP ---   SH --\nHIT --   DMG ---\nHEAT --- ")
         } else {
             out.append("HP ${hp.toString().padStart(3)}   SH ${shots.toString().padStart(2)}\n")
-            out.append("HIT ${hits.toString().padStart(2)}  DMG ${damage.toString().padStart(3)}\nHEAT ")
+            out.append("HIT ${hits.toString().padStart(2)}  DMG ${damage.toString().padStart(3)}\n")
+            out.append("HEAT ${heat.toString().padStart(3, '0')} ")
         }
         val barStart = out.length
         for (i in 0 until 10) {

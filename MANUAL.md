@@ -137,15 +137,16 @@ Bots are colored per the table above. When a bot dies it disappears.
 - **Health:** every bot starts at **100 HP**. A hit does **10 damage** → 10 clean
   hits to KO.
 - **Heat (anti-spam):** heat is **cumulative**, measured 0–100. `SHOOT` and
-  `SHIELD` each add **+10** — 10 of either op maxes you out. Heat cools by
+  `SHIELD` each add **+20** — 5 of either op maxes you out. Heat cools by
   **2 per tick**, but only on ticks where you didn't shoot or shield (at
   100 ms/tick that's 100 % → 0 % in 5 s). When an action would push heat past
-  the max it is **locked out** — with +10/op, both work again exactly at
-  **90**. Sustained full fire settles at 10 shots / 15 ticks.
+  the max it is **locked out** — with +20/op, both work again exactly at
+  **80**.
 - **Overheat damage:** heat above **80** (80%) burns **2 HP per second**.
   The damage accumulates fractionally (0.2 HP/tick at the engine's 10 ticks/sec)
-  and is applied as whole HP, so staying hot is lethal — shut down, idle, and
-  let heat cool below 80 to stop taking damage.
+  and is applied as whole HP. Safe ticks stop adding damage without erasing
+  earlier fractional exposure, so repeated short spikes cannot bypass the
+  penalty. Staying hot is lethal — shut down, idle, and let heat cool below 80.
 - **Shield:** `SHIELD` protects a bot from one hit *that tick* and **adds heat
   too**. It resets every tick, so it only matters the instant you raise it.
   When heat is too high to shield, the shield **collapses** — no protection —
@@ -184,7 +185,7 @@ I/O ports**, and one instruction per tick. Every line is `[label:]  MNEMONIC  [o
 | `DIST` | R | distance to nearest enemy (**0 = none**) |
 | `ANGLE` | R | **how many steps clockwise** to face the nearest enemy (`0` = already facing, `255` = no enemy) |
 | `ENEMY_HP` | R | nearest enemy's HP |
-| `HEAT` | R | your current heat (0–100; +10 per SHOOT/SHIELD, −2 per idle tick; at the max = action locked out until 90; **above 80 = 2 HP/sec self-damage**) |
+| `HEAT` | R | your current heat (0–100; +20 per SHOOT/SHIELD, −2 per idle tick; at the max = action locked out until 80; **above 80 = 2 HP/sec self-damage**) |
 | `SHIELD` | R | 1 if shielded this tick, else 0 |
 | `RAND` | R | random byte 0–255 |
 | `AHEAD` | R | 1 if a wall or enemy blocks the cell directly in front of you, 0 if clear |

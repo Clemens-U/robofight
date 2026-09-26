@@ -7,15 +7,15 @@ import robofight.vm.Vm
 const val GRID = 20          // 20×20 arena
 const val MAX_HP = 100
 const val DAMAGE = 10
-const val HEAT_MAX = 100     // heat cap (0–100) — 10 SHOOT/SHIELD reach the max
+const val HEAT_MAX = 100     // heat cap (0–100) — 5 SHOOT/SHIELD reach the max
 const val HEAT_COOL = 2      // heat dropped per cool tick; 100→0 in 50 cool ticks = 5 s at 100 ms/tick
-const val HEAT_SHOOT = 10    // heat added by SHOOT
-const val HEAT_SHIELD = 10   // heat added by SHIELD
+const val HEAT_SHOOT = 20    // heat added by SHOOT
+const val HEAT_SHIELD = 20   // heat added by SHIELD
 const val HEAT_DAMAGE_THRESHOLD = 80   // heat (0–100) above which the bot takes self-damage
 const val HEAT_DAMAGE_PER_SEC = 2      // HP lost per second while heat > HEAT_DAMAGE_THRESHOLD
 const val TICKS_PER_SECOND = 10        // engine time model: 100 ms per tick (see §10 DESIGN.md)
 // Ops lock out when heat + HEAT_* > HEAT_MAX, i.e. they work again exactly
-// at 90 (90+10 = 100 is allowed, 92+10 > 100 is not).
+// at 80 (80+20 = 100 is allowed, 82+20 > 100 is not).
 // Heat above HEAT_DAMAGE_THRESHOLD damages the bot at HEAT_DAMAGE_PER_SEC
 // (2 HP/sec → 0.2 HP/tick at 10 ticks/sec). Fractional damage accumulates
 // in Bot.heatOverload and is applied as whole HP once it reaches 1.0.
@@ -97,9 +97,9 @@ class Bot(
     override fun shoot() {
         val w = world ?: return
         if (!alive) return
-        // Heat is cumulative (0–100): every shot adds HEAT_SHOOT, so 10 shots
+        // Heat is cumulative (0–100): every shot adds HEAT_SHOOT, so 5 shots
         // reach the max. The gun locks out while heat + HEAT_SHOOT > HEAT_MAX,
-        // i.e. it works again exactly at 90. Heat only cools on ticks where
+        // i.e. it works again exactly at 80. Heat only cools on ticks where
         // no SHOOT/SHIELD added heat.
         if (heat + HEAT_SHOOT > HEAT_MAX) return
         val (dx, dy) = delta(facing)
@@ -120,7 +120,7 @@ class Bot(
     override fun shield() {
         // Shielding strains the system too (+HEAT_SHIELD). When shielding
         // would push heat past the max, the shield collapses — no protection
-        // — until the heat has cooled back to 90.
+        // — until the heat has cooled back to 80.
         if (heat + HEAT_SHIELD > HEAT_MAX) return
         shielded = true
         heat += HEAT_SHIELD
@@ -250,7 +250,8 @@ class World {
             // Heat above HEAT_DAMAGE_THRESHOLD burns the bot: 2 HP/sec
             // (engine model: 10 ticks/sec → 0.2 HP/tick). Fractional damage
             // accumulates in heatOverload and is applied as whole HP once
-            // it reaches 1.0. Drops below the threshold drains the accumulator.
+            // it reaches 1.0. Safe ticks add no damage, but must not erase
+            // fractional exposure from earlier hot ticks.
             if (b.alive && b.heat > HEAT_DAMAGE_THRESHOLD) {
                 b.heatOverload += HEAT_DAMAGE_PER_SEC.toFloat() / TICKS_PER_SECOND
                 val dmg = b.heatOverload.toInt()
@@ -258,8 +259,6 @@ class World {
                     b.heatOverload -= dmg
                     b.applyHit(dmg)
                 }
-            } else {
-                b.heatOverload = 0f
             }
             log.add("${b.name}[${b.vm.lastOp}]")
         }

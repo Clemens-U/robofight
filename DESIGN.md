@@ -192,15 +192,16 @@ idle:   WAIT
 - **Projectile hit**: reaching an enemy bot cell deals **10 HP**, projectile
   vanishes. Off-grid → vanishes.
 |- **Anti-spam:** `HEAT` is **cumulative** (0–100) — `SHOOT` and `SHIELD` each
-  add +10, so 10 of either op reach the max, and heat cools 2 per tick but
+  add +20, so 5 of either op reach the max, and heat cools 2 per tick but
   only on ticks where no heat was added. While an action would push heat past
-  the max it is **locked out** — with +10/op both ops work again exactly at
-  90. Sustained full fire settles at 10 shots / 15 ticks (10 fire, 5 idle).
+  the max it is **locked out** — with +20/op both ops work again exactly at
+  80.
 |- **Overheat damage:** heat above **80** (80%) damages the bot at **2 HP per
   second** (engine model: 10 ticks/sec → 0.2 HP/tick). Fractional damage
-  accumulates and is applied as whole HP, so sustained overheating is lethal —
-  a bot pinned at max heat burns 1 HP every 5 ticks (10 HP in 5 s). Shutting
-  down and letting heat cool below 80 stops the damage.
+  accumulates and is applied as whole HP; safe ticks stop adding damage but do
+  not erase prior fractional exposure. Sustained overheating is lethal — a bot
+  pinned at max heat burns 1 HP every 5 ticks (10 HP in 5 s). Shutting down and
+  letting heat cool below 80 stops additional damage from accumulating.
 |- **SHIELD** absorbs one hit that tick (no damage). When heat is too high to
   shield, the shield **collapses** (no protection) and `SHOOT` is locked out
   the same way — the bot must wait until the heat comes down before it can act.
@@ -305,7 +306,7 @@ rnd:    MOV   A, #1
 |------|---------|------|
 | Round length `N` (ticks) | 200 | higher = longer battles |
 | Shot damage | 10 | HP 100 → 10 clean hits to KO |
-| Heat cap / decay | 100 / 2 per tick | anti-spam; 10 SHOOT/SHIELD reach cap; cooldown on idle ticks only |
+| Heat cap / decay | 100 / 2 per tick | anti-spam; 5 SHOOT/SHIELD reach cap; cooldown on idle ticks only |
 | Heat damage | 2 HP/sec over 80 | above 80 heat, fractional accumulation; lethal if sustained |
 | Tick rate | 10 ticks/sec | 100 ms/tick (engine model; Android app runs 2× for smoother display) |
 | Start HP | 100 | per bot |
