@@ -10,17 +10,25 @@ import robofight.world.Palette.ORANGE
 object Presets {
     val HUNTER = """
         ; HUNTER — face the nearest enemy,
-        ; step in, fire; back off at a wall
+        ; step in, fire; back off at a wall.
+        ; When an enemy is adjacent (DIST=1), fire at
+        ; point-blank range instead of retreating.
 top:    IN     DIST            ; nearest enemy
         JZ     idle            ; none? idle
+        MOV    X, A            ; save DIST
         IN     ANGLE           ; turns to face
 loop:   JZ     face
         TURN   R               ; one step cw
         DEC    A
         JMP    loop
 face:   IN     AHEAD           ; wall/enemy ahead?
-        JNZ    retreat
-        MOVE
+        JZ     advance
+        MOV    A, X            ; restore DIST
+        CMP    #1              ; enemy adjacent?
+        JNE    retreat         ; no -> wall -> back off
+        SHOOT                  ; yes -> fire at point-blank
+        JMP    top
+advance:MOVE
         SHOOT
         JMP    top
 retreat:TURN   R

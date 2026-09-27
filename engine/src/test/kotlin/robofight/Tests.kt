@@ -390,6 +390,19 @@ fun main() {
         println("  → " + Simulator.stats(w2))
         println("  → final arena:")
         println(TextGrid.render(w2).lines().joinToString("\n  ") { "  $it" })
+
+        // HUNTER vs adjacent WAIT bot: must fire, not oscillate.
+        // Before the fix, AHEAD=1 (enemy adjacent) triggered retreat,
+        // causing an infinite retreat→turn-back→retreat loop with 0 shots.
+        val hw = World()
+        val hh = Bot("H", 'H', 2, 5, 5, DIR_E, Presets.HUNTER)
+        val hd = Bot("D", 'D', 4, 6, 5, DIR_W, "WAIT\n")
+        hw.add(hh); hw.add(hd)
+        repeat(20) { hw.tickOnce() }
+        check("HUNTER fires at adjacent enemy (not retreat loop)",
+            hh.shots > 0, "shots=${hh.shots} heat=${hh.heat}")
+        check("adjacent enemy takes damage from HUNTER",
+            hd.hp < MAX_HP, "hd.hp=${hd.hp}")
     }
 
     // ---- AHEAD sensor & RNG seeding ----
@@ -420,6 +433,24 @@ fun main() {
         check("same seed → same RAND stream", s1 == s2, "$s1 vs $s2")
         check("different seed → different RAND stream", s1 != s3, "$s1 vs $s3")
         check("RAND in range 0..255", s1.all { it in 0..255 }, "$s1")
+
+        // DIST = Manhattan distance to nearest enemy (0 = none).
+        // Adjacent bots → 1; the port never returns 0 for a living enemy
+        // at distance 1 (a common misconception — see HUNTER retreat bug).
+        val wa = World()
+        val ba = Bot("A", 'A', 2, 5, 5, DIR_E, "WAIT\n")
+        val b1 = Bot("B", 'B', 4, 6, 5, DIR_W, "WAIT\n")   // adjacent (dist 1)
+        val b2 = Bot("C", 'C', 6, 7, 5, DIR_W, "WAIT\n")   // 2 cells away (dist 2)
+        wa.add(ba); wa.add(b1); wa.add(b2)
+        check("DIST=1 for adjacent enemy", ba.portIn(4) == 1, "got ${ba.portIn(4)}")
+        b1.hp = 0; b1.alive = false                    // kill b1 (nearest)
+        check("DIST skips dead enemy, returns next nearest", ba.portIn(4) == 2, "got ${ba.portIn(4)}")
+
+        // Single bot → no enemy → DIST=0.
+        val wb = World()
+        val solo = Bot("S", 'S', 2, 5, 5, DIR_E, "WAIT\n")
+        wb.add(solo)
+        check("DIST=0 when no enemy", solo.portIn(4) == 0, "got ${solo.portIn(4)}")
     }
 
     println("\n== RESULT: $passed passed, $failed failed ==")
