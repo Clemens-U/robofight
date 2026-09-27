@@ -70,6 +70,8 @@ or use the quick buttons **DIR** / **HELP**.
 | `EDIT <name>` | `E`, `OPEN` | Load `MYBOT`, `BOT1`, … into the editor. |
 | `NEW <name>`  | `N` | Create + open a new file, pre-filled with the RF-8 cheat sheet as comments. Auto-named `BOT1`, `BOT2`, … |
 | `DEL <name>`  | `RM` | Delete a file. |
+| `EXPORT` / `EXPORT ALL` | `FULL` | ZIP-archive **all** firmware. The standard folder picker opens; the `robofight-export-<date>.zip` is written into the folder you pick (any folder on the device — no permissions needed). On devices without a documents UI (plain AOSP emulators) it falls back to the app's own `Android/data/robofight.android/files/` folder and says so in the terminal. |
+| `EXPORT <name>` | — | Same picker, but writes **one** firmware file (e.g. `EXPORT HUNTER.asm`). |
 | `RUN`   | `FIGHT` | Switch to RUN mode and start a fight. |
 | `CLEAR` | `CLS` | Clear the terminal output. |
 | `HELP` | `?` | Show this command list. |

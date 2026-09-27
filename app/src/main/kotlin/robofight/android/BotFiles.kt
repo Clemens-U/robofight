@@ -57,6 +57,12 @@ class BotFiles(context: Context) {
 
     fun size(name: String): Long = (read(name)?.length ?: 0).toLong()
 
+    /** All files as stored name -> source, in name order (case-insensitive). */
+    fun all(): Map<String, String> =
+        db.query("files", arrayOf("name", "source"), null, null, null, null,
+                "name COLLATE NOCASE ASC", null)
+            .use { c -> buildMap { while (c.moveToNext()) put(c.getString(0), c.getString(1)) } }
+
     fun count(): Int =
         db.rawQuery("SELECT COUNT(*) FROM files", null).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
 

@@ -1,9 +1,12 @@
 package robofight.android
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Canvas
+import android.net.Uri
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -12,6 +15,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.DocumentsContract
 import android.text.Editable
 import android.text.InputType
 import android.text.TextUtils
@@ -30,6 +34,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
+import java.io.File
 import robofight.world.Palette
 import robofight.world.Presets
 
@@ -90,6 +95,11 @@ class MainActivity : Activity() {
     private var currentFile: String? = null
     private var editorDirty = false
     private var autoRunning = false
+    /**
+     * Export in flight: the firmware file the pending folder picker writes,
+     * or "" for the all-firmware ZIP. Cleared as soon as the picker answers.
+     */
+    private var pendingExportName: String? = null
 
     /**
      * The RUN-screen bot slots: the five engine presets first, then one slot
@@ -256,6 +266,7 @@ class MainActivity : Activity() {
                 }
             }
             "NEW", "N" -> if (arg.isEmpty()) printLine("USAGE: NEW <NAME>") else doNew(arg)
+            "EXPORT", "SAVE2", "SAVE-OUT" -> export(arg)
             "RUN", "FIGHT" -> showRunMode(startFight = true)
             "HELP", "?" -> printHelp()
             "CLEAR", "CLS" -> { out.removeAllViews(); outText = null }
@@ -324,6 +335,162 @@ class MainActivity : Activity() {
         updateShellContext()
     }
 
+    /**
+     * EXPORT: copies firmware out of the file store into a folder the user
+     * picks in the standard Android folder picker (SAF — no storage
+     * permission needed, the picker grants write access to that folder):
+     *
+     *  - `EXPORT` / `EXPORT ALL` / `EXPORT FULL` — every file as one ZIP,
+     *    `robofight-export-<stamp>.zip`.
+     *  - `EXPORT <name>` — that one file, under its own name.
+     */
+    private fun export(arg: String) {
+        val a = arg.uppercase()
+        val name = if (a.isEmpty() || a == "ALL" || a == "FULL" || a == "*") "" else arg
+        if (name.isNotEmpty()) {
+            if (!store.exists(name)) {
+                printLine("NO SUCH FILE: $name  // TRY EXPORT FOR A ZIP OF ALL")
+                return
+            }
+        } else if (store.count() == 0) {
+            printLine("NOTHING TO EXPORT  // NO FILES IN STORE")
+            return
+        }
+        pendingExportName = name
+        status.text = "EXPORT  // PICK A FOLDER"
+        showShellTerminal(clearFocus = false)
+        try {
+            startActivityForResult(
+                Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                }, REQ_EXPORT_TREE
+            )
+        } catch (e: ActivityNotFoundException) {
+            // No documents UI on this device (e.g. plain AOSP emulators):
+            // fall back to the app's own external files directory instead of
+            // crashing.
+            pendingExportName = null
+            fallbackExport(name)
+            return
+        }
+        // Only say "pick a folder" once the picker actually launched — a
+        // printLine before the try would leak into the fallback output too.
+        printLine("PICK A FOLDER FOR THE EXPORT ...")
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQ_EXPORT_TREE) return
+        // null = the fallback already wrote the file (no documents UI), or the
+        // export was never armed — a late CANCELED for the failed launch must
+        // not overwrite the success message.
+        val name = pendingExportName ?: return
+        pendingExportName = null
+        if (resultCode != Activity.RESULT_OK) {
+            printLine("EXPORT CANCELLED")
+            status.text = "EXPORT CANCELLED"
+            commitText()
+            return
+        }
+        val tree = data?.data ?: run {
+            printLine("EXPORT FAILED  // NO FOLDER SELECTED")
+            status.text = "EXPORT FAILED"
+            commitText()
+            return
+        }
+        try {
+            val grant = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            contentResolver.takePersistableUriPermission(tree, grant)
+            val dirName = contentResolver.query(tree, null, null, null, null)
+                ?.use { c ->
+                    if (c.moveToFirst()) c.getString(c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME))
+                    else "FOLDER"
+                } ?: "FOLDER"
+            if (name.isEmpty()) {
+                val files = store.all()
+                val bytes = FirmwareExport.zipBytes(files)
+                val file = FirmwareExport.zipName()
+                if (!writeExportDoc(tree, file, FirmwareExport.MIME_ZIP, bytes)) {
+                    printLine("EXPORT FAILED  // CANNOT WRITE $file TO THE PICKED FOLDER")
+                    status.text = "EXPORT FAILED"
+                    commitText()
+                    return
+                }
+                printLine("EXPORTED ${files.size} FILE(S) AS $file")
+                printLine("  ZIP ${bytes.size} BYTES  // $dirName")
+                status.text = "EXPORTED ${files.size} FILE(S)"
+            } else {
+                val bytes = (store.read(name) ?: "").toByteArray(Charsets.UTF_8)
+                val file = FirmwareExport.safeName(name)
+                if (!writeExportDoc(tree, file, FirmwareExport.MIME_SOURCE, bytes)) {
+                    printLine("EXPORT FAILED  // CANNOT WRITE $file TO THE PICKED FOLDER")
+                    status.text = "EXPORT FAILED"
+                    commitText()
+                    return
+                }
+                printLine("EXPORTED $name AS $file")
+                printLine("  ${bytes.size} BYTES  // $dirName")
+                status.text = "EXPORTED $name"
+            }
+            commitText()
+        } catch (e: Exception) {
+            printLine("EXPORT FAILED: ${e.message}")
+            status.text = "EXPORT FAILED"
+            commitText()
+        }
+        showShellTerminal(clearFocus = false)
+    }
+
+    /**
+     * Creates [fileName] inside the picked [tree] folder and writes [bytes]
+     * to it. Returns false when the file can't be created or written (the
+     * caller reports the failure) — [DocumentsContract.createDocument] may
+     * return null, so the null case is handled here, not with a cast.
+     */
+    private fun writeExportDoc(tree: Uri, fileName: String, mimeType: String, bytes: ByteArray): Boolean {
+        val doc = DocumentsContract.createDocument(contentResolver, tree, fileName, mimeType) ?: return false
+        return try {
+            val out = contentResolver.openOutputStream(doc) ?: return false
+            out.use { it.write(bytes) }
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * No documents UI available (plain AOSP emulator): write straight to the
+     * app's external files directory instead — same content, a fixed
+     * location, and the terminal tells the user where it landed.
+     */
+    private fun fallbackExport(name: String) {
+        try {
+            val root = getExternalFilesDir(null) ?: filesDir
+            if (name.isEmpty()) {
+                val files = store.all()
+                val bytes = FirmwareExport.zipBytes(files)
+                val target = File(root, FirmwareExport.zipName())
+                target.writeBytes(bytes)
+                printLine("EXPORTED ${files.size} FILE(S) AS ${target.name}")
+                printLine("  ZIP ${bytes.size} BYTES  // ${root.absolutePath}")
+                status.text = "EXPORTED ${files.size} FILE(S)"
+            } else {
+                val bytes = (store.read(name) ?: "").toByteArray(Charsets.UTF_8)
+                val target = File(root, FirmwareExport.safeName(name))
+                target.writeBytes(bytes)
+                printLine("EXPORTED $name AS ${target.name}")
+                printLine("  ${bytes.size} BYTES  // ${root.absolutePath}")
+                status.text = "EXPORTED $name"
+            }
+            commitText()
+        } catch (e: Exception) {
+            printLine("EXPORT FAILED: ${e.message}")
+            status.text = "EXPORT FAILED"
+            commitText()
+        }
+    }
+
     private fun newOutText() = terminalText(12f, C_GREEN)
 
     private fun commitText() {
@@ -382,6 +549,8 @@ class MainActivity : Activity() {
         printLine("EDIT <NAME>      OPEN IN EDITOR (HUNTER.asm, MYBOT, BOT1, …)")
         printLine("NEW <NAME>       CREATE FIRMWARE (STARTS WITH CHEAT SHEET)")
         printLine("DEL <NAME>       DELETE FIRMWARE")
+        printLine("EXPORT           PICK A FOLDER, ZIP-EXPORT ALL FIRMWARE THERE")
+        printLine("EXPORT <NAME>    PICK A FOLDER, SAVE ONE FIRMWARE FILE THERE")
         printLine("RUN              ENTER ARENA + FIGHT")
         printLine("CLEAR            CLEAR TERMINAL")
         printLine("HELP             SHOW COMMANDS")
@@ -972,6 +1141,7 @@ class MainActivity : Activity() {
         private const val STATE_SOURCE = "state.source"
         private const val STATE_DIRTY = "state.dirty"
         private const val STATE_RUN_MODE = "state.runMode"
+        private const val REQ_EXPORT_TREE = 41
         private val C_BG = Color.rgb(1, 7, 3)
         private val C_BLACK = Color.rgb(0, 3, 1)
         private val C_PANEL = Color.rgb(2, 13, 6)

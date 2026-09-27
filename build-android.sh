@@ -93,6 +93,7 @@ echo "[3/7] kotlinc (engine + app → app-cls)…"
   app/src/main/kotlin/robofight/android/BotSlot.kt \
   app/src/main/kotlin/robofight/android/BotFiles.kt \
   app/src/main/kotlin/robofight/android/Firmware.kt \
+  app/src/main/kotlin/robofight/android/FirmwareExport.kt \
   app/src/main/kotlin/robofight/android/RunController.kt \
   app/src/main/kotlin/robofight/android/ArenaView.kt \
   app/src/main/kotlin/robofight/android/RetroSound.kt \
