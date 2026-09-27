@@ -360,9 +360,13 @@ class MainActivity : Activity() {
         status.text = "EXPORT  // PICK A FOLDER"
         showShellTerminal(clearFocus = false)
         try {
+            // NOTE: no CATEGORY_OPENABLE — the documents-ui filter for
+            // OPEN_DOCUMENT_TREE matches CATEGORY_DEFAULT only, so adding
+            // OPENABLE makes the implicit intent UNRESOLVABLE. The system
+            // returns START_INTENT_NOT_RESOLVED (-91) without throwing, the
+            // picker silently never opens, and the fallback path takes over.
             startActivityForResult(
                 Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                 }, REQ_EXPORT_TREE
             )
@@ -402,11 +406,16 @@ class MainActivity : Activity() {
         try {
             val grant = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             contentResolver.takePersistableUriPermission(tree, grant)
-            val dirName = contentResolver.query(tree, null, null, null, null)
-                ?.use { c ->
-                    if (c.moveToFirst()) c.getString(c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME))
-                    else "FOLDER"
-                } ?: "FOLDER"
+            // The raw tree URI is not queryable (DocumentsProvider has no
+            // URI pattern for a bare tree/*) — query the root *document*
+            // URI that the tree stands for.
+            val dirName = treeDocUri(tree)?.let {
+                contentResolver.query(it, null, null, null, null)
+                    ?.use { c ->
+                        if (c.moveToFirst()) c.getString(c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME))
+                        else "FOLDER"
+                    }
+            } ?: "FOLDER"
             if (name.isEmpty()) {
                 val files = store.all()
                 val bytes = FirmwareExport.zipBytes(files)
@@ -447,9 +456,16 @@ class MainActivity : Activity() {
      * to it. Returns false when the file can't be created or written (the
      * caller reports the failure) — [DocumentsContract.createDocument] may
      * return null, so the null case is handled here, not with a cast.
+     *
+     * The picker hands us a *tree* URI, but createDocument needs a *document*
+     * URI: passed the tree URI raw, the provider throws
+     * UnsupportedOperationException ("Unsupported Uri .../tree/...").
+     * buildDocumentUriUsingTree is the documented conversion (the same one
+     * DocumentFile.fromTreeUri performs internally).
      */
     private fun writeExportDoc(tree: Uri, fileName: String, mimeType: String, bytes: ByteArray): Boolean {
-        val doc = DocumentsContract.createDocument(contentResolver, tree, fileName, mimeType) ?: return false
+        val rootDoc = treeDocUri(tree) ?: return false
+        val doc = DocumentsContract.createDocument(contentResolver, rootDoc, fileName, mimeType) ?: return false
         return try {
             val out = contentResolver.openOutputStream(doc) ?: return false
             out.use { it.write(bytes) }
@@ -457,6 +473,20 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
             false
         }
+    }
+
+    /**
+     * The root *document* URI that a picker's [tree] URI stands for —
+     * `tree/<id>` → `document/<id>`. Both provider call sites (querying the
+     * folder's display name and createDocument) need this form; the raw
+     * `tree/...` URI matches no DocumentsProvider URI pattern and throws
+     * UnsupportedOperationException. Null when the URI is not a tree URI at
+     * all.
+     */
+    private fun treeDocUri(tree: Uri): Uri? = try {
+        DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+    } catch (e: Exception) {
+        null
     }
 
     /**
