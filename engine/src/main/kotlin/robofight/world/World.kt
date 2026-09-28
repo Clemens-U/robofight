@@ -127,6 +127,15 @@ class Bot(
         heatedThisTick = true
     }
 
+    /**
+     * Lockout pre-check used by the VM for multi-tick heat ops: true when
+     * [op] (0 = SHOOT, 1 = SHIELD) would be rejected right now.
+     */
+    override fun heatLocked(op: Int): Boolean {
+        val cost = if (op == 0) HEAT_SHOOT else HEAT_SHIELD
+        return heat + cost > HEAT_MAX
+    }
+
     override fun turn(delta: Int) {
         facing = ((facing + delta) % 4 + 4) % 4
     }
@@ -246,7 +255,15 @@ class World {
             if (b.vm.fault) { b.alive = false; b.hp = 0 }
             // Cool only on ticks where the bot added no heat (no SHOOT/SHIELD
             // that ran) — an active bot stays hot, an idle one cools.
-            if (!b.heatedThisTick) b.heat = (b.heat - HEAT_COOL).coerceAtLeast(0)
+            // Cooling is ALSO suppressed while a multi-tick op is in flight
+            // (vm.inProgress): its heat lands on the final tick, but the
+            // whole op counts as one continuous action — this is what keeps
+            // 5 back-to-back SHOOTs reaching exactly 100 heat with zero
+            // cooling in between (burst lockout unchanged), and a locked
+            // SHOOT (1-tick no-op) still cools normally.
+            if (!b.heatedThisTick && !b.vm.inProgress) {
+                b.heat = (b.heat - HEAT_COOL).coerceAtLeast(0)
+            }
             // Heat above HEAT_DAMAGE_THRESHOLD burns the bot: 2 HP/sec
             // (engine model: 10 ticks/sec → 0.2 HP/tick). Fractional damage
             // accumulates in heatOverload and is applied as whole HP once

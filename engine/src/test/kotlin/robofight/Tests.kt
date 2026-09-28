@@ -17,6 +17,7 @@ fun check(name: String, cond: Boolean, detail: String = "") {
 object NullEnv : Env {
     override fun portIn(port: Int) = 0
     override fun portOut(port: Int, value: Int) {}
+    override fun heatLocked(op: Int) = false
     override fun shoot() {}
     override fun move() {}
     override fun shield() {}
@@ -150,9 +151,9 @@ fun main() {
             WAIT
         """.trimIndent())
         w.add(a); w.add(b)
-        w.tickOnce()
+        repeat(3) { w.tickOnce() }   // SHOOT now occupies 3 ticks
         check("adjacent SHOOT is a hit (shield absorbs)", b.hp == MAX_HP && a.shots == 1,
-            "b.hp=${b.hp} a.shots=${a.shots}")
+            "b.hp=${b.hp} a.shots=${a.shots} tick=${w.tick}")
 
         val w2 = World()
         val a2 = Bot("A", 'A', 2, 5, 5, DIR_E, """
@@ -164,7 +165,7 @@ fun main() {
             WAIT
         """.trimIndent())
         w2.add(a2); w2.add(b2)
-        w2.tickOnce()
+        repeat(3) { w2.tickOnce() }   // SHOOT now occupies 3 ticks
         check("adjacent SHOOT deals 10 damage", b2.hp == 90 && a2.hits == 1, "b2.hp=${b2.hp}")
 
         val w3 = World()
@@ -186,8 +187,10 @@ fun main() {
             WAIT
         """.trimIndent())
         w4.add(a4); w4.add(b4)
-        repeat(3) { w4.tickOnce() }   // projectile takes 3 ticks to travel 4 cells
-        check("projectile flies & hits at range 4", b4.hp == 90, "b4.hp=${b4.hp}")
+        // SHOOT occupies ticks 1–3 (shot leaves on tick 3), the projectile
+        // then needs 2 more resolve steps to reach cell 4.
+        repeat(5) { w4.tickOnce() }
+        check("projectile flies & hits at range 4", b4.hp == 90, "b4.hp=${b4.hp} tick=${w4.tick}")
 
         // Heat is cumulative on a 0–100 scale: 5 SHOOTs reach the max, and
         // heat only cools on ticks where no SHOOT/SHIELD added heat.
@@ -255,9 +258,9 @@ fun main() {
         val d7 = Bot("D", 'D', 4, 19, 19, DIR_N, "WAIT\n")
         w7.add(a7); w7.add(d7)
         var guard = 0
-        while (a7.heat < HEAT_MAX && guard < 100) { w7.tickOnce(); guard++ }
-        check("5 burst SHOOTs reach maximum heat", a7.heat == HEAT_MAX,
-            "heat=${a7.heat} tick=${w7.tick}")
+        while (a7.heat < HEAT_MAX && guard < 200) { w7.tickOnce(); guard++ }
+        check("5 burst SHOOTs reach maximum heat (15 ticks, no cooling in between)",
+            a7.heat == HEAT_MAX, "heat=${a7.heat} tick=${w7.tick}")
         val shotsAtMax = a7.shots
         repeat(15) { w7.tickOnce() }
         check("max heat locks the gun until it cools to 80",
@@ -273,7 +276,10 @@ fun main() {
         """.trimIndent())
         val d7b = Bot("D", 'D', 4, 19, 19, DIR_N, "WAIT\n")
         w7b.add(a7b); w7b.add(d7b)
-        repeat(40) { w7b.tickOnce() }
+        repeat(72) { w7b.tickOnce() }
+        // SHOOT/JMP now runs a 4-tick shot cycle (3 SHOOT + 1 JMP) with
+        // lockouts at >80 heat: ~9 shots in 72 ticks, heat sits >80 from
+        // tick 67 onward.
         check("SHOOT/JMP loop accumulates visible heat", a7b.heat > HEAT_DAMAGE_THRESHOLD,
             "heat=${a7b.heat} shots=${a7b.shots}")
         check("SHOOT/JMP loop takes organic overheat damage", a7b.hp < MAX_HP,
@@ -286,7 +292,7 @@ fun main() {
         val firingTurtle = Bot("T", 'T', 4, 5, 5, DIR_E, Presets.TURTLE)
         val adjacentDummy = Bot("D", 'D', 2, 6, 5, DIR_W, "WAIT\n")
         w7c.add(firingTurtle); w7c.add(adjacentDummy)
-        repeat(48) { w7c.tickOnce() }
+        repeat(80) { w7c.tickOnce() }   // TURTLE loop is ~5x slower in ticks
         check("TURTLE rapid fire accumulates heat", firingTurtle.heat > HEAT_DAMAGE_THRESHOLD,
             "heat=${firingTurtle.heat} shots=${firingTurtle.shots}")
 
@@ -294,7 +300,7 @@ fun main() {
         val shieldingTurtle = Bot("T", 'T', 4, 0, 0, DIR_E, Presets.TURTLE)
         val distantDummy = Bot("D", 'D', 2, 19, 19, DIR_W, "WAIT\n")
         w7d.add(shieldingTurtle); w7d.add(distantDummy)
-        repeat(48) { w7d.tickOnce() }
+        repeat(80) { w7d.tickOnce() }   // TURTLE loop is ~5x slower in ticks
         check("TURTLE repeated shielding accumulates heat", shieldingTurtle.heat > HEAT_DAMAGE_THRESHOLD,
             "heat=${shieldingTurtle.heat}")
 
@@ -368,6 +374,79 @@ fun main() {
         }
         check("overheat kills a bot at 5 HP after ~25 ticks",
             died11 && a11.hp == 0, "alive=${a11.alive} hp=${a11.hp}")
+    }
+
+    // ---- multi-tick ops (per-opcode tick cost) ----
+    run {
+        println("\n[multitick]")
+        // Cost table: SHOOT/SHIELD = 3 ticks, MOVE = 2, everything else 1.
+        check("ISA costs (SHOOT=3, SHIELD=3, MOVE=2, WAIT=1, IN=1)",
+            robofight.isa.ISA.cost(0xB0) == 3 && robofight.isa.ISA.cost(0xB5) == 3 &&
+                robofight.isa.ISA.cost(0xB4) == 2 && robofight.isa.ISA.cost(0xB6) == 1 &&
+                robofight.isa.ISA.cost(0xB7) == 1)
+
+        // Recording env: pure-VM view of when the deferred side effect lands.
+        var shotTicks = ArrayList<Int>()
+        var tickNo = 0
+        val recEnv = object : Env {
+            override fun portIn(port: Int) = 0
+            override fun portOut(port: Int, value: Int) {}
+            override fun heatLocked(op: Int) = false
+            override fun shoot() { shotTicks.add(tickNo) }
+            override fun move() {}
+            override fun shield() {}
+            override fun turn(delta: Int) {}
+        }
+        val rv = Vm()
+        rv.load(assemble("SHOOT\nWAIT").code)
+        repeat(4) { tickNo++; rv.step(recEnv) }
+        check("SHOOT occupies 3 ticks, side effect on the final tick",
+            shotTicks == listOf(3), "shots on ticks $shotTicks")
+        check("VM idle after multi-tick op completes", !rv.inProgress && rv.lastOp == "WAIT")
+
+        // 5 back-to-back SHOOTs (3-tick ops, nothing between them) must
+        // reach exactly 100 heat with ZERO cooling in between — the burst
+        // lockout invariant survives the new timing. Pass = 5×3 ticks;
+        // the closing JMP (tick 16) is the first tick allowed to cool.
+        val w = World()
+        val a = Bot("A", 'A', 2, 0, 0, DIR_E, """
+            burst: SHOOT
+            SHOOT
+            SHOOT
+            SHOOT
+            SHOOT
+            JMP    burst
+        """.trimIndent())
+        val d = Bot("D", 'D', 4, 19, 19, DIR_N, "WAIT\n")
+        w.add(a); w.add(d)
+        var guard = 0
+        while (a.heat < HEAT_MAX && guard < 100) { w.tickOnce(); guard++ }
+        check("5 consecutive SHOOTs hit exactly 100 heat on tick 15",
+            a.heat == HEAT_MAX && w.tick == 15 && a.shots == 5,
+            "heat=${a.heat} tick=${w.tick} shots=${a.shots}")
+        // Second pass: the gun is locked. Locked SHOOTs must collapse to
+        // 1-tick no-ops that cool at the normal rate — if they occupied 3
+        // ticks without cooling, heat could never drop back to 80 and the
+        // 6th shot would never fire. Hand-traced: locked on 17–21 and 23–26
+        // (9 ticks; 22 is the JMP), the 6th shot spans 27–29 (heat 78+20=98).
+        var lockedCount = 0
+        repeat(14) {
+            w.tickOnce()
+            if (a.vm.lastOp.contains("locked")) lockedCount++
+        }
+        check("locked SHOOTs are 1-tick no-ops: 9 locked, 6th shot on tick 29",
+            lockedCount == 9 && a.shots == 6 && a.heat == 98 && w.tick == 29,
+            "locked=$lockedCount shots=${a.shots} heat=${a.heat} tick=${w.tick}")
+
+        // MOVE occupies 2 ticks: the chassis moves only on the final tick.
+        val wm = World()
+        val m = Bot("M", 'M', 2, 3, 0, DIR_E, "MOVE\nWAIT\nWAIT\n")
+        val dm = Bot("D", 'D', 4, 19, 19, DIR_N, "WAIT\n")
+        wm.add(m); wm.add(dm)
+        wm.tickOnce()
+        check("MOVE: position unchanged on first tick", m.px == 3, "px=${m.px}")
+        wm.tickOnce()
+        check("MOVE: position advances on second tick", m.px == 4, "px=${m.px}")
     }
 
     // ---- full fights ----

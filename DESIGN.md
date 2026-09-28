@@ -188,14 +188,25 @@ idle:   WAIT
 - **Per-tick order**: (1) each *alive* bot executes **exactly one instruction**
   (bot-index order, deterministic); (2) **world resolves** — projectiles advance
   1 cell, collisions, off-grid vanish, damage applied.
+- **Instruction cost (ticks)**: physical actions take longer than bookkeeping —
+  `SHOOT` **3**, `SHIELD` **3**, `MOVE` **2**, everything else **1**. A
+  multi-tick op occupies that many world ticks: no decode, no fault, no further
+  instructions until it finishes. Its env side effect fires on the op's
+  **final tick** (a `SHOOT`'s projectile spawns one tick later than the
+  1-tick model assumed; `SHIELD` still covers exactly one world-resolve).
 - `SHOOT` spawns a **projectile** moving 1 cell/tick along the bot's `DIR`.
 - **Projectile hit**: reaching an enemy bot cell deals **10 HP**, projectile
   vanishes. Off-grid → vanishes.
-|- **Anti-spam:** `HEAT` is **cumulative** (0–100) — `SHOOT` and `SHIELD` each
+| **Anti-spam:** `HEAT` is **cumulative** (0–100) — `SHOOT` and `SHIELD` each
   add +20, so 5 of either op reach the max, and heat cools 2 per tick but
-  only on ticks where no heat was added. While an action would push heat past
-  the max it is **locked out** — with +20/op both ops work again exactly at
-  80.
+  only on ticks where no heat was added. Cooling is suppressed for a
+  multi-tick heat op's **entire duration**, so 5 back-to-back `SHOOT`s still
+  reach exactly 100 heat with zero cooling in between (15 ticks) — the burst
+  lockout is unchanged by the new timing. While an action would push heat
+  past the max it is **locked out** — with +20/op both ops work again exactly
+  at 80. A heat op decoded while locked out **collapses to a 1-tick no-op**
+  (no animation freeze): the bot cools at the normal rate and re-arms in ~10
+  ticks, so a `SHOOT` loop always recovers instead of jamming forever.
 |- **Overheat damage:** heat above **80** (80%) damages the bot at **2 HP per
   second** (engine model: 10 ticks/sec → 0.2 HP/tick). Fractional damage
   accumulates and is applied as whole HP; safe ticks stop adding damage but do
@@ -308,7 +319,8 @@ rnd:    MOV   A, #1
 | Shot damage | 10 | HP 100 → 10 clean hits to KO |
 | Heat cap / decay | 100 / 2 per tick | anti-spam; 5 SHOOT/SHIELD reach cap; cooldown on idle ticks only |
 | Heat damage | 2 HP/sec over 80 | above 80 heat, fractional accumulation; lethal if sustained |
-| Tick rate | 10 ticks/sec | 100 ms/tick (engine model; Android app runs 2× for smoother display) |
+| Tick rate | 10 ticks/sec | 100 ms/tick — engine model **and** app loop rate (heat/damage calibrated to it) |
+| Instruction cost | SHOOT 3 / SHIELD 3 / MOVE 2 / rest 1 | ticks per op; side effect on the final tick; cooling gated for the op's whole span |
 | Start HP | 100 | per bot |
 | Max bots in arena | 4 | 2 in v1, 4 possible |
 | Projectile speed | 1 cell/tick | fixed |

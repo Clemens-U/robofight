@@ -30,6 +30,19 @@ class Vm {
     var fault = false
         private set
 
+    /**
+     * Multi-tick execution: an op with [ISA.cost] > 1 occupies several
+     * [step] calls. The env side effect is deferred and fires only on the
+     * op's FINAL tick; the world reads [inProgress] to suppress heat
+     * cooling for the op's whole duration. [load] clears the state.
+     */
+    var inProgress = false
+        private set
+    private var pending: ((Env) -> Unit)? = null
+    private var ticksLeft = 0
+    private var pendingTotal = 0
+    private var currentOp = 0
+
     /** value the last CMP compared against (for JG/JGE/JL/JLE) */
     private var lastB = 0
 
@@ -45,12 +58,29 @@ class Vm {
         lastB = 0
         fault = false
         lastOp = "(loaded)"
+        inProgress = false
+        pending = null
+        ticksLeft = 0
         code.copyInto(mem, ISA.PROG_BASE)
     }
 
     /** Execute exactly one instruction (one clock tick). */
     fun step(env: Env) {
         fault = false
+        // Multi-tick op in flight: no decode, no fault possible mid-op.
+        // The deferred side effect fires on the final tick.
+        if (inProgress) {
+            ticksLeft--
+            if (ticksLeft > 0) {
+                lastOp = "${ISA.name(currentOp)} (${pendingTotal - ticksLeft}/${pendingTotal})"
+            } else {
+                inProgress = false
+                pending?.invoke(env)
+                pending = null
+                lastOp = "${ISA.name(currentOp)} (${pendingTotal}/${pendingTotal})"
+            }
+            return
+        }
         val op = mem[pc].toInt() and 0xFF
         val opnd = mem[pc + 1].toInt() and 0xFF
         val opndHi = mem[pc + 2].toInt() and 0xFF
@@ -68,7 +98,7 @@ class Vm {
                 else lastOp = "${ISA.name(op)} (skip)"
             }
             op in 0xA0..0xA8 -> stackOrSub(op, opnd, opndHi)
-            op in 0xB0..0xB8 -> robot(op, opnd, env)
+            op in 0xB0..0xB8 -> robotCosted(op, opnd, env)
             else -> { fault = true; lastOp = "HALT — undefined opcode 0x%02X".format(op) }
         }
     }
@@ -213,6 +243,37 @@ class Vm {
         }
     }
 
+    /**
+     * Robot op dispatch with multi-tick costing. Ops whose [ISA.cost] > 1
+     * defer their env side effect and occupy several [step] calls; the
+     * effect (and its heat/flag updates) lands on the final tick only.
+     *
+     * Locked-out pre-check: a heat op (SHOOT/SHIELD) first asks the env
+     * whether it is locked out RIGHT NOW. If so, it collapses to a 1-tick
+     * no-op — the bot cools at the normal rate and re-arms in ~10 ticks,
+     * instead of being frozen mid-anim (which would never cool and the gun
+     * would stay jammed forever in a SHOOT loop).
+     */
+    private fun robotCosted(op: Int, opnd: Int, env: Env) {
+        val cost = ISA.cost(op)
+        if (cost <= 1) { robot(op, opnd, env); return }
+        if ((op == 0xB0 || op == 0xB5) && env.heatLocked(if (op == 0xB0) 0 else 1)) {
+            lastOp = "${ISA.name(op)} (locked)"
+            return
+        }
+        inProgress = true
+        currentOp = op
+        pendingTotal = cost
+        ticksLeft = cost - 1    // decode tick + (cost-1) continuations = cost ticks
+        pending = when (op) {
+            0xB0 -> { e -> e.shoot() }
+            0xB4 -> { e -> e.move() }
+            0xB5 -> { e -> e.shield() }
+            else -> null
+        }
+        lastOp = "${ISA.name(op)} (1/$cost)"
+    }
+
     companion object {
         const val FLAG_C = 0x01
         const val FLAG_Z = 0x02
@@ -232,6 +293,13 @@ class Vm {
 interface Env {
     fun portIn(port: Int): Int
     fun portOut(port: Int, value: Int)
+    /**
+     * True if a heat-consuming op would be locked out RIGHT NOW.
+     * [op]: 0 = SHOOT, 1 = SHIELD. Multi-tick heat ops pre-check this on
+     * their first tick: a locked op collapses to a 1-tick no-op so the
+     * bot cools at the normal rate instead of being frozen mid-anim.
+     */
+    fun heatLocked(op: Int): Boolean
     fun shoot()
     fun move()
     fun shield()

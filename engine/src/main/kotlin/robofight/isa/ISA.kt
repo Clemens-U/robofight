@@ -21,6 +21,32 @@ package robofight.isa
  *   IND    — indirect via X: memory[X] (operand field unused)
  */
 object ISA {
+    /**
+     * Per-opcode tick cost — how many world ticks an instruction occupies.
+     *
+     * Physical actions take longer than bookkeeping: SHOOT/SHIELD strain the
+     * drive system (3 ticks), MOVE actuates the chassis (2 ticks), everything
+     * else (MOV/ALU/jumps/stack/sensors) is 1 tick.
+     *
+     * Balance invariant (see World.tickOnce cooling gate): a heat-adding op
+     * suppresses cooling for its ENTIRE duration, not just its completion
+     * tick. So 5 back-to-back SHOOTs still reach exactly 100 heat with zero
+     * cooling in between (burst lockout unchanged), a SHOOT+JMP loop still
+     * nets +18 heat per shot, and a locked-out SHOOT collapses to a 1-tick
+     * no-op that cools normally — recovery stays ~10 ticks as before.
+     *
+     * Env side effects fire on the op's FINAL tick, so a SHIELD covers
+     * exactly one tick of world resolution (same as before), just later in
+     * real time.
+     */
+    private val COST = IntArray(256) { 1 }
+    init {
+        COST[0xB0] = 3   // SHOOT
+        COST[0xB5] = 3   // SHIELD
+        COST[0xB4] = 2   // MOVE
+    }
+    fun cost(opcode: Int): Int = COST[opcode and 0xFF]
+
     // ---- Operand kinds ----
     const val NONE = 0
     const val IMM = 1
