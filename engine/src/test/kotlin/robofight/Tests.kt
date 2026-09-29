@@ -138,6 +138,56 @@ fun main() {
             "A=${vm.a} X=${vm.x} Y=${vm.y}")
     }
 
+    // ---- execution monitor: source line map & current instruction ----
+    run {
+        println("\n[listing: lineOf & currentInsn]")
+        // lineOf: instruction i maps to the source line that produced it,
+        // skipping blanks/comments and counting label+instruction as one line.
+        val r = assemble(
+            ";\n" +                        // line 0 (comment)
+            "start: MOV A,#5\n" +          // line 1 (label + insn)
+            "ADD #1\n" +                   // line 2
+            ";\n" +                        // line 3 (comment)
+            "NOP\n"                        // line 4
+        )
+        check("lineOf.size == instructionCount (3)",
+            r.ok && r.lineOf.size == 3 && r.instructionCount == 3,
+            "count=${r.instructionCount} size=${r.lineOf.size}")
+        check("lineOf maps each instruction to its source line",
+            r.lineOf.contentEquals(intArrayOf(1, 2, 4)), "got ${r.lineOf.toList()}")
+
+        // currentInsn: one index per single-tick op, -1 before the first step.
+        val vm = Vm()
+        val r2 = assemble("MOV A,#1\nMOV X,#2\nMOV Y,#3\n")
+        vm.load(r2.code)
+        check("currentInsn is -1 before the first step", vm.currentInsn == -1)
+        vm.step(NullEnv)
+        check("currentInsn == 0 after the first op", vm.currentInsn == 0, "got ${vm.currentInsn}")
+        vm.step(NullEnv)
+        vm.step(NullEnv)
+        check("currentInsn == 2 after three ops", vm.currentInsn == 2, "got ${vm.currentInsn}")
+
+        // currentInsn stays pinned on the SHOOT line for all 3 ticks of the op.
+        val vm2 = Vm()
+        vm2.load(assemble("SHOOT\nWAIT\n").code)
+        vm2.step(NullEnv)
+        check("SHOOT tick 1 -> currentInsn 0", vm2.currentInsn == 0, "got ${vm2.currentInsn}")
+        vm2.step(NullEnv)
+        vm2.step(NullEnv)
+        check("SHOOT ticks 2-3 hold line 0 (multi-tick)", vm2.currentInsn == 0, "got ${vm2.currentInsn}")
+        vm2.step(NullEnv)   // WAIT
+        check("WAIT after SHOOT -> currentInsn 1", vm2.currentInsn == 1, "got ${vm2.currentInsn}")
+
+        // currentInsn follows a forward branch to its TARGET instruction.
+        val vm3 = Vm()
+        val r3 = assemble("MOV A,#1\nJMP skip\nNOP\nskip: NOP\n")
+        vm3.load(r3.code)
+        vm3.step(NullEnv)   // MOV (insn 0)
+        vm3.step(NullEnv)   // JMP skip (insn 1)
+        vm3.step(NullEnv)   // lands on skip (insn 3)
+        check("branch lands on its target instruction", vm3.currentInsn == 3, "got ${vm3.currentInsn}")
+    }
+
     // ---- world ----
     run {
         println("\n[world]")

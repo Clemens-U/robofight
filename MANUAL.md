@@ -21,8 +21,8 @@ language** it runs.
 +--------------------------------------+
 |  SHELL                                |  RUN
 |  DIR | HELP | EDIT                    |  20×20 arena
-|                                      |  A HUNTER >
-|  RF:\> EDIT MYBOT                    |  B TURTLE >
+|                                      |  [A code window][B code window]
+|  RF:\> EDIT MYBOT                    |  A HUNTER >        B TURTLE >
 |  ; edit RF-8 firmware                |  RUN STEP RESET
 +--------------------------------------+
 |  SYS READY / TICK + BOT TELEMETRY     |  <- status line
@@ -36,9 +36,10 @@ design:
   then open one in the full-height editor. The command line and editor remain above
   the Android keyboard while you type. The block cursor in the title and the native
   text cursor blink like an old terminal.
-- **RUN** dedicates the screen to the arena, bot selection, fight controls, and live
-  telemetry. Entering RUN dismisses the keyboard. A running fight pauses when you
-  return to SHELL and resumes when you come back.
+- **RUN** dedicates the screen to the arena, the **execution monitor** (live code
+  view of both bots, §6.1), bot selection, fight controls, and live telemetry.
+  Entering RUN dismisses the keyboard. A running fight pauses when you return to
+  SHELL and resumes when you come back.
 
 ---
 
@@ -161,6 +162,41 @@ Bots are colored per the table above. When a bot dies it disappears.
 `T:12  HUNTER: HP80 SH3 HIT2 D20   TURTLE: HP90 SH5 HIT1 D10`
 → tick, then per bot: **HP** left, **SH**ots fired, **HIT**s landed, **D**amage dealt.
 
+### 6.1 The execution monitor
+
+Directly under the arena, between it and the A/B slot buttons, sits the **execution
+monitor**: two side-by-side windows, one per combatant, showing the bot's *original
+firmware source* with a marker on the line being executed. It updates every tick.
+
+```
++----------------------------------+----------------------------------+
+| A ▸ HUNTER                       | B ▸ TURTLE                       |
+|       SHOOT                      |       SHOOT                      |
+| > advance:MOVE                   | > hold:  SHIELD                  |
+|       SHOOT                      |       JMP loop                   |
+| retreat:TURN R                   | idle:   WAIT                     |
+|       TURN R                     |       JMP loop                   |
+|                                  |                                  |
+| A00 X14 Y00 SP0BF PC133 Z        | A10 X00 Y00 SP0BF PC115          |
++----------------------------------+----------------------------------+
+```
+
+- **Window:** 6 source lines — 2 before the current line, the current line, and
+  3 ahead. The window slides as the program runs; near the end it clamps at the
+  last line (a bot that runs off the end of its program — the memory tail is NOPs —
+  keeps the marker on the last line with an `…END` tag).
+- **Current opcode:** the executing line is bright and prefixed with `>`; lines
+  already passed are dimmed. Multi-tick ops (`SHOOT`, `MOVE`, `SHIELD`) hold the
+  marker on their line for the whole operation, and a jump/branch moves it to the
+  target's line.
+- **Register line** (pinned to the pane's bottom): `A## X## Y##` (8-bit hex),
+  `SP### PC###` (stack pointer / program counter, 10-bit hex), and the lit flag
+  letters — `C` (carry), `Z` (zero), `N` (negative). Watch `PC` walk as you
+  `STEP`; it's the fastest way to see where your code actually is.
+- A KO'd bot's pane switches to `KO — destroyed`.
+- Lines are left-aligned and clipped at the pane's right edge — long comments are
+  cut, never wrapped.
+
 ---
 
 ## 7. The RF-8 language
@@ -237,8 +273,9 @@ Read it as: *every tick — if there's an enemy, rotate to face it, walk one cel
 That's the whole "nerd loop": sense (`IN`), decide (`JZ`/`CMP`), act (`MOVE`/`SHOOT`).
 
 **Try it yourself:** open `MYBOT`, keep the strafe skeleton, and add a `CMP`/`SHOOT`
-when `DIST` is small — or make it shield before shooting. `STEP` through to see each
-instruction the bot executes (the last op shows in the engine trace).
+when `DIST` is small — or make it shield before shooting. In RUN mode, **`STEP`**
+through and watch the execution monitor: the `>` marker walks down your source and
+the register line shows `A`/`X`/`Y`, `SP`, `PC` and the flags after every instruction.
 
 ---
 

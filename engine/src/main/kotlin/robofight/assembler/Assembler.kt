@@ -9,6 +9,13 @@ data class AsmResult(
     val code: ByteArray,
     val errors: List<AsmError>,
     val instructionCount: Int,
+    /**
+     * Source-line map: `lineOf[i]` is the 0-based index of the source line that
+     * produced instruction `i` (program order). Size == [instructionCount].
+     * Used by the arena's execution monitor to show the source line a robot is
+     * currently executing. Only meaningful when [ok] is true.
+     */
+    val lineOf: IntArray,
 )
 
 /**
@@ -55,6 +62,7 @@ fun assemble(src: String): AsmResult {
 
     // ---- pass 2: encode ----
     val out = ArrayList<Byte>()
+    val lineOf = ArrayList<Int>()
     for ((i, raw) in lines.withIndex()) {
         val lineNo = i + 1
         val (_, body) = splitLabel(raw)
@@ -62,11 +70,14 @@ fun assemble(src: String): AsmResult {
         val parts = body.split(Regex("[\\s,]+")).filter { it.isNotEmpty() }
         val mn = parts[0].uppercase()
         if (mn !in MNEMONICS) { addErr(lineNo, "unknown opcode '$mn'"); continue }
+        // Record which source line produced this instruction (pass-1 order is
+        // identical: both count lines whose first token is a known mnemonic).
+        lineOf.add(i)
         encode(mn, parts.drop(1), out, labels) { msg -> addErr(lineNo, msg) }
     }
 
-    if (errors.isNotEmpty()) return AsmResult(false, out.toByteArray(), errors, insnIndex)
-    return AsmResult(true, out.toByteArray(), emptyList(), insnIndex)
+    if (errors.isNotEmpty()) return AsmResult(false, out.toByteArray(), errors, insnIndex, IntArray(insnIndex))
+    return AsmResult(true, out.toByteArray(), emptyList(), insnIndex, lineOf.toIntArray())
 }
 
 val MNEMONICS = setOf(

@@ -28,6 +28,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -37,6 +38,8 @@ import android.text.style.ForegroundColorSpan
 import java.io.File
 import robofight.world.Palette
 import robofight.world.Presets
+import robofight.vm.Vm
+import robofight.world.Bot
 
 /**
  * Two-screen native UI for Opcode Arena.
@@ -66,6 +69,16 @@ class MainActivity : Activity() {
     private lateinit var btnSound: Button
     private lateinit var statA: TextView
     private lateinit var statB: TextView
+
+    // Execution monitor: both code panes are always visible (side by side).
+    // monHeadA/B hold the "A ▸ BOT" header; codeA/B hold the source window +
+    // register line for that combatant. Refreshed every frame by updateMonitor().
+    private lateinit var monHeadA: TextView
+    private lateinit var monHeadB: TextView
+    private lateinit var codeA: TextView
+    private lateinit var codeB: TextView
+    private lateinit var regA: TextView
+    private lateinit var regB: TextView
 
     private lateinit var editor: EditText
     private lateinit var btnSave: Button
@@ -787,6 +800,7 @@ class MainActivity : Activity() {
             val state = if (world.finished) controller.status else "EXECUTING"
             status.text = "T+${world.tick.toString().padStart(3, '0')}  // $state"
         }
+        updateMonitor()
         arena.invalidate()
     }
 
@@ -1065,6 +1079,9 @@ class MainActivity : Activity() {
             console.addView(statB, LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(58)
             ))
+            console.addView(buildCodeMonitorRow(), LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(118)
+            ).apply { topMargin = dp(5) })
             console.addView(terminalText(11f, C_DIM).apply {
                 text = "EXECUTION"
                 gravity = Gravity.BOTTOM
@@ -1077,7 +1094,14 @@ class MainActivity : Activity() {
             body.addView(console, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
             run.addView(body, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         } else {
-            run.addView(arenaFrame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+            // Arena is top-aligned: it takes the top weight, the code monitor
+            // sits directly beneath it, then the slots/stats/controls stack.
+            run.addView(arenaFrame, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.15f
+            ).apply { gravity = Gravity.TOP })
+            run.addView(buildCodeMonitorRow(), LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(128)
+            ).apply { topMargin = dp(6) })
             val slotsRow = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 setPadding(0, dp(7), 0, 0)
@@ -1114,6 +1138,141 @@ class MainActivity : Activity() {
         setPadding(dp(3), 0, dp(3), 0)
         background = panelBackground(C_DARK, C_GREEN_DARK)
         maxLines = 3
+    }
+
+    /**
+     * The execution monitor: two code panes side by side, one per combatant.
+     * Each pane shows the original firmware source in a scrolling window
+     * (2 lines back, the current line marked with ">", 3 lines ahead) plus a
+     * one-line register readout. Built in both the portrait and landscape
+     * branches of buildRunScreen(); content is refreshed by updateMonitor().
+     */
+    private fun buildCodeMonitorRow(): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, 0, 0, 0)
+        }
+        row.addView(codePanes(0), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        row.addView(codePanes(1), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f).apply {
+            marginStart = dp(5)
+        })
+        return row
+    }
+
+    private fun codePanes(side: Int): LinearLayout {
+        val pane = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = panelBackground(C_PANEL, C_GREEN_DARK)
+            setPadding(dp(4), dp(3), dp(4), dp(3))
+        }
+        val head = terminalText(8f, C_DIM).apply { setPadding(dp(1), 0, dp(1), dp(2)) }
+        // The code window takes all remaining height, top-aligned; the
+        // register line is its own view pinned to the pane's bottom edge.
+        // The window sits in a HorizontalScrollView and wraps its content:
+        // every line starts at the left edge, and long lines (wide comments)
+        // clip at the pane border instead of wrapping onto the next line.
+        val code = terminalText(7f, C_GREEN).apply {
+            setPadding(dp(1), 0, dp(1), 0)
+            gravity = Gravity.TOP or Gravity.START
+            maxLines = MON_CODE_LINES
+        }
+        val codeScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            // fillViewport=false: the TextView wraps its content, so lines are
+            // never reflowed; long lines clip at the pane border.
+            isFillViewport = false
+            addView(code, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ))
+        }
+        val reg = terminalText(7f, C_DIM).apply {
+            setPadding(dp(1), dp(2), dp(1), 0)
+            gravity = Gravity.BOTTOM or Gravity.START
+            maxLines = 1
+        }
+        if (side == 0) { monHeadA = head; codeA = code; regA = reg }
+        else { monHeadB = head; codeB = code; regB = reg }
+        pane.addView(head)
+        pane.addView(codeScroll, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
+        ))
+        pane.addView(reg)
+        return pane
+    }
+
+    /**
+     * Render both code panes for the current frame. The current line is found
+     * from the VM's currentInsn (held steady across a multi-tick op's whole
+     * duration), mapped to a source line via the assembler's line map. The
+     * window is biased so the current line sits in the lower half — 2 lines
+     * ahead are always visible.
+     */
+    private fun updateMonitor() {
+        if (!::codeA.isInitialized) return
+        renderCodePane(0, monHeadA, codeA, regA)
+        renderCodePane(1, monHeadB, codeB, regB)
+    }
+
+    private fun renderCodePane(side: Int, head: TextView, code: TextView, reg: TextView) {
+        val world = controller.world
+        val bc = controller.botCodes[side]
+        if (world == null || bc == null) {
+            head.text = if (side == 0) "A" else "B"
+            code.text = "  (idle)"
+            reg.text = ""
+            return
+        }
+        val bot = world.bots[side]
+        val vm = bot.vm
+        head.text = "${if (side == 0) "A" else "B"} ▸ ${bot.name}"
+        head.setTextColor(if (bot.alive) C_BRIGHT else C_DIM)
+        if (!bot.alive) {
+            code.text = "  KO — destroyed"
+            reg.text = ""
+            return
+        }
+        val insn = vm.currentInsn
+        // Map the current instruction to its source line via the assembler's
+        // line map. A bot that runs off the end of its program (mem tail is
+        // 0x00 NOPs) clamps to the last line and folds an END marker onto it.
+        val atEnd = insn !in 0 until bc.lineOf.size
+        val lines = bc.source.split("\n")
+        val curLine = if (atEnd) lines.size - 1 else bc.lineOf[insn]
+        // Window: MON_BEFORE lines back, current, MON_AFTER ahead (total
+        // MON_CODE_LINES). from is solved so the current line sits in the
+        // lower third — MON_AFTER lines stay visible ahead of it.
+        val from = (curLine - MON_BEFORE).coerceAtMost((lines.size - MON_CODE_LINES).coerceAtLeast(0))
+        val to = (from + MON_CODE_LINES - 1).coerceAtMost(lines.size - 1)
+        val out = SpannableStringBuilder()
+        for (ln in from..to) {
+            val isCur = ln == curLine
+            val marker = if (isCur) ">" else " "
+            val text = "  $marker ${lines[ln]}${if (atEnd && isCur) " …END" else ""}"
+            val start = out.length
+            out.append(text)
+            out.append("\n")
+            val color = if (isCur) C_BRIGHT else if (ln < curLine) C_DIM else C_GREEN
+            out.setSpan(ForegroundColorSpan(color), start, out.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        code.text = out
+        reg.text = "  " + regLine(vm)
+    }
+
+    /** One-line register readout: A X Y (8-bit), SP PC (10-bit), and flags. */
+    private fun regLine(vm: Vm): String {
+        val flags = when {
+            (vm.flags and Vm.FLAG_C) != 0 -> "C "
+            else -> "  "
+        } + when {
+            (vm.flags and Vm.FLAG_Z) != 0 -> "Z "
+            else -> "  "
+        } + when {
+            (vm.flags and Vm.FLAG_N) != 0 -> "N "
+            else -> "  "
+        }
+        return "A%02X X%02X Y%02X SP%03X PC%03X %s".format(
+            vm.a, vm.x, vm.y, vm.sp, vm.pc, flags.trim()
+        )
     }
 
     private fun terminalText(size: Float, color: Int) = TextView(this).apply {
@@ -1172,6 +1331,12 @@ class MainActivity : Activity() {
         private const val STATE_DIRTY = "state.dirty"
         private const val STATE_RUN_MODE = "state.runMode"
         private const val REQ_EXPORT_TREE = 41
+        // Execution-monitor window: how many source lines to show around the
+        // current one. 2 back, the current line, 3 ahead — the current opcode
+        // marker sits in the lower third with clear lookahead.
+        private const val MON_BEFORE = 2
+        private const val MON_AFTER = 3
+        private const val MON_CODE_LINES = MON_BEFORE + 1 + MON_AFTER
         private val C_BG = Color.rgb(1, 7, 3)
         private val C_BLACK = Color.rgb(0, 3, 1)
         private val C_PANEL = Color.rgb(2, 13, 6)

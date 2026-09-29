@@ -32,6 +32,20 @@ class RunController {
     var errorBot: String = ""        // which side's firmware failed ("" = none)
         private set
 
+    /**
+     * Source + line map for each combatant, indexed by bot slot (0 = A, 1 = B).
+     * Populated by [start] from the successful assemble() of each side — the
+     * same source string the bot is built with, so the line map lines up with
+     * exactly the code the VM is running. Cleared to null on [reset].
+     * The execution monitor (both code panes) reads these to render the source
+     * window around the instruction each bot is currently executing.
+     */
+    var botCodes: Array<BotCode?> = arrayOf(null, null)
+        private set
+
+    /** One combatant's listing source and its instruction→source-line map. */
+    data class BotCode(val source: String, val lineOf: IntArray)
+
     /** Called by the view each frame after ticking (to refresh stats / status bar). */
     var onFrame: (() -> Unit)? = null
 
@@ -56,20 +70,29 @@ class RunController {
      * the failure).
      */
     fun start(a: BotSlot, b: BotSlot, sourceFor: (BotSlot) -> String): Boolean {
-        val first = listOf(a, b).firstNotNullOfOrNull { slot ->
-            val res = assemble(sourceFor(slot))
-            if (!res.ok) slot to res.errors.first() else null
+        val srcA = sourceFor(a)
+        val srcB = sourceFor(b)
+        val resA = assemble(srcA)
+        val resB = assemble(srcB)
+        val failed = when {
+            !resA.ok -> a to resA.errors.first()
+            !resB.ok -> b to resB.errors.first()
+            else -> null
         }
-        if (first != null) {
-            val (slot, err) = first
+        if (failed != null) {
+            val (slot, err) = failed
             errorLine = err.line
             errorBot = slot.name
             errorCount = 1
             errorMsg = err.msg
             status = "${slot.name} line ${err.line}: ${err.msg}"
+            botCodes = arrayOf(null, null)
             onFrame?.invoke()
             return false
         }
+        // Keep the listings: the monitor renders the source window around each
+        // bot's current instruction, so it needs the source + line map here.
+        botCodes = arrayOf(BotCode(srcA, resA.lineOf), BotCode(srcB, resB.lineOf))
         errorLine = -1
         errorCount = 0
         errorMsg = ""
@@ -90,8 +113,8 @@ class RunController {
             bx = kotlin.random.Random.nextInt(GRID)
             by = kotlin.random.Random.nextInt(GRID)
         } while (ax == bx && ay == by)
-        w.add(Bot(a.name, a.glyph, a.color, ax, ay, faceToward(ax, ay, bx, by), sourceFor(a)))
-        w.add(Bot(b.name, b.glyph, b.color, bx, by, faceToward(bx, by, ax, ay), sourceFor(b)))
+        w.add(Bot(a.name, a.glyph, a.color, ax, ay, faceToward(ax, ay, bx, by), srcA))
+        w.add(Bot(b.name, b.glyph, b.color, bx, by, faceToward(bx, by, ax, ay), srcB))
         world = w
         // Forward engine hit events to the front-end (sparks, shake, sound).
         // set() replaces the previous world's hook on the next start().
@@ -125,6 +148,7 @@ class RunController {
     /** Reset to the idle "press RUN" state (clears the arena). */
     fun reset() {
         world = null
+        botCodes = arrayOf(null, null)
         status = "edit firmware, then RUN"
         errorLine = -1
         errorCount = 0

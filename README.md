@@ -18,13 +18,10 @@
 |       . . . . . . . .        |
 |                              |
 +------------------------------+
-| 1  top:   IN     DIST        |
-| 2         JZ     idle        |
-| 3         IN     ANGLE       |
-| 4         TURN   R          |
-| 5         MOVE              |
-| 6         SHOOT             |
-| 7         JMP    top        |
+| >  face:  MOVE               |
+|     SHOOT                    |
+|     JMP    top               |
+|  A00 X02 Y00 SP0BF PC0008 Z  |
 +------------------------------+
 | T:14  HUNTER HP90 SH4 HIT2   |
 +------------------------------+
@@ -51,8 +48,10 @@ glyphs and gives you a green-screen terminal to write and run firmware.
 - **Two modes** in the Android app:
   - **SHELL** — a file terminal (`DIR` / `EDIT` / `NEW` / `DEL`) + a full-height
     line-based editor, all kept above the Android soft keyboard.
-  - **RUN** — bot selection, `RUN` / `STEP` / `RESET`, and live telemetry.
-- **A 20-check self-test** of the engine, run headlessly by `:engine:test`.
+  - **RUN** — bot selection, `RUN` / `STEP` / `RESET`, live telemetry, and an
+    **execution monitor**: both bots' source code side by side, a `>` marker on the
+    opcode being executed, and a live register line (`A X Y`, `SP`, `PC`, flags).
+- **A 66-check self-test** of the engine, run headlessly by `:engine:test`.
 - **Offline build path** — a script that assembles, dexes, aligns, and signs the
   APK without touching the network (see *Build*).
 
@@ -68,13 +67,14 @@ headless on the JVM — the Android app is just a front-end on top.
 it starts in the shell with `MYBOT` already loaded. Tap the file to open the
 editor, edit if you like (or don't), then tap **RUN** — set one slot to `MYBOT`
 so your code is actually in the fight — and press **RUN** again. Watch your
-assembly come alive. `STEP` advances one tick; `RESET` clears the board.
+assembly come alive: the `>` marker walks down your code in the monitor while
+the register line ticks through the CPU's state. `STEP` advances one tick; `RESET` clears the board.
 
 **Run the engine headlessly.** The test source set contains a runnable demo that
 plays a fight and prints the ASCII arena. It's wired to the `:engine` test classpath:
 
 ```bash
-./gradlew :engine:test          # runs the 20-check self-test + demo
+./gradlew :engine:test          # runs the 66-check self-test + demo
 ```
 
 > Full user manual: **[MANUAL.md](MANUAL.md)**. The complete RF-8 language cheat

@@ -38,6 +38,15 @@ class Vm {
      */
     var inProgress = false
         private set
+    /**
+     * Index (0-based, in program order) of the instruction CURRENTLY executing.
+     * Held for the whole duration of a multi-tick op, so the arena's execution
+     * monitor can pin the highlight on the right source line while a SHOOT/MOVE
+     * runs. Captured at decode time (before the PC advances), so branches and
+     * JMPs land on their target instruction. -1 before the first step.
+     */
+    var currentInsn = -1
+        private set
     private var pending: ((Env) -> Unit)? = null
     private var ticksLeft = 0
     private var pendingTotal = 0
@@ -59,6 +68,7 @@ class Vm {
         fault = false
         lastOp = "(loaded)"
         inProgress = false
+        currentInsn = -1
         pending = null
         ticksLeft = 0
         code.copyInto(mem, ISA.PROG_BASE)
@@ -84,6 +94,11 @@ class Vm {
         val op = mem[pc].toInt() and 0xFF
         val opnd = mem[pc + 1].toInt() and 0xFF
         val opndHi = mem[pc + 2].toInt() and 0xFF
+        // Instruction currently executing = the one at the pre-advance PC, in
+        // program order. Captured before the branch/JMP mutates pc, and left
+        // untouched by the multi-tick early-return above, so a long SHOOT/MOVE
+        // keeps its line highlighted for the whole op.
+        currentInsn = (pc - ISA.PROG_BASE) / ISA.INSN_BYTES
         pc += ISA.INSN_BYTES
         if (pc > ISA.PROG_END) pc = ISA.PROG_END
 
