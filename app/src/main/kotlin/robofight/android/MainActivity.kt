@@ -841,7 +841,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(C_BG)
         }
-        applySystemBarInsets(root)
+        applyWindowInsets(root)
 
         val masthead = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -897,15 +897,24 @@ class MainActivity : Activity() {
         return root
     }
 
-    /** Keep controls out of the status, navigation, and display-cutout areas. */
-    private fun applySystemBarInsets(root: View) {
+    /** Keep controls out of system UI and resize the content above the keyboard. */
+    private fun applyWindowInsets(root: View) {
         root.setOnApplyWindowInsetsListener { view, insets ->
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val bars = insets.getInsets(
+                val safeArea = insets.getInsets(
                     WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout()
                 )
-                view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+                val keyboard = insets.getInsets(WindowInsets.Type.ime())
+                view.setPadding(
+                    safeArea.left,
+                    safeArea.top,
+                    safeArea.right,
+                    maxOf(safeArea.bottom, keyboard.bottom)
+                )
             } else {
+                // Before API 30 the IME has no separate inset type. With the
+                // activity's adjustResize mode, systemWindowInsetBottom tracks
+                // the keyboard while it is visible.
                 @Suppress("DEPRECATION")
                 view.setPadding(
                     insets.systemWindowInsetLeft,

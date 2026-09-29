@@ -14,15 +14,26 @@ android {
     defaultConfig {
         applicationId = "robofight.android"
         minSdk = 24
-        targetSdk = 34
-        versionCode = 1
+        targetSdk = 36
+        versionCode = 4
         versionName = "0.3-m3"
+    }
+
+    signingConfigs {
+        create("release") {
+            val keystorePasswordFile = rootProject.file("keystore.pass")
+            storeFile = rootProject.file("robofight.keystore")
+            storePassword = keystorePasswordFile.readText().trim()
+            keyAlias = "robofight"
+            keyPassword = storePassword
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
-            // No proguard file — the app is tiny; keep it simple and correct.
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

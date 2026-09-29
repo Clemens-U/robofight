@@ -4,6 +4,10 @@
 
 - `opcode-arena-icon-base-master.png` — selected master artwork (derived from v6).
 - `opcode-arena-icon-base-512.png` — selected 512 × 512 Google Play base export.
+- `opcode-arena-feature-graphic-1024x500.png` — Google Play feature graphic.
+- `opcode-arena-phone-01-shell.png` — 1080 × 1920 SHELL-mode store screenshot.
+- `opcode-arena-phone-02-arena.png` — 1080 × 1920 RUN-mode store screenshot.
+- `generate_store_screenshots.py` — deterministic renderer for the phone screenshots.
 
 The selected direction combines the terminal-faced robot and arena frame with a
 simple robotic-vacuum-style moving base. Future icon refinements should start
