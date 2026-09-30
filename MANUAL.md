@@ -2,7 +2,7 @@
 
 > **The game in one line:** you are a combat-programmer. You write *firmware* in a
 > tiny assembly language for a robot on a 20×20 grid, then pit it against a preset
-> bot (or your second bot) and watch your code fight, one instruction per tick.
+> bot (or your second bot) and watch your code fight, tick by tick.
 > The skill is **programming, not reflexes** — read the sensor ports, branch, fire,
 > manage heat. Everything renders in chunky 8-bit ASCII.
 
@@ -50,8 +50,8 @@ design:
    firmware, then tap **SAVE**. You can also leave the starter code unchanged.
 3. Tap **FIGHT >** or the top **[ RUN ]** mode tab. In RUN mode, tap the A or B bot
    selector until one slot is `MYBOT` (otherwise it is preset-vs-preset).
-4. Tap **RUN**. The arena advances continuously; the bottom telemetry updates. When a bot
-   hits 0 HP (or 200 ticks pass), the winner is shown.
+4. Tap **RUN**. The arena advances continuously; the per-bot readouts update. When a bot
+   hits 0 HP the winner is shown (fights run to a KO — see §6).
 5. Tap **`STEP`** to advance one tick at a time, or **`RESET`** to clear.
 
 > **The *file* is what runs, not the editor.** On `RUN`, each slot reads its firmware
@@ -134,9 +134,16 @@ Bots are colored per the table above. When a bot dies it disappears.
 
 - **Grid:** 20×20, coordinates 0–19. A bot occupies one cell and faces one of four
   ways (N/E/S/W).
-- **One instruction per tick:** each tick, every *alive* bot executes exactly one
-  instruction (deterministic order), then the world resolves — projectiles advance,
-  hit, or hit a wall.
+- **Instruction cost (ticks):** the engine advances in *ticks*. Each tick, every
+  *alive* bot steps its program, but an instruction is not always one tick — the
+  robot's physical actions are slower than bookkeeping: `SHOOT` **3 ticks**, `SHIELD`
+  **3 ticks**, `MOVE` **2 ticks**, and **every other instruction 1 tick**. While a
+  multi-tick op is in flight the bot executes nothing else — it *holds* on that line
+  for the whole duration (no decode, no faults, no further steps), and its world
+  effect (the projectile, the step, the shield) fires on the op's **final tick**.
+  After every bot has stepped, the world resolves — projectiles advance one cell,
+  hit, or die on a wall. (A `SHIELD` still covers exactly one world-resolve; a
+  `SHOOT`'s projectile spawns on the shot's final tick.)
 - **Health:** every bot starts at **100 HP**. A hit does **10 damage** → 10 clean
   hits to KO.
 - **Heat (anti-spam):** heat is **cumulative**, measured 0–100. `SHOOT` and
@@ -155,12 +162,27 @@ Bots are colored per the table above. When a bot dies it disappears.
   When heat is too high to shield, the shield **collapses** — no protection —
   and `SHOOT` is locked out in the same way: the robot simply waits until the
   heat has dropped and it can act again.
-- **Winning:** first to KO the opponent, or **highest HP after 200 ticks** (tie = draw).
+- **Winning:** first bot to KO the other (HP → 0) wins. Fights run to a KO —
+  there is no round-length tiebreak. The engine has a 1,000,000-tick safety cap
+  (a runaway-loop guard, not a game rule); if it is ever reached, the higher-HP
+  bot is declared the winner, and a simultaneous double-KO is a `DRAW`.
 - **Projectiles** live up to 40 ticks; they vanish off-grid or on a hit.
 
 ### The stats bar
-`T:12  HUNTER: HP80 SH3 HIT2 D20   TURTLE: HP90 SH5 HIT1 D10`
-→ tick, then per bot: **HP** left, **SH**ots fired, **HIT**s landed, **D**amage dealt.
+Each combatant has its own readout block under its slot button:
+
+```
+HP 100   SH  0
+HIT  0  DMG   0
+HEAT  40 ####------
+```
+
+→ **HP** left · **SH**ots fired · **HIT**s landed · **DMG** damage dealt ·
+**HEAT** (0–100) with a 10-cell bar — a cell is a bright `#` when heat is
+≥ (cell+1)·10, so 40 heat fills exactly the first four cells. Before a fight and
+after a KO the block dims to `HP ---` placeholders with an all-dim bar. The status
+line above the arena reads `T+ 42  // EXECUTING`, and swaps the state for
+`// WINNER: HUNTER` (or `// DRAW`) once the fight ends.
 
 ### 6.1 The execution monitor
 
@@ -202,52 +224,159 @@ firmware source* with a marker on the line being executed. It updates every tick
 ## 7. The RF-8 language
 
 A tiny 8-bit machine: **3 registers** (`A`, `X`, `Y`), a **stack**, **memory-mapped
-I/O ports**, and one instruction per tick. Every line is `[label:]  MNEMONIC  [operand]`;
-`;` starts a comment. Numbers are 0–255 unless noted.
+I/O ports**, and a small instruction set. Every instruction is exactly **3 bytes**
+(`opcode` + a 16-bit operand field, little-endian), which is why labels are easy to
+place — the address of instruction *i* is `$0100 + i·3`.
 
-### Registers & memory
-| Name | Role |
-|------|------|
-| `A` | accumulator — most results land here |
-| `X` | index / pointer / scratch |
-| `Y` | scratch |
-| `(X)` | indirect — reads memory at address `X` |
-| `[n]` | absolute memory address (`MOV` data 0–255; ALU/jumps 0–1023) |
+A source line is `[label:]  MNEMONIC  [operand]`; `;` starts a comment. Numbers are
+0–255 unless noted. The machine clock is the *tick*: an instruction occupies as many
+ticks as its **cost** (most are 1; `SHOOT`/`SHIELD` are 3, `MOVE` is 2 — see §6).
 
-### I/O ports (read with `IN`, write with `OUT`)
-| Port | R/W | Meaning |
-|------|-----|---------|
-| `HP` | R | your current HP |
-| `DIR` | R/W | your facing: **0=W 1=N 2=E 3=S** |
-| `RX` / `RY` | R | your grid column / row |
-| `DIST` | R | distance to nearest enemy (**0 = none**) |
-| `ANGLE` | R | **how many steps clockwise** to face the nearest enemy (`0` = already facing, `255` = no enemy) |
-| `ENEMY_HP` | R | nearest enemy's HP |
-| `HEAT` | R | your current heat (0–100; +20 per SHOOT/SHIELD, −2 per idle tick; at the max = action locked out until 80; **above 80 = 2 HP/sec self-damage**) |
-| `SHIELD` | R | 1 if shielded this tick, else 0 |
-| `RAND` | R | random byte 0–255 |
-| `AHEAD` | R | 1 if a wall or enemy blocks the cell directly in front of you, 0 if clear |
-| `FIRE` | W | (write 1 to shoot — `SHOOT` is the alias) |
+### 7.1 Registers & flags
+| Reg | Size | Role |
+|-----|------|------|
+| `A` | 8-bit | accumulator — most ALU results land here |
+| `X` | 8-bit | index / pointer / scratch |
+| `Y` | 8-bit | scratch |
+| `SP` | 10-bit | stack pointer, starts `$00BF`, grows **down** |
+| `PC` | 10-bit | program counter, starts `$0100` |
+| flags | — | `C` (carry), `Z` (zero), `N` (negative) — the register line shows all three |
 
-> **`ANGLE` is the key sensor.** It reads back a *delta* (0–3): `0` means you're
-> already facing the nearest enemy, `N` means turn right `N` times to face it,
-> and `255` means there's no enemy. That's how HUNTER aims: `IN ANGLE` →
-> `JZ` already facing → else `TURN R` / `DEC` / loop until it reads `0`.
+`Z` is set when a result is 0; `N` when its high bit (bit 7) is set (negative in
+two's complement); these are set by the ALU, `INC`/`DEC`/`TST`, `CMP`, and `POP A`.
+`CMP` sets the flags on `A − B` *without* changing `A`. (The `C` carry bit is defined
+but not yet set by the ALU, so `JC`/`JNC` read as "never / always".)
 
-### Instructions (cheat sheet)
-| Group | Mnemonics |
-|-------|-----------|
-| **Robot** | `SHOOT` · `MOVE` · `TURN L` / `TURN R` / `TURN #n` · `SHIELD` · `WAIT` · `NOP` |
-| **Sensors** | `IN <port>` (loads port into `A`) · `OUT <port>, A` (writes `A` to a port) |
-| **Move data** | `MOV A,#n` `MOV A,X` `MOV A,Y` `MOV A,(X)` `MOV A,[n]` · `MOV X,Y/#n` `MOV Y,X/#n` · `MOV [n],A` `MOV (X),A` · `XCH A,X/Y/(X)` |
-| **Math** (`A=A op …`) | `ADD` `SUB` `MUL` `DIV` `AND` `OR` `XOR` `CMP` — operand `#n` `X` `Y` `(X)` `[n]` |
-| **Increment** | `INC A/X/Y` · `DEC A/X/Y` · `TST A/X/Y` · `NEG A` · `NOT A` |
-| **Branch** | `JMP label` · `JZ` `JNZ` · `JC` `JNC` · `JN` `JNN` · `JG` `JGE` `JL` `JLE` · `JE` `JNE` |
-| **Subroutines** | `CALL label` · `RET` |
-| **Stack** | `PUSH #n/A/X/Y` · `POP A/X/Y` |
+### 7.2 Memory map (1 KB, `$0000–$03FF`)
+| Range | What |
+|-------|------|
+| `$0000–$007F` | data RAM (128 bytes) — `MOV A,[n]` / `MOV [n],A` use an 8-bit `n` here |
+| `$0080–$00BF` | stack (grows down from `$00BF`) |
+| `$00C0–$00FF` | I/O ports (routed through the robot / world) |
+| `$0100–$03FF` | program (up to 256 instructions) |
 
-Branch targets must be **within ±127 instructions** of the branch. `JZ`/`JE` fire when
-the last result was zero (e.g. `IN DIST` → `JZ idle` means "no enemy, go idle").
+Operand forms, wherever they appear:
+- `#n` — 8-bit immediate, 0–255
+- `A` `X` `Y` — registers
+- `(X)` — **indirect**: memory at address `X` (data space only, 0–255)
+- `[n]` / `label` — absolute address. For `MOV A,[n]` / `MOV [n],A` this is 8-bit
+  (0–255, data RAM); for ALU `…,[n]` and `JMP`/`CALL` it's 10-bit (0–1023, program space)
+
+### 7.3 I/O ports
+Read with `IN <port>` (result → `A`), write with `OUT <port>, A` (writes `A`). Only
+`DIR` is writable (it sets your facing directly); the rest are sensors.
+
+| Port | # | R/W | Meaning |
+|------|---|-----|---------|
+| `HP` | 0 | R | your current HP (0–100) |
+| `DIR` | 1 | R/W | your facing: **0=W 1=N 2=E 3=S**. Writing it sets your facing directly. |
+| `RX` | 2 | R | your grid column (0–19) |
+| `RY` | 3 | R | your grid row (0–19) |
+| `DIST` | 4 | R | Manhattan distance to nearest enemy (**0 = none in range**) |
+| `ANGLE` | 5 | R | **clockwise steps** to face nearest enemy (`0` = already facing, `255` = none) |
+| `FIRE` | 6 | — | reads back 0; use `SHOOT` instead |
+| `SHIELD` | 7 | R | 1 if you shielded this tick, else 0 |
+| `HEAT` | 8 | R | your current heat (0–100; +20 per SHOOT/SHIELD, −2 per idle tick, **above 80 = 2 HP/sec self-damage**) |
+| `ENEMY_HP` | 9 | R | nearest enemy's HP (0 if none) |
+| `RAND` | 10 | R | random byte 0–255 (per-fight seeded) |
+| `AHEAD` | 11 | R | 1 if a wall or enemy blocks the cell straight ahead, 0 if clear |
+
+> **`ANGLE` is the aiming sensor.** It's a *delta* (0–3), not an absolute
+> direction: `0` = already facing the nearest enemy, `n` = turn right `n` times
+> to face it, `255` = no enemy. That's how HUNTER aims: `IN ANGLE` → `JZ` to skip
+> if already facing → else `TURN R` / `DEC` / loop until it reads `0`.
+
+### 7.4 Robot ops (what the body does)
+These drive the robot and carry the real tick costs (§6). A heat op that is
+**locked out** (heat too high) collapses to a **1-tick no-op** instead of animating
+— so a bot spamming a jammed gun still cools and re-arms in ~10 ticks.
+
+| Op | Cost | Effect |
+|----|------|--------|
+| `SHOOT` | 3 | spawn a projectile one cell ahead, along your facing (fires on the op's final tick). +20 heat. Locked out while `heat + 20 > 100` — it only fires again exactly at 80. |
+| `MOVE` | 2 | step one cell toward your facing. A wall or an occupied cell = a silent no-op (not an error). |
+| `TURN L` | 1 | rotate 90° counter-clockwise |
+| `TURN R` | 1 | rotate 90° clockwise |
+| `TURN #n` | 1 | rotate `n` steps clockwise, mod 4 — e.g. `TURN #2` = 180° |
+| `SHIELD` | 3 | raise your shield for the next world-resolve (absorbs one hit). +20 heat. Collapses (no protection) when locked out. |
+| `WAIT` | 1 | do nothing this tick (idle; heat cools) |
+| `NOP` | 1 | do nothing — same as `WAIT`, for padding / timing |
+
+### 7.5 Data movement (`MOV` / `XCH`)
+| Mnemonic | Effect |
+|----------|--------|
+| `MOV A,#n` | load immediate → `A` (sets Z/N) |
+| `MOV A,X` / `MOV A,Y` | register → `A` (sets Z/N) |
+| `MOV A,(X)` | memory[X] → `A`, indirect (sets Z/N) |
+| `MOV A,[n]` | memory[n] → `A`, `n` 0–255 (sets Z/N) |
+| `MOV [n],A` | `A` → memory[n], `n` 0–255 |
+| `MOV (X),A` | `A` → memory[X], indirect |
+| `MOV X,A` / `MOV X,Y` / `MOV X,#n` | set `X` |
+| `MOV Y,A` / `MOV Y,X` / `MOV Y,#n` | set `Y` |
+| `XCH A,X` / `XCH A,Y` / `XCH A,(X)` | swap `A` with `X` / `Y` / memory[X] |
+
+The `A`-destined loads set the Z/N flags; the `X`/`Y`/store forms and `XCH` do not.
+Every `MOV`/`XCH`/`NOP` costs **1 tick**.
+
+### 7.6 Arithmetic & logic
+The `ADD`–`CMP` group takes one operand in any form `#n` / `X` / `Y` / `(X)` / `[n]`,
+computes into `A`, and sets the Z/N flags.
+
+| Mnemonic | Effect |
+|----------|--------|
+| `ADD` | `A = (A + op) & FF` |
+| `SUB` | `A = (A − op) & FF` (wraps at 0) |
+| `MUL` | `A = (A × op) & FF` (low byte) |
+| `DIV` | `A = A ÷ op` (integer; `op = 0` yields 0, not a fault) |
+| `AND` | `A = A & op` |
+| `OR` | `A = A \| op` |
+| `XOR` | `A = A ^ op` |
+| `CMP` | sets flags from `A − op`, **`A` unchanged** (remembers `op` for `JG`/`JGE`/`JL`/`JLE`) |
+
+Single-register / `A`-only ops:
+
+| Mnemonic | Effect |
+|----------|--------|
+| `INC A` / `INC X` / `INC Y` | +1, wraps 255→0 (Z/N set on `A`) |
+| `DEC A` / `DEC X` / `DEC Y` | −1, wraps 0→255 (Z/N set on `A`) |
+| `NEG A` | `A = (−A) & FF` (Z/N set) |
+| `NOT A` | `A = ~A & FF` (bitwise invert, Z/N set) |
+| `TST A` / `TST X` / `TST Y` | write nothing — just set Z/N from that register |
+
+All cost **1 tick**.
+
+### 7.7 Branches
+`JMP` / `CALL` take a **10-bit absolute** address (0–1023, a label or number). The
+conditional jumps take a **relative** target — the label must be **within ±127
+instructions** of the *next* instruction (the assembler enforces the range).
+
+| Mnemonic | Jumps when |
+|----------|-----------|
+| `JMP label` | always (unconditional) |
+| `JZ` / `JE` | Z set — last result was zero (`IN DIST` → `JZ idle` = "no enemy, go idle") |
+| `JNZ` / `JNE` | Z clear |
+| `JC` / `JNC` | carry set / clear *(carry is never set by the ALU yet, so JNC is "always")* |
+| `JN` / `JNN` | N set (negative) / N clear (non-negative) |
+| `JG` | signed `A > B` (after a `CMP`) |
+| `JGE` | signed `A >= B` |
+| `JL` | signed `A < B` |
+| `JLE` | signed `A <= B` |
+
+The signed comparisons (`JG`/`JGE`/`JL`/`JLE`) compare `A` against the operand stored
+by the most recent `CMP`, read as **signed** bytes (so `JG` distinguishes 250 < 100
+from 250 > 100). All branches cost **1 tick**.
+
+### 7.8 Subroutines & stack
+| Mnemonic | Effect |
+|----------|--------|
+| `CALL label` | push the return address (next instruction), jump to `label` |
+| `RET` | pop the return address into `PC` |
+| `PUSH #n` / `PUSH A` / `PUSH X` / `PUSH Y` | store the value at `SP`, then decrement `SP` |
+| `POP A` / `POP X` / `POP Y` | increment `SP`, load `mem[SP]` into the register (`POP A` sets Z/N) |
+
+The stack lives at `$080–$0BF` (64 bytes) and grows down; a `CALL` pushes two bytes
+(low then high), so a few dozen `PUSH`es and roughly 30 sub-routine levels fit before
+it would collide with the data RAM. All of these cost **1 tick**.
 
 ---
 
@@ -300,10 +429,16 @@ Fix the highlighted line and `RUN` again.
   to `MYBOT` so your code is in the fight.
 - **`no file open — press NEW first`?** You hit `SAVE` with no file selected; run `NEW`
   (or `EDIT MYBOT`) first.
-- **My bot never fires.** Check `HEAT` — if `> 0`, `SHOOT` is ignored. Space your shots.
+- **My bot never fires.** Check `HEAT` — if it's above **80**, `SHOOT` is locked out.
+  Space your shots so heat cools back to 80 (2 per idle tick) between bursts.
 - **My bot walks into a wall / a bot.** `MOVE` simply doesn't move if the target cell is
-  off-grid or occupied — it's not an error, just a no-op that tick.
-- **It draws after 200 ticks** → highest HP wins; equal HP → `DRAW`.
+  off-grid or occupied — it's not an error, just a no-op that tick. Use the `AHEAD`
+  sensor to steer around walls (see `WALKER.asm` / `SNAKE.asm`).
+- **It self-destructs with no opponent nearby.** That's **overheat** — heat above 80
+  burns 2 HP/sec. Don't hold the trigger; idle to let it cool.
+- **A fight that never KOs** runs to the 1,000,000-tick safety cap, after which the
+  higher-HP bot wins (equal → `DRAW`) — effectively endless, so a real match is decided
+  by a KO.
 - Want a fresh bot? `NEW BOT2`, code it, `SAVE`, then `EDIT BOT2` any time to reload it.
 
 ---
