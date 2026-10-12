@@ -80,6 +80,14 @@ object ISA {
     const val MEM_SIZE = 0x0400
     const val INSN_BYTES = 3
 
+    // ---- System zero-page (C64-style) ----
+    // The world owns $0000–$000F of each bot's data RAM and re-writes it every
+    // tick, so a stray firmware write self-heals on the next tick; firmware
+    // should treat the page as read-only. $SYS_TICK..$SYS_TICK+2 holds the
+    // 24-bit tick counter, little-endian (covers the 1M-tick cap, no wrap).
+    const val SYS_PAGE_END = 0x000F
+    const val SYS_TICK = 0x0000
+
     // ---- Opcode table ----
     // op -> operand kind
     private val KIND = IntArray(256) { NONE }

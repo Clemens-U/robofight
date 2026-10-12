@@ -91,6 +91,15 @@ class Vm {
             }
             return
         }
+        // An instruction must fit entirely inside the program region. Past
+        // the last full 3-byte slot the bot ran off the end of its program
+        // (no loop at the bottom) — halt it cleanly instead of reading past
+        // the memory image.
+        if (pc > ISA.PROG_END - ISA.INSN_BYTES + 1) {
+            fault = true
+            lastOp = "HALT — fell off end of program"
+            return
+        }
         val op = mem[pc].toInt() and 0xFF
         val opnd = mem[pc + 1].toInt() and 0xFF
         val opndHi = mem[pc + 2].toInt() and 0xFF

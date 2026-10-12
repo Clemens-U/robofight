@@ -250,7 +250,8 @@ but not yet set by the ALU, so `JC`/`JNC` read as "never / always".)
 ### 7.2 Memory map (1 KB, `$0000–$03FF`)
 | Range | What |
 |-------|------|
-| `$0000–$007F` | data RAM (128 bytes) — `MOV A,[n]` / `MOV [n],A` use an 8-bit `n` here |
+| `$0000–$000F` | **system zero-page** — owned by the world, not your firmware (see below) |
+| `$0010–$007F` | data RAM (112 bytes) — your scratch space; `MOV A,[n]` / `MOV [n],A` use an 8-bit `n` here |
 | `$0080–$00BF` | stack (grows down from `$00BF`) |
 | `$00C0–$00FF` | I/O ports (routed through the robot / world) |
 | `$0100–$03FF` | program (up to 256 instructions) |
@@ -261,6 +262,15 @@ Operand forms, wherever they appear:
 - `(X)` — **indirect**: memory at address `X` (data space only, 0–255)
 - `[n]` / `label` — absolute address. For `MOV A,[n]` / `MOV [n],A` this is 8-bit
   (0–255, data RAM); for ALU `…,[n]` and `JMP`/`CALL` it's 10-bit (0–1023, program space)
+
+> **The system zero-page.** The low 16 bytes of your memory (`$0000–$000F`) belong
+> to the world (C64-style). It re-writes the page **every tick, before you act**,
+> so a stray write self-heals on the next tick — treat the page as read-only.
+> The tick counter lives there as a **24-bit little-endian** value: `$0000` = low
+> byte, `$0001` = mid byte, `$0002` = high byte. It counts the ticks elapsed
+> since the fight started — a bot acting on tick *N* reads *N*. Read a byte with
+> `MOV A,[0]` / `MOV A,[1]` / `MOV A,[2]`. 24 bits covers the 1,000,000-tick
+> cap, so the counter never wraps mid-fight — no 256-wrap bookkeeping.
 
 ### 7.3 I/O ports
 Read with `IN <port>` (result → `A`), write with `OUT <port>, A` (writes `A`). Only

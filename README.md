@@ -172,6 +172,7 @@ Key facts:
 |---|---|
 | **Registers** | `A` (accumulator), `X` (index/scratch), `Y` (scratch) |
 | **Sensors** (`IN`/`OUT`) | `HP` `DIR` `RX` `RY` `DIST` `ANGLE` `ENEMY_HP` `HEAT` `SHIELD` `RAND` `FIRE` `AHEAD` |
+| **Memory** | data RAM `$010–$7F` + **system zero-page** `$000–$00F`: the world writes a 24-bit tick counter to `$000–$002` (little-endian) every tick — read it with `MOV A,[0]`…`MOV A,[2]`, no 256-wrap |
 | **Robot** | `MOVE` `TURN L`/`TURN R`/`TURN #n` `SHOOT` `SHIELD` `WAIT` `NOP` |
 | **Branch** | `JMP` `JZ` `JNZ` `JC` `JNC` `JN` `JNN` `JG` `JGE` `JL` `JLE` `JE` `JNE` |
 | **Subroutines** | `CALL` `RET`, with a stack (`PUSH`/`POP`) |

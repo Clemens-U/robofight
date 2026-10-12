@@ -552,6 +552,42 @@ fun main() {
         b.px = 1
         check("AHEAD=1 when enemy ahead", b.portIn(11) == 1, "got ${b.portIn(11)}")
 
+        // Zero-page (C64-style): the world owns $0000–$000F of each bot's data
+        // RAM and writes the 24-bit tick counter (little-endian) at
+        // $0000–$0002 every tick, before the bots act. Firmware reads the full
+        // counter byte-wise with MOV A,[n] — no 8-bit wrap. The read bot runs a
+        // 2-instruction loop (MOV on odd ticks, JMP on even ones), so after an
+        // ODD tick count its last executed instruction is the MOV that just
+        // read the current tick. The bots loop forever so the world never
+        // ends before the ticks below.
+        val tw = World()
+        val ta = Bot("A", 'A', 2, 0, 5, DIR_E, "loop: MOV A,[0]\nJMP loop\n")
+        val tb = Bot("B", 'B', 4, 5, 5, DIR_W, "loop: WAIT\nJMP loop\n")
+        tw.add(ta); tw.add(tb)
+        val counter = { val m = ta.vm.mem
+            Triple(m[0].toInt() and 0xFF, m[1].toInt() and 0xFF, m[2].toInt() and 0xFF) }
+        check("sys-page counter zeroed before first tick", counter() == Triple(0, 0, 0),
+            "got ${counter()}")
+        repeat(301) { tw.tickOnce() }   // 301 = 0x12D -> 45,1,0
+        check("tick 301 -> counter 45,1,0 at $0000–$0002", counter() == Triple(45, 1, 0),
+            "got ${counter()}")
+        check("counter synced to every bot", (tb.vm.mem[0].toInt() and 0xFF) == 45, "got ${tb.vm.mem[0].toInt() and 0xFF}")
+        check("firmware reads the counter via MOV A,[0]", ta.vm.a == 45, "got ${ta.vm.a}")
+        repeat(65278) { tw.tickOnce() }   // total 65579 = 0x1002B -> 43,0,1
+        check("tick 65579 -> counter 43,0,1 (24-bit, no wrap)", counter() == Triple(43, 0, 1),
+            "got ${counter()}")
+        check("firmware keeps tracking the low byte", ta.vm.a == 43, "got ${ta.vm.a}")
+
+        // A program that runs off the end of the program region must halt the
+        // bot cleanly (vm.fault), never read past the memory image.
+        val offVm = Vm(); offVm.load(assemble("WAIT\n").code)
+        var halted = false
+        for (i in 0 until 400) {
+            offVm.step(NullEnv)
+            if (offVm.fault) { halted = true; break }
+        }
+        check("falling off the end of the program faults (no crash)", halted)
+
         // setSeed is deterministic; a different seed gives a different stream.
         val w1 = World(); w1.setSeed(42)
         val w2 = World(); w2.setSeed(42)

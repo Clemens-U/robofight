@@ -32,8 +32,8 @@ data class AsmResult(
  *   #n         immediate 0..255
  *   A X Y      registers
  *   (X)        indirect via X  (memory[X])
- *   label|nnnn absolute address (jumps/ALU: 10-bit 0..1023; MOV data: 0..255)
- *   port name  HP DIR RX RY DIST ANGLE FIRE SHIELD HEAT ENEMY_HP RAND
+ *   label|nnnn absolute address, also `[label]`/`[nnnn]` (jumps/ALU: 10-bit 0..1023; MOV data: 0..255)
+ *   port name  HP DIR RX RY DIST ANGLE FIRE SHIELD HEAT ENEMY_HP RAND AHEAD
  *
  * Every instruction is exactly 3 bytes and lives in program space
  * ($100+), so the address of instruction i is ISA.PROG_BASE + i * 3.
@@ -107,16 +107,18 @@ private fun encode(
         if (n !in 0..255) { err("immediate $n out of range 0..255"); return null }
         return n
     }
-    /** 10-bit absolute address (jumps / ALU), 0..1023 */
+    /** 10-bit absolute address (jumps / ALU), 0..1023 — `n`/label, or bracketed `[n]`/`[label]` */
     fun addr(s: String): Int? {
-        val a = labels[s.uppercase()] ?: s.trim().toIntOrNull()
+        val t = s.trim().removeSurrounding("[", "]")
+        val a = labels[t.uppercase()] ?: t.toIntOrNull()
             ?: run { err("undefined label or address '$s'"); return null }
         if (a !in 0..0x3FF) { err("address $a out of range 0..1023"); return null }
         return a
     }
-    /** 8-bit data-RAM address (MOV), 0..255 */
+    /** 8-bit data-RAM address (MOV), 0..255 — `n`/label, or bracketed `[n]`/`[label]` */
     fun addr8(s: String): Int? {
-        val a = labels[s.uppercase()] ?: s.trim().toIntOrNull()
+        val t = s.trim().removeSurrounding("[", "]")
+        val a = labels[t.uppercase()] ?: t.toIntOrNull()
             ?: run { err("undefined label or address '$s'"); return null }
         if (a !in 0..255) { err("MOV data address $a must be 0..255"); return null }
         return a

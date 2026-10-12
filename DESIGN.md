@@ -126,7 +126,8 @@ An 8-bit-class machine. **1 KB** of memory, 7 registers, robot state exposed as
 
 | Range | What it is |
 |-------|-----------|
-| `$0000–$007F` | data RAM (128 bytes) |
+| `$0000–$000F` | system zero-page (world-owned; 24-bit tick counter at `$0000–$0002`, little-endian) |
+| `$0010–$007F` | data RAM (112 bytes) |
 | `$0080–$00BF` | stack (grows down from `$00BF`) |
 | `$00C0–$00FF` | **I/O ports** — robot state & world |
 | `$0100–$03FF` | program (768 bytes) |

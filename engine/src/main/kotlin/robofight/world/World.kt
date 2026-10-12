@@ -1,6 +1,7 @@
 package robofight.world
 
 import robofight.assembler.assemble
+import robofight.isa.ISA
 import robofight.vm.Env
 import robofight.vm.Vm
 
@@ -88,6 +89,18 @@ class Bot(
             11 -> w.aheadBlocked(this)
             else -> 0
         }
+    }
+
+    /**
+     * Publish the world's zero-page state into this bot's memory: the 24-bit
+     * tick counter (little-endian) at [ISA.SYS_TICK]. The world calls this
+     * every tick BEFORE the bots act, so a bot acting on tick N reads N.
+     * The page is re-written every tick, so a firmware clobber self-heals.
+     */
+    fun syncSysPage(tick: Int) {
+        vm.mem[ISA.SYS_TICK] = (tick and 0xFF).toByte()
+        vm.mem[ISA.SYS_TICK + 1] = ((tick shr 8) and 0xFF).toByte()
+        vm.mem[ISA.SYS_TICK + 2] = ((tick shr 16) and 0xFF).toByte()
     }
 
     override fun portOut(port: Int, value: Int) {
@@ -246,6 +259,10 @@ class World {
     fun tickOnce() {
         if (finished) return
         tick++
+        // Zero-page (C64-style): the world owns $0000–$000F of each bot's data
+        // RAM. Publish the current tick to every bot BEFORE it acts, so a bot
+        // acting on tick N reads N.
+        for (b in bots) b.syncSysPage(tick)
         val log = ArrayList<String>()
         for (b in bots) {
             if (!b.alive) continue
