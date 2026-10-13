@@ -8,6 +8,8 @@ import robofight.world.DIR_S
 import robofight.world.DIR_W
 import robofight.world.GRID
 import robofight.world.HitEvent
+import robofight.world.Layout
+import robofight.world.Arena
 import robofight.world.World
 
 /**
@@ -60,7 +62,7 @@ class RunController {
     var onFinished: (() -> Unit)? = null
 
     /**
-     * Start a fresh fight between [a] and [b].
+     * Start a fresh fight between [a] and [b] on [layout].
      *
      * [sourceFor] resolves each slot's firmware (the activity reads the
      * BotFiles store for file slots and the preset constant for presets).
@@ -69,7 +71,7 @@ class RunController {
      * false on an assembler error (status + errorLine + errorBot then describe
      * the failure).
      */
-    fun start(a: BotSlot, b: BotSlot, sourceFor: (BotSlot) -> String): Boolean {
+    fun start(a: BotSlot, b: BotSlot, sourceFor: (BotSlot) -> String, layout: Layout = Arena.OPEN): Boolean {
         val srcA = sourceFor(a)
         val srcB = sourceFor(b)
         val resA = assemble(srcA)
@@ -99,20 +101,22 @@ class RunController {
         errorBot = ""
         status = "running…"
 
-        val w = World()
+        val w = World(layout)
         // Each fight gets a fresh RNG seed so repeated fights differ (the
         // engine's LCG otherwise starts at the same state every time).
         val seed = kotlin.random.Random.nextLong().toInt()
         w.setSeed(seed)
         // Random, non-overlapping start cells; each bot faces the other along
         // the dominant axis so the fight opens with a fair line of sight.
+        // Spawns draw free cells only (wall cells are skipped); for OPEN
+        // (no walls) every cell is free, so this is behaviorally unchanged.
         var ax = 0; var ay = 0; var bx = 0; var by = 0
         do {
             ax = kotlin.random.Random.nextInt(GRID)
             ay = kotlin.random.Random.nextInt(GRID)
             bx = kotlin.random.Random.nextInt(GRID)
             by = kotlin.random.Random.nextInt(GRID)
-        } while (ax == bx && ay == by)
+        } while (ax == bx && ay == by || !layout.isFree(ax, ay) || !layout.isFree(bx, by))
         w.add(Bot(a.name, a.glyph, a.color, ax, ay, faceToward(ax, ay, bx, by), srcA))
         w.add(Bot(b.name, b.glyph, b.color, bx, by, faceToward(bx, by, ax, ay), srcB))
         world = w

@@ -12,6 +12,7 @@ import android.view.View
 import kotlin.math.cos
 import kotlin.math.sin
 import robofight.world.HitEvent
+import robofight.world.Layout
 import robofight.world.Palette
 import robofight.world.World
 
@@ -60,6 +61,10 @@ class ArenaView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeWidth = 3f
     }
+    // Walls (DESIGN.md §3.1, glyph `█`): a solid filled block, drawn under the
+    // projectiles and bots. A mid green from the app's phosphor palette so a
+    // block reads clearly against the near-black cells and the bot glyphs.
+    private val wallPaint = Paint().apply { color = Color.parseColor("#24843D") }
 
     // --- FX paints ---
     private val sparkPaint = Paint().apply { style = Paint.Style.FILL }
@@ -292,6 +297,21 @@ class ArenaView @JvmOverloads constructor(
             canvas.drawLine(0f, i * cellSize, w, i * cellSize, gridPaint)
         }
 
+        // Walls (DESIGN.md §3.1, glyph `█`): solid filled blocks under the
+        // projectiles and bots, from the selected layout's wall grid.
+        val walls = arenaLayout?.walls
+        if (walls != null) {
+            for (py in 0 until GRID) {
+                for (px in 0 until GRID) {
+                    if (walls[py * GRID + px]) {
+                        val left = px * cellSize
+                        val top = py * cellSize
+                        canvas.drawRect(left, top, left + cellSize, top + cellSize, wallPaint)
+                    }
+                }
+            }
+        }
+
         val world = controller?.world
         if (world == null) {
             glyphPaint.color = Color.parseColor("#34ec5b")
@@ -355,6 +375,18 @@ class ArenaView @JvmOverloads constructor(
 
     // --- Wiring ---
     var controller: RunController? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /**
+     * The arena layout selected on the RUN screen (or null for the default
+     * OPEN arena before a fight exists). Its wall grid is rendered as solid
+     * blocks under the projectiles/bots. Set by the activity so the picked
+     * arena's geometry is visible even before RUN.
+     */
+    var arenaLayout: Layout? = null
         set(value) {
             field = value
             invalidate()

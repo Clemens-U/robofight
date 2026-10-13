@@ -37,11 +37,13 @@ class Bot(
     y: Int,
     dir: Int,
     firmware: String,
+    hp: Int = MAX_HP,         // per-slot HP (challenge codes, §6)
 ) : Env {
     val vm = Vm()
     var px = x; var py = y
     var facing = dir
-    var hp = MAX_HP
+    val startHp = hp          // configured HP — restored by [reset]
+    var hp = hp
     var heat = 0
     var heatedThisTick = false  // set by shoot()/shield(); consumed by the cool step
     var heatOverload = 0f       // fractional HP pending from overheating (applied as whole HP)
@@ -53,22 +55,36 @@ class Bot(
     var dmgTaken = 0
     private var world: World? = null
     private val fw = firmware
+    private var fwBinary: ByteArray? = null   // set by [loadBinary] (challenge codes)
 
     init { load(fw) }
 
     fun load(fw: String) {
         val r = assemble(fw)
         check(r.ok) { "[$name] firmware failed to assemble:\n" + r.errors.joinToString("\n") { "line ${it.line}: ${it.msg}" } }
+        fwBinary = null
         vm.load(r.code)
+    }
+
+    /**
+     * Challenge-code path (§4.3): the canonical firmware is the assembler's
+     * OUTPUT image — loaded straight into the VM, never re-assembled.
+     * [Vm.load] enforces the 768-byte program limit.
+     */
+    fun loadBinary(image: ByteArray) {
+        check(image.size % 3 == 0) { "[$name] firmware image must be a multiple of 3 bytes (got ${image.size})" }
+        vm.load(image)
+        fwBinary = image
     }
 
     fun bind(w: World) { world = w }
 
     fun reset(x: Int, y: Int, dir: Int) {
         px = x; py = y; facing = dir
-        hp = MAX_HP; heat = 0; heatedThisTick = false; heatOverload = 0f; shielded = false; alive = true
+        hp = startHp; heat = 0; heatedThisTick = false; heatOverload = 0f; shielded = false; alive = true
         shots = 0; hits = 0; dmgDealt = 0; dmgTaken = 0
-        load(fw)
+        val binary = fwBinary
+        if (binary != null) vm.load(binary) else load(fw)
     }
 
     // ---- Env (I/O) ----
@@ -127,7 +143,8 @@ class Bot(
         if (!alive) return
         val (dx, dy) = delta(facing)
         val nx = px + dx; val ny = py + dy
-        if (nx in 0 until GRID && ny in 0 until GRID && w.botAt(nx, ny) == null) { px = nx; py = ny }
+        // Walls block MOVE as a silent no-op (§7.5), exactly like the edge.
+        if (nx in 0 until GRID && ny in 0 until GRID && !w.layout.isWall(nx, ny) && w.botAt(nx, ny) == null) { px = nx; py = ny }
     }
 
     override fun shield() {
@@ -158,6 +175,27 @@ class Bot(
         dmgTaken += d
         if (hp <= 0) { hp = 0; alive = false }
     }
+
+    companion object {
+        /**
+         * Challenge-code path (§4.3): a bot running a pre-assembled binary
+         * image — the assembler's output, loaded verbatim, never re-assembled.
+         */
+        fun fromBinary(
+            name: String,
+            glyph: Char,
+            color: Int,
+            x: Int,
+            y: Int,
+            dir: Int,
+            image: ByteArray,
+            hp: Int = MAX_HP,
+        ): Bot {
+            val b = Bot(name, glyph, color, x, y, dir, "", hp)
+            b.loadBinary(image)
+            return b
+        }
+    }
 }
 
 data class Projectile(val owner: Bot, var x: Int, var y: Int, var dir: Int, var life: Int)
@@ -179,7 +217,7 @@ data class HitEvent(
 )
 
 /** The arena: grid, bots, projectiles, deterministic tick resolution. */
-class World {
+class World(val layout: Layout = Arena.OPEN) {
     val bots = ArrayList<Bot>()
     val projectiles = ArrayList<Projectile>()
     var tick = 0
@@ -190,6 +228,13 @@ class World {
         private set
     var lastLine = ""
         private set
+
+    /**
+     * Timed mode (challenge codes, §6): when set, the fight ends at this tick
+     * — highest HP wins, an exact tie is a DRAW ([winner] stays null).
+     * Null = KO mode (the default).
+     */
+    var timeLimit: Int? = null
 
     /**
      * Optional presentation hook for hit effects. The engine is pure and
@@ -214,6 +259,7 @@ class World {
         val (dx, dy) = delta(b.facing)
         val nx = b.px + dx; val ny = b.py + dy
         if (nx !in 0 until GRID || ny !in 0 until GRID) return 1
+        if (layout.isWall(nx, ny)) return 1
         return if (botAt(nx, ny) != null) 1 else 0
     }
 
@@ -252,6 +298,7 @@ class World {
 
     fun spawnProjectile(owner: Bot, x: Int, y: Int, dir: Int) {
         if (x !in 0 until GRID || y !in 0 until GRID) return
+        if (layout.isWall(x, y)) return
         projectiles.add(Projectile(owner, x, y, dir, PROJ_LIFE))
     }
 
@@ -315,6 +362,7 @@ class World {
                 val (dx, dy) = delta(p.dir)
                 val nx = p.x + dx; val ny = p.y + dy
                 if (nx !in 0 until GRID || ny !in 0 until GRID) continue // hit wall
+                if (layout.isWall(nx, ny)) continue // absorbed by a wall (§7.5)
                 target = targetAt(nx, ny, p)
                 if (target == null) { p.x = nx; p.y = ny }
             }
@@ -340,7 +388,15 @@ class World {
 
     private fun checkFinish() {
         val living = bots.filter { it.alive }
-        if (living.size <= 1) { finished = true; if (living.size == 1) winner = living[0] }
+        if (living.size <= 1) { finished = true; if (living.size == 1) winner = living[0]; return }
+        // Timed mode (§6): at the limit the fight ends — highest HP wins, an
+        // exact tie is a DRAW (winner stays null).
+        val limit = timeLimit ?: return
+        if (tick < limit) return
+        finished = true
+        val top = bots.maxOf { it.hp }
+        val leaders = bots.filter { it.hp == top }
+        if (leaders.size == 1) winner = leaders[0]
     }
 
     fun finishByHp() {

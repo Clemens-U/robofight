@@ -33,3 +33,8 @@ shot.png
 window_dump.xml
 # uiautomator hierarchy dumps (scratch, device-specific)
 ui_*.xml
+
+# headless probe / scratch build dirs
+build-headless/
+build-headless-src/
+build-probe/

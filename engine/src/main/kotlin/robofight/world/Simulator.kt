@@ -5,9 +5,12 @@ object Simulator {
     fun runFight(
         bots: List<Bot>,
         maxTicks: Int = MAX_TICKS,
+        layout: Layout = Arena.OPEN,
+        timeLimit: Int? = null,
         onTick: ((World, Int) -> Unit)? = null,
     ): World {
-        val w = World()
+        val w = World(layout)
+        w.timeLimit = timeLimit
         bots.forEach { w.add(it) }
         while (!w.finished && w.tick < maxTicks) {
             w.tickOnce()

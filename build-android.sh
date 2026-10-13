@@ -86,6 +86,7 @@ echo "[3/7] kotlinc (engine + app → app-cls)…"
   engine/src/main/kotlin/robofight/isa/ISA.kt \
   engine/src/main/kotlin/robofight/assembler/Assembler.kt \
   engine/src/main/kotlin/robofight/vm/Vm.kt \
+  engine/src/main/kotlin/robofight/world/Arena.kt \
   engine/src/main/kotlin/robofight/world/World.kt \
   engine/src/main/kotlin/robofight/world/TextGrid.kt \
   engine/src/main/kotlin/robofight/world/Presets.kt \

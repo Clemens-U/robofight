@@ -5,17 +5,23 @@ import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 
 /**
- * Runs the Opcode Arena engine self-test suite (Tests.kt) inside JUnit so the 20
- * checks appear in Android Studio's test panel and in `:engine:test`.
+ * Runs the Opcode Arena engine self-test suites inside JUnit so the checks
+ * appear in Android Studio's test panel and in `:engine:test`:
  *
- * Tests.kt is kept verbatim (global `check()` + `main()` + `passed`/`failed`).
- * The suite entry point is invoked via reflection: both Tests.kt and Demo.kt
- * declare top-level `main()` in package `robofight`, so a direct `TestsKt.main()`
- * facade reference does not resolve cleanly under the Kotlin 2 K2 compiler.
- * Reflection resolves the same class at runtime with no compile-time ambiguity.
+ *  - Tests.kt — the original 20-check engine suite
+ *  - ArenaTests.kt — the challenge-code arena suite (§12.1 geometry, §7.5
+ *    walls, §6 timed/HP, §7.6 SCATTER, §4.3 binary path) including the
+ *    full §12.3 fight matrix (250 headless fights)
  *
- * On success the suite prints 20 PASS lines and sets the global `failed` counter
- * to 0; we assert that and re-emit the captured output into the Gradle test log.
+ * Both suites are kept verbatim-style (global `check()` + `main()` +
+ * shared `passed`/`failed` counters). Their entry points are invoked via
+ * reflection: Tests.kt, Demo.kt, ArenaTests.kt and FightMatrix.kt each
+ * declare top-level `main()` in package `robofight`, so a direct facade
+ * reference does not resolve cleanly under the Kotlin 2 K2 compiler.
+ *
+ * On success the suites print their PASS lines and leave the global
+ * `failed` counter at 0; we assert that and re-emit the captured output
+ * into the Gradle test log.
  */
 class EngineTests {
 
@@ -25,9 +31,10 @@ class EngineTests {
         val original = System.out
         System.setOut(PrintStream(captured, true))
         try {
-            val facade = Class.forName("robofight.TestsKt")
-            val main = facade.getMethod("main")
-            main.invoke(null)
+            for (facadeName in listOf("robofight.TestsKt", "robofight.ArenaTestsKt")) {
+                val facade = Class.forName(facadeName)
+                facade.getMethod("main").invoke(null)
+            }
         } finally {
             System.setOut(original)
         }

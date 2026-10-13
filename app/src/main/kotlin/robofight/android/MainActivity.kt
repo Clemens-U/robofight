@@ -36,6 +36,8 @@ import android.widget.TextView
 import android.text.SpannableStringBuilder
 import android.text.style.ForegroundColorSpan
 import java.io.File
+import robofight.world.Arena
+import robofight.world.Layout
 import robofight.world.Palette
 import robofight.world.Presets
 import robofight.vm.Vm
@@ -126,6 +128,15 @@ class MainActivity : Activity() {
     private val slots = ArrayList<BotSlot>()
     private var ai = 0
     private var bi = 1
+    /**
+     * The RUN-screen arena picker: one button per free arena in
+     * [Arena.all()] order (OPEN/BLOCKS/RING/CROSS/MAZE). [arenaIdx] is the
+     * selected arena (default 0 = OPEN); the picked layout feeds
+     * [RunController.start] and is rendered by [ArenaView.arenaLayout].
+     */
+    private val arenaButtons = ArrayList<Button>()
+    private var arenaIdx = 0
+    private val arenaLayout: Layout get() = Arena.all()[arenaIdx]
 
     private val tickLoop = object : Runnable {
         override fun run() {
@@ -207,6 +218,7 @@ class MainActivity : Activity() {
         cmd.setOnEditorActionListener { _, _, _ -> submitCommand(); true }
 
         updateBtnTexts()
+        updateArenaBtns()
         if (savedInstanceState?.getBoolean(STATE_RUN_MODE) == true) {
             setMode(AppMode.RUN)
         } else {
@@ -746,7 +758,7 @@ class MainActivity : Activity() {
 
     private fun doRun() {
         handler.removeCallbacks(tickLoop)
-        if (!controller.start(slots[ai], slots[bi], ::sourceFor)) {
+        if (!controller.start(slots[ai], slots[bi], ::sourceFor, arenaLayout)) {
             autoRunning = false
             status.text = "ASSEMBLER ERROR  // ${controller.status.uppercase()}"
             btnRun.isEnabled = true
@@ -766,7 +778,7 @@ class MainActivity : Activity() {
         btnRun.isEnabled = true
         btnRun.text = "RUN"
         if (controller.world == null) {
-            if (!controller.start(slots[ai], slots[bi], ::sourceFor)) {
+            if (!controller.start(slots[ai], slots[bi], ::sourceFor, arenaLayout)) {
                 status.text = "ASSEMBLER ERROR  // ${controller.status.uppercase()}"
                 return
             }
@@ -1049,6 +1061,7 @@ class MainActivity : Activity() {
             text = "ARENA / LIVE EXECUTION"
             setPadding(dp(4), 0, dp(4), dp(6))
         })
+        run.addView(buildArenaPickerRow())
 
         val arenaFrame = FrameLayout(this).apply {
             background = panelBackground(C_PANEL, C_GREEN_DARK)
@@ -1147,6 +1160,36 @@ class MainActivity : Activity() {
         setPadding(dp(3), 0, dp(3), 0)
         background = panelBackground(C_DARK, C_GREEN_DARK)
         maxLines = 3
+    }
+
+    /**
+     * The arena picker row: one terminal-style button per free arena
+     * (OPEN/BLOCKS/RING/CROSS/MAZE) in [Arena.all()] order, sharing the row
+     * width the way the A/B bot picker does. Tapping a button selects that
+     * arena; the picked layout then feeds [RunController.start] and
+     * [ArenaView.arenaLayout].
+     */
+    private fun buildArenaPickerRow(): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(7), 0, 0)
+        }
+        Arena.all().forEachIndexed { i, l ->
+            val b = terminalButton(l.name)
+            arenaButtons.add(b)
+            b.setOnClickListener { arenaIdx = i; updateArenaBtns() }
+            row.addView(b, weightedButton(if (i == 0) 0 else dp(5)))
+        }
+        return row
+    }
+
+    /** Highlight the selected arena button and push the picked layout into the view. */
+    private fun updateArenaBtns() {
+        arenaButtons.forEachIndexed { i, b ->
+            b.setTextColor(if (i == arenaIdx) C_BLACK else C_BRIGHT)
+            b.background = panelBackground(if (i == arenaIdx) C_GREEN else C_BLACK, C_GREEN_DARK)
+        }
+        if (::arena.isInitialized) arena.arenaLayout = Arena.all()[arenaIdx]
     }
 
     /**

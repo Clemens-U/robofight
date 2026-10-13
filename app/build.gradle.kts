@@ -15,8 +15,8 @@ android {
         applicationId = "robofight.android"
         minSdk = 24
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.3-m3"
+        versionCode = 5
+        versionName = "0.4-arena"
     }
 
     signingConfigs {
