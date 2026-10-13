@@ -233,7 +233,8 @@ idle:   WAIT
 
 **Later (roadmap)**: step-debugger (single-step, watch regs/memory, breakpoints) ·
 **Campaign vs AI** (difficulty ladder) · **PvP hot-seat** · **Tournaments** ·
-**Progression** (unlock parts/weapons).
+**Progression** (unlock parts/weapons) · **Challenge codes** (shareable fights,
+replays & "beat my bot" codes — locked v1 spec in `CHALLENGE-CODES.md`).
 
 ## 8. Architecture
 

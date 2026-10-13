@@ -240,6 +240,7 @@ PRs, forks, and "I built a bot and it's weird but cool" are all welcome.
 | File | What it is |
 |------|-----------|
 | **[DESIGN.md](DESIGN.md)** | The locked design spec — fantasy, CPU, combat model, palette, milestones. Source of truth. |
+| **[CHALLENGE-CODES.md](CHALLENGE-CODES.md)** | Challenge-code spec (v1, locked) — shareable fight codes: wire format, the five free arenas, rule knobs, free/Pro gating. |
 | **[MANUAL.md](MANUAL.md)** | User manual — the two modes, the shell, the RF-8 language, combat rules, troubleshooting. |
 | **[PLAN-M3-ANDROID.md](PLAN-M3-ANDROID.md)** | The plan that moved us from LibGDX to a pure native-Android app. |
 | **[IDEA.md](IDEA.md)** | The one-line seed it all started from. |
