@@ -245,13 +245,26 @@ The builder offers the four names plus a **CUSTOM** row exposing the dials.
 
 ### 7.3 Free arena definitions
 
-The **coordinate rules are the implementation source of truth**; the ASCII
-renderings are generated from them and verified (§12.1). Grid: 20×20,
-`x` = column 0–19 (left→right), `y` = row 0–19 (top→bottom). `#` = wall.
+Terrain comes in **two kinds**, and both block `MOVE`, absorb projectiles, and
+register in `AHEAD`:
 
-#### `0x00` OPEN — 0 walls
+- **blocks** (obstacles) — full cells that cannot be entered, stood on, or shot
+  through. Stored in a 20×20 boolean array; rendered as solid filled cells.
+- **edge walls** — line segments on the border *between* two adjacent cells.
+  Stored in two arrays: `vertEdge` (the edge to the right of `(x, y)`,
+  `x` in 0–18, `y` in 0–19) and `horizEdge` (the edge below `(x, y)`,
+  `x` in 0–19, `y` in 0–18); rendered as thin lines on the cell borders.
 
-No walls. The baseline: pure aiming, spacing, and heat management.
+The **coordinate rules are the implementation source of truth**; the figures
+below are generated from them and verified (§12.1). Grid: 20×20, `x` = column
+0–19 (left→right), `y` = row 0–19 (top→bottom). Arenas without edge walls are
+shown as a 20×20 grid (`#` = block, `.` = free). Arenas with edge walls are
+shown at the engine's 2× resolution (`#` = block, `.` = free, `|`/`-` = edge
+wall, space = gutter).
+
+#### `0x00` OPEN — 0 blocks, 0 edge walls
+
+No terrain. The baseline: pure aiming, spacing, and heat management.
 
 ```
 ....................
@@ -278,44 +291,11 @@ No walls. The baseline: pure aiming, spacing, and heat management.
 
 Spawns: SEPARATE `(1,1)`/`(18,18)` · CLASH `(9,10)`/`(10,10)`.
 
-#### `0x01` BLOCKS — 16 walls
+#### `0x01` BLOCKS — 16 blocks, 0 edge walls
 
-Four 2×2 wall blocks, top-left corners at `(6,6)`, `(12,6)`, `(6,12)`,
-`(12,12)`. The first "real" arena: cover and flanking; teaches `AHEAD`
-and pathing around obstacles.
-
-```
-....................
-....................
-....................
-....................
-....................
-....................
-......##....##......
-......##....##......
-....................
-....................
-....................
-....................
-......##....##......
-......##....##......
-....................
-....................
-....................
-....................
-....................
-....................
-```
-
-Spawns: SEPARATE `(1,1)`/`(18,18)` · CLASH `(9,9)`/`(10,9)`.
-
-#### `0x02` RING — 20 walls
-
-Perimeter of the rectangle `x 6..13 × y 6..13` (an 8×8 square ring) with a
-2-wide gate at the middle of each side: top/bottom at `x ∈ {9,10}`,
-left/right at `y ∈ {9,10}`. Interior is a 6×6 chamber. Bullets die on the
-ring, so fights collapse into gate duels; center or perimeter is the
-opening decision.
+Four 2×2 obstacle blocks, top-left corners at `(6,6)`, `(12,6)`, `(6,12)`,
+`(12,12)`. The first "real" arena: cover and flanking; teaches `AHEAD` and
+pathing around obstacles.
 
 ```
 ....................
@@ -324,29 +304,81 @@ opening decision.
 ....................
 ....................
 ....................
-......###..###......
-......#......#......
-......#......#......
-....................
-....................
-......#......#......
-......#......#......
-......###..###......
+......##....##......
+......##....##......
 ....................
 ....................
 ....................
 ....................
+......##....##......
+......##....##......
 ....................
 ....................
+....................
+....................
+....................
+....................
+```
+
+Spawns: SEPARATE `(1,1)`/`(18,18)` · CLASH `(9,10)`/`(10,10)`.
+
+#### `0x02` RING — 0 blocks, 24 edge walls
+
+The boundary **lines** of the 8×8 square `x 6..13 × y 6..13`, with a 2-wide
+gate at the middle of each side: top/bottom at `x ∈ {9,10}`, left/right at
+`y ∈ {9,10}`. Because a line is 0-thick, the enclosed chamber is the full 8×8.
+Bullets die on the ring, so fights collapse into gate duels; center or
+perimeter is the opening decision.
+
+```
+ . . . . . . . . . . . . . . . . . . . .
+
+ . . . . . . . . . . . . . . . . . . . .
+
+ . . . . . . . . . . . . . . . . . . . .
+
+ . . . . . . . . . . . . . . . . . . . .
+
+ . . . . . . . . . . . . . . . . . . . .
+
+ . . . . . . . . . . . . . . . . . . . .
+             - - -     - - -
+ . . . . . .|. . . . . . . .|. . . . . .
+
+ . . . . . .|. . . . . . . .|. . . . . .
+
+ . . . . . .|. . . . . . . .|. . . . . .
+
+ . . . . . . . . . . . . . . . . . . . .
+
+ . . . . . . . . . . . . . . . . . . . .
+
+ . . . . . .|. . . . . . . .|. . . . . .
+
+ . . . . . .|. . . . . . . .|. . . . . .
+
+ . . . . . .|. . . . . . . .|. . . . . .
+             - - -     - - -
+ . . . . . . . . . . . . . . . . . . . .
+
+ . . . . . . . . . . . . . . . . . . . .
+
+ . . . . . . . . . . . . . . . . . . . .
+
+ . . . . . . . . . . . . . . . . . . . .
+
+ . . . . . . . . . . . . . . . . . . . .
+
+ . . . . . . . . . . . . . . . . . . . .
 ```
 
 Spawns: SEPARATE `(1,1)`/`(18,18)` · CLASH `(9,9)`/`(10,9)` (inside the ring).
 
-#### `0x03` CROSS — 28 walls
+#### `0x03` CROSS — 28 blocks, 0 edge walls
 
 A plus-shaped cover: vertical bar `x ∈ {9,10}, y 6..13` plus horizontal bar
-`y ∈ {9,10}, x 6..13`. Direct corner-to-corner fire lines are blocked;
-shooting means committing to one of the four lanes around the arms.
+`y ∈ {9,10}, x 6..13`. Direct corner-to-corner fire lines are blocked; shooting
+means committing to one of the four lanes around the arms.
 
 ```
 ....................
@@ -371,40 +403,60 @@ shooting means committing to one of the four lanes around the arms.
 ....................
 ```
 
-Spawns: SEPARATE `(1,1)`/`(18,18)` · CLASH `(8,7)`/`(8,8)`.
+Spawns: SEPARATE `(1,1)`/`(18,18)` · CLASH `(9,10)`/`(10,10)`.
 
-#### `0x04` MAZE — 108 walls
+#### `0x04` MAZE — 16 blocks, 96 edge walls
 
-Composite: (a) outer perimeter ring `x 1..18 × y 1..18` with 2-wide gates at
-the middle of each side (`x ∈ {9,10}` top/bottom, `y ∈ {9,10}` left/right);
-(b) solid 4×4 center block `x 8..11 × y 8..11`; (c) horizontal walls at
-`y = 4` and `y = 15`, `x 5..14`, each with a 2-wide gap at `x ∈ {9,10}`;
-(d) vertical walls at `x = 4` and `x = 15`, `y 5..14`, each with a 2-wide
-gap at `y ∈ {9,10}`. Loop topology throughout — no dead ends, no sealed
-pockets. The prestige arena: navigation and ambush; the simple presets
+Composite: (a) the outer perimeter — the boundary **lines** of the 18×18 box
+`x 1..18 × y 1..18`, with 2-wide gates at the middle of each side
+(`x ∈ {9,10}` top/bottom, `y ∈ {9,10}` left/right); (b) a solid 4×4 center
+obstacle block `x 8..11 × y 8..11`; (c) horizontal wall lines between rows 4–5
+and 14–15, spanning `x 5..14`, each with a 2-wide gap at `x ∈ {9,10}`; (d)
+vertical wall lines between columns 4–5 and 14–15, spanning `y 5..14`, each
+with a 2-wide gap at `y ∈ {9,10}`. Loop topology throughout — no dead ends, no
+sealed pockets. The prestige arena: navigation and ambush; the simple presets
 suffer here, by design.
 
 ```
-....................
-.########..########.
-.#................#.
-.#................#.
-.#...####..####...#.
-.#..#..........#..#.
-.#..#..........#..#.
-.#..#..........#..#.
-.#..#...####...#..#.
-........####........
-........####........
-.#..#...####...#..#.
-.#..#..........#..#.
-.#..#..........#..#.
-.#..#..........#..#.
-.#...####..####...#.
-.#................#.
-.#................#.
-.########..########.
-....................
+ . . . . . . . . . . . . . . . . . . . .
+   - - - - - - - -     - - - - - - - -
+ .|. . . . . . . . . . . . . . . . . .|.
+
+ .|. . . . . . . . . . . . . . . . . .|.
+
+ .|. . . . . . . . . . . . . . . . . .|.
+
+ .|. . . . . . . . . . . . . . . . . .|.
+           - - - -     - - - -
+ .|. . . .|. . . . . . . . . .|. . . .|.
+
+ .|. . . .|. . . . . . . . . .|. . . .|.
+
+ .|. . . .|. . . . . . . . . .|. . . .|.
+
+ .|. . . .|. . . # # # # . . .|. . . .|.
+
+ . . . . . . . . # # # # . . . . . . . .
+
+ . . . . . . . . # # # # . . . . . . . .
+
+ .|. . . .|. . . # # # # . . .|. . . .|.
+
+ .|. . . .|. . . . . . . . . .|. . . .|.
+
+ .|. . . .|. . . . . . . . . .|. . . .|.
+
+ .|. . . .|. . . . . . . . . .|. . . .|.
+           - - - -     - - - -
+ .|. . . . . . . . . . . . . . . . . .|.
+
+ .|. . . . . . . . . . . . . . . . . .|.
+
+ .|. . . . . . . . . . . . . . . . . .|.
+
+ .|. . . . . . . . . . . . . . . . . .|.
+   - - - - - - - -     - - - - - - - -
+ . . . . . . . . . . . . . . . . . . . .
 ```
 
 Spawns: SEPARATE `(2,2)`/`(17,17)` · CLASH `(7,9)`/`(7,10)`.
@@ -418,11 +470,17 @@ as layout ids in the `0x10` range (v2 will carry their parameter bytes,
 §13). The free/paid line is **learnable vs. unrepeatable**, which writes its
 own store copy.
 
-### 7.5 Wall rendering
+### 7.5 Terrain rendering
 
-Walls render as `█` in the arena view (DESIGN.md §3.1) and as `#` in the
-spec/ASCII context. Wall cells block `MOVE` (silent no-op, as today), stop
-projectiles (vanish), and register in `AHEAD`.
+Both terrain kinds block `MOVE` (silent no-op), stop projectiles (vanish), and
+register in `AHEAD`. In the arena view (DESIGN.md §3.1):
+
+- **blocks** render as solid filled cells (`#` in the spec/ASCII context);
+- **edge walls** render as thin lines drawn on the border between two cells
+  (`|`/`-` in the engine's `render()`).
+
+The arena's outer border is an implicit wall (movement is clamped to the grid);
+it is neither stored as an edge nor drawn as a line.
 
 ### 7.6 Spawn rules
 

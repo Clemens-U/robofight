@@ -49,7 +49,9 @@ loop *is* the game: read sensor data, branch, fire, manage heat — all on a
 | Bot body | preset letter: `H` `T` `S` `C` `W` | color-coded per preset |
 | Bot facing ("nose") | `^` `>` `v` `<` | rendered in the cell the bot faces into (if empty) |
 | Projectile | `*` | bright, moves 1 cell/tick along its axis |
-| Wall / boundary | `█` (or `#`) | arena edges |
+| Obstacle block | `█` (or `#`) | a full cell; blocks `MOVE`, shots, `AHEAD` |
+| Edge wall | line (`|`/`-`) | on the border between two cells; blocks `MOVE`, shots, `AHEAD` |
+| Boundary | (implicit) | arena edges; movement clamped to the grid |
 | Hit flash | `!` | one-tick flash on a struck cell |
 | Shield up | `O` | one-tick ring on a bot that raised shield |
 

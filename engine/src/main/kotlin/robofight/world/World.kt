@@ -143,8 +143,8 @@ class Bot(
         if (!alive) return
         val (dx, dy) = delta(facing)
         val nx = px + dx; val ny = py + dy
-        // Walls block MOVE as a silent no-op (§7.5), exactly like the edge.
-        if (nx in 0 until GRID && ny in 0 until GRID && !w.layout.isWall(nx, ny) && w.botAt(nx, ny) == null) { px = nx; py = ny }
+        // Edge walls and blocks stop MOVE as a silent no-op (§7.5), exactly like the arena edge.
+        if (nx in 0 until GRID && ny in 0 until GRID && !w.layout.stepBlocked(px, py, nx, ny) && w.botAt(nx, ny) == null) { px = nx; py = ny }
     }
 
     override fun shield() {
@@ -259,7 +259,7 @@ class World(val layout: Layout = Arena.OPEN) {
         val (dx, dy) = delta(b.facing)
         val nx = b.px + dx; val ny = b.py + dy
         if (nx !in 0 until GRID || ny !in 0 until GRID) return 1
-        if (layout.isWall(nx, ny)) return 1
+        if (layout.stepBlocked(b.px, b.py, nx, ny)) return 1
         return if (botAt(nx, ny) != null) 1 else 0
     }
 
@@ -298,7 +298,9 @@ class World(val layout: Layout = Arena.OPEN) {
 
     fun spawnProjectile(owner: Bot, x: Int, y: Int, dir: Int) {
         if (x !in 0 until GRID || y !in 0 until GRID) return
-        if (layout.isWall(x, y)) return
+        // A shot starts one cell in front of the shooter; it can't spawn through
+        // an edge wall or into a block.
+        if (layout.stepBlocked(owner.px, owner.py, x, y)) return
         projectiles.add(Projectile(owner, x, y, dir, PROJ_LIFE))
     }
 
@@ -361,8 +363,8 @@ class World(val layout: Layout = Arena.OPEN) {
             if (target == null) {
                 val (dx, dy) = delta(p.dir)
                 val nx = p.x + dx; val ny = p.y + dy
-                if (nx !in 0 until GRID || ny !in 0 until GRID) continue // hit wall
-                if (layout.isWall(nx, ny)) continue // absorbed by a wall (§7.5)
+                if (nx !in 0 until GRID || ny !in 0 until GRID) continue // hit arena edge
+                if (layout.stepBlocked(p.x, p.y, nx, ny)) continue // absorbed by an edge wall or block (§7.5)
                 target = targetAt(nx, ny, p)
                 if (target == null) { p.x = nx; p.y = ny }
             }

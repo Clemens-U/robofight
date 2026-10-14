@@ -61,10 +61,19 @@ class ArenaView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeWidth = 3f
     }
-    // Walls (DESIGN.md §3.1, glyph `█`): a solid filled block, drawn under the
-    // projectiles and bots. A mid green from the app's phosphor palette so a
-    // block reads clearly against the near-black cells and the bot glyphs.
+    // Obstacle blocks (DESIGN.md §3.1, glyph `█`): a solid filled cell, drawn
+    // under the projectiles and bots. A mid green from the app's phosphor
+    // palette so a block reads clearly against the near-black cells and the
+    // bot glyphs.
     private val wallPaint = Paint().apply { color = Color.parseColor("#24843D") }
+    // Edge walls: line segments on the border between two cells. Bright
+    // phosphor so a thin line reads against the grid; width is set in onDraw.
+    // Square caps so perpendicular segments meet cleanly at a corner.
+    private val wallLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.parseColor("#34ec5b")
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.SQUARE
+    }
 
     // --- FX paints ---
     private val sparkPaint = Paint().apply { style = Paint.Style.FILL }
@@ -297,16 +306,34 @@ class ArenaView @JvmOverloads constructor(
             canvas.drawLine(0f, i * cellSize, w, i * cellSize, gridPaint)
         }
 
-        // Walls (DESIGN.md §3.1, glyph `█`): solid filled blocks under the
-        // projectiles and bots, from the selected layout's wall grid.
-        val walls = arenaLayout?.walls
-        if (walls != null) {
+        // Terrain from the selected layout, under the projectiles and bots:
+        //  - obstacle blocks: solid filled cells (DESIGN.md §3.1, glyph `█`)
+        //  - edge walls: line segments on the border between two cells
+        val layout = arenaLayout
+        if (layout != null) {
             for (py in 0 until GRID) {
                 for (px in 0 until GRID) {
-                    if (walls[py * GRID + px]) {
+                    if (layout.blocks[py * GRID + px]) {
                         val left = px * cellSize
                         val top = py * cellSize
                         canvas.drawRect(left, top, left + cellSize, top + cellSize, wallPaint)
+                    }
+                }
+            }
+            wallLinePaint.strokeWidth = (cellSize * 0.14f).coerceAtLeast(2f)
+            for (py in 0 until GRID) {
+                for (px in 0 until GRID - 1) {
+                    if (layout.vertEdge[py * (GRID - 1) + px]) {
+                        val x = (px + 1) * cellSize
+                        canvas.drawLine(x, py * cellSize, x, (py + 1) * cellSize, wallLinePaint)
+                    }
+                }
+            }
+            for (py in 0 until GRID - 1) {
+                for (px in 0 until GRID) {
+                    if (layout.horizEdge[py * GRID + px]) {
+                        val y = (py + 1) * cellSize
+                        canvas.drawLine(px * cellSize, y, (px + 1) * cellSize, y, wallLinePaint)
                     }
                 }
             }
@@ -382,9 +409,10 @@ class ArenaView @JvmOverloads constructor(
 
     /**
      * The arena layout selected on the RUN screen (or null for the default
-     * OPEN arena before a fight exists). Its wall grid is rendered as solid
-     * blocks under the projectiles/bots. Set by the activity so the picked
-     * arena's geometry is visible even before RUN.
+     * OPEN arena before a fight exists). Its terrain is rendered under the
+     * projectiles/bots: obstacle blocks as solid cells and edge walls as
+     * lines. Set by the activity so the picked arena's geometry is visible
+     * even before RUN.
      */
     var arenaLayout: Layout? = null
         set(value) {

@@ -118,13 +118,16 @@ engine presets first, then **one slot per firmware file** in the store (`MYBOT`,
 
 ## 5. Reading the arena
 
-Each cell is a glyph; a bot is drawn as **its letter + a facing arrow**:
+Each cell is a glyph and edge walls run along the borders between cells; a bot is
+drawn as **its letter + a facing arrow**:
 
 | Glyph | Meaning |
 |-------|---------|
 | `H>`, `T<`, `S^`, `Cv` | a bot; the arrow is its facing (E, W, N, S) |
 | `*` | a live projectile, moving 1 cell/tick along the shooter's facing |
 | `.` | empty ground |
+| `█` (or `#`) | an **obstacle block** — a solid cell you can't enter, stand on, or shoot through |
+| a thin line | an **edge wall** — runs on the border between two cells; you can't cross or shoot through it |
 
 Bots are colored per the table above. When a bot dies it disappears.
 
@@ -142,7 +145,8 @@ Bots are colored per the table above. When a bot dies it disappears.
   for the whole duration (no decode, no faults, no further steps), and its world
   effect (the projectile, the step, the shield) fires on the op's **final tick**.
   After every bot has stepped, the world resolves — projectiles advance one cell,
-  hit, or die on a wall. (A `SHIELD` still covers exactly one world-resolve; a
+  hit, or die on terrain (a block or an edge wall). (A `SHIELD` still covers exactly
+  one world-resolve; a
   `SHOOT`'s projectile spawns on the shot's final tick.)
 - **Health:** every bot starts at **100 HP**. A hit does **10 damage** → 10 clean
   hits to KO.
@@ -289,7 +293,7 @@ Read with `IN <port>` (result → `A`), write with `OUT <port>, A` (writes `A`).
 | `HEAT` | 8 | R | your current heat (0–100; +20 per SHOOT/SHIELD, −2 per idle tick, **above 80 = 2 HP/sec self-damage**) |
 | `ENEMY_HP` | 9 | R | nearest enemy's HP (0 if none) |
 | `RAND` | 10 | R | random byte 0–255 (per-fight seeded) |
-| `AHEAD` | 11 | R | 1 if a wall or enemy blocks the cell straight ahead, 0 if clear |
+| `AHEAD` | 11 | R | 1 if terrain (a block or edge wall) or an enemy blocks the cell straight ahead, 0 if clear |
 
 > **`ANGLE` is the aiming sensor.** It's a *delta* (0–3), not an absolute
 > direction: `0` = already facing the nearest enemy, `n` = turn right `n` times
@@ -304,7 +308,7 @@ These drive the robot and carry the real tick costs (§6). A heat op that is
 | Op | Cost | Effect |
 |----|------|--------|
 | `SHOOT` | 3 | spawn a projectile one cell ahead, along your facing (fires on the op's final tick). +20 heat. Locked out while `heat + 20 > 100` — it only fires again exactly at 80. |
-| `MOVE` | 2 | step one cell toward your facing. A wall or an occupied cell = a silent no-op (not an error). |
+| `MOVE` | 2 | step one cell toward your facing. A block, an edge wall, or an occupied cell = a silent no-op (not an error). |
 | `TURN L` | 1 | rotate 90° counter-clockwise |
 | `TURN R` | 1 | rotate 90° clockwise |
 | `TURN #n` | 1 | rotate `n` steps clockwise, mod 4 — e.g. `TURN #2` = 180° |
@@ -441,9 +445,10 @@ Fix the highlighted line and `RUN` again.
   (or `EDIT MYBOT`) first.
 - **My bot never fires.** Check `HEAT` — if it's above **80**, `SHOOT` is locked out.
   Space your shots so heat cools back to 80 (2 per idle tick) between bursts.
-- **My bot walks into a wall / a bot.** `MOVE` simply doesn't move if the target cell is
-  off-grid or occupied — it's not an error, just a no-op that tick. Use the `AHEAD`
-  sensor to steer around walls (see `WALKER.asm` / `SNAKE.asm`).
+- **My bot walks into terrain / a bot.** `MOVE` simply doesn't move if the target
+  cell is off-grid, blocked by a block or edge wall, or occupied — it's not an
+  error, just a no-op that tick. Use the `AHEAD` sensor to steer around terrain
+  (see `WALKER.asm` / `SNAKE.asm`).
 - **It self-destructs with no opponent nearby.** That's **overheat** — heat above 80
   burns 2 HP/sec. Don't hold the trigger; idle to let it cool.
 - **A fight that never KOs** runs to the 1,000,000-tick safety cap, after which the

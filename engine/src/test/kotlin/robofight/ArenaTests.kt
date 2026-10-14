@@ -23,6 +23,10 @@ import robofight.world.Presets
  * layout geometry, wall behaviors (§7.5), timed mode (§6), per-slot HP (§6),
  * SCATTER spawns (§7.6), the binary firmware path (§4.3), and the §12.3
  * fight matrix. Shares the global check()/passed/failed of Tests.kt.
+ *
+ * Terrain is two kinds: full-cell **blocks** (obstacles) and **edge walls**
+ * (line segments between cells). Both block MOVE, absorb projectiles, and
+ * register in AHEAD.
  */
 fun main() {
     println("== Arena engine tests (challenge codes) ==")
@@ -37,8 +41,9 @@ fun main() {
     if (failed > 0) kotlin.system.exitProcess(1)
 }
 
-/** The five arenas' spec ASCII (§7.3) — the generated layouts must match cell-for-cell. */
-private val specAscii: Map<String, String> = mapOf(
+/** The five arenas' obstacle (block) view (§7.3) — the generated layouts must
+ *  match cell-for-cell. Edge walls are asserted directly in testGeometry(). */
+private val blockAscii: Map<String, String> = mapOf(
     "OPEN" to ("....................\n").repeat(20),
     "BLOCKS" to """
         ....................
@@ -62,28 +67,8 @@ private val specAscii: Map<String, String> = mapOf(
         ....................
         ....................
     """.trimIndent(),
-    "RING" to """
-        ....................
-        ....................
-        ....................
-        ....................
-        ....................
-        ....................
-        ......###..###......
-        ......#......#......
-        ......#......#......
-        ....................
-        ....................
-        ......#......#......
-        ......#......#......
-        ......###..###......
-        ....................
-        ....................
-        ....................
-        ....................
-        ....................
-        ....................
-    """.trimIndent(),
+    // RING has no blocks — its square is made of edge walls (asserted in geometry).
+    "RING" to ("....................\n").repeat(20),
     "CROSS" to """
         ....................
         ....................
@@ -106,51 +91,60 @@ private val specAscii: Map<String, String> = mapOf(
         ....................
         ....................
     """.trimIndent(),
+    // MAZE's only blocks are the center 4×4; the perimeter + cross are edge walls.
     "MAZE" to """
         ....................
-        .########..########.
-        .#................#.
-        .#................#.
-        .#...####..####...#.
-        .#..#..........#..#.
-        .#..#..........#..#.
-        .#..#..........#..#.
-        .#..#...####...#..#.
+        ....................
+        ....................
+        ....................
+        ....................
+        ....................
+        ....................
+        ....................
         ........####........
         ........####........
-        .#..#...####...#..#.
-        .#..#..........#..#.
-        .#..#..........#..#.
-        .#..#..........#..#.
-        .#...####..####...#.
-        .#................#.
-        .#................#.
-        .########..########.
+        ........####........
+        ........####........
+        ....................
+        ....................
+        ....................
+        ....................
+        ....................
+        ....................
+        ....................
         ....................
     """.trimIndent(),
 )
 
-/** §12.1 — every invariant of §7.2, per arena. */
+/** §12.1 — every invariant of §7.2, per arena (blocks + edge walls). */
 private fun testGeometry() {
     println("\n[layout geometry — §12.1]")
-    val expectedWalls = mapOf("OPEN" to 0, "BLOCKS" to 16, "RING" to 20, "CROSS" to 28, "MAZE" to 108)
+    val expectedBlocks = mapOf("OPEN" to 0, "BLOCKS" to 16, "RING" to 0, "CROSS" to 28, "MAZE" to 16)
+    val expectedEdges = mapOf("OPEN" to 0, "BLOCKS" to 0, "RING" to 24, "CROSS" to 0, "MAZE" to 96)
     val layouts = Arena.all()
     check("registry has 5 free arenas in id order", layouts.map { it.id } == listOf(0, 1, 2, 3, 4),
         "got ${layouts.map { it.id }}")
 
     for (L in layouts) {
         val n = L.name
-        check("$n: wall count matches the spec", L.wallCount() == expectedWalls.getValue(n),
-            "got ${L.wallCount()}")
-        check("$n: 20×20 grid, index y*GRID+x", L.walls.size == GRID * GRID)
-        check("$n: matches the spec ASCII cell-for-cell", L.ascii().trimEnd() == specAscii.getValue(n).trimIndent(),
+        check("$n: block count matches the spec", L.blockCount() == expectedBlocks.getValue(n),
+            "got ${L.blockCount()}")
+        check("$n: edge-wall count matches the spec", L.edgeCount() == expectedEdges.getValue(n),
+            "got ${L.edgeCount()}")
+        check("$n: grid sizes (blocks GRID², vert (GRID-1)·GRID, horiz GRID·(GRID-1))",
+            L.blocks.size == GRID * GRID && L.vertEdge.size == (GRID - 1) * GRID && L.horizEdge.size == GRID * (GRID - 1))
+        check("$n: matches the spec block ASCII cell-for-cell", L.ascii().trimEnd() == blockAscii.getValue(n).trimIndent(),
             "\n" + L.ascii())
-        // Point symmetry about (9.5, 9.5)
+        // Point symmetry about (9.5, 9.5): blocks, vertical edges, horizontal edges.
         var sym = true
         for (y in 0 until GRID) for (x in 0 until GRID)
-            if (L.isWall(x, y) != L.isWall(GRID - 1 - x, GRID - 1 - y)) sym = false
+            if (L.isBlock(x, y) != L.isBlock(GRID - 1 - x, GRID - 1 - y)) sym = false
+        for (y in 0 until GRID) for (x in 0 until GRID - 1)
+            if (L.vertEdge[y * (GRID - 1) + x] != L.vertEdge[(GRID - 1 - y) * (GRID - 1) + (GRID - 2 - x)]) sym = false
+        for (y in 0 until GRID - 1) for (x in 0 until GRID)
+            if (L.horizEdge[y * GRID + x] != L.horizEdge[(GRID - 2 - y) * GRID + (GRID - 1 - x)]) sym = false
         check("$n: point-symmetric about the center", sym)
-        // Fully connected: 4-neighbor walk from the perimeter reaches every free cell
+        // Fully connected: edge-aware 4-neighbor walk from the perimeter reaches every free cell.
         val free = L.freeCells()
         val seeds = free.filter { it.x == 0 || it.x == GRID - 1 || it.y == 0 || it.y == GRID - 1 }
         val seen = java.util.HashSet<robofight.world.Cell>()
@@ -159,16 +153,20 @@ private fun testGeometry() {
         while (queue.isNotEmpty()) {
             val c = queue.removeFirst()
             for ((dx, dy) in listOf(1 to 0, -1 to 0, 0 to 1, 0 to -1)) {
-                val nb = robofight.world.Cell(c.x + dx, c.y + dy)
-                if (L.isFree(nb.x, nb.y) && seen.add(nb)) queue.add(nb)
+                val nx = c.x + dx; val ny = c.y + dy
+                val nb = robofight.world.Cell(nx, ny)
+                if (L.isFree(nx, ny) && !L.wallBetween(c.x, c.y, nx, ny) && seen.add(nb)) queue.add(nb)
             }
         }
         check("$n: fully connected (no sealed pockets)", seen.size == free.size,
             "reached ${seen.size} of ${free.size} free cells")
-        // No dead ends: no free cell has exactly one free neighbor
+        // No dead ends: no free cell has exactly one reachable (unwalled, non-block) neighbor.
         var deadEnds = 0
         for (c in free) {
-            val k = listOf(1 to 0, -1 to 0, 0 to 1, 0 to -1).count { (dx, dy) -> L.isFree(c.x + dx, c.y + dy) }
+            val k = listOf(1 to 0, -1 to 0, 0 to 1, 0 to -1).count { (dx, dy) ->
+                val nx = c.x + dx; val ny = c.y + dy
+                L.isFree(nx, ny) && !L.wallBetween(c.x, c.y, nx, ny)
+            }
             if (k == 1) deadEnds++
         }
         check("$n: no dead-end free cells", deadEnds == 0, "$deadEnds dead ends")
@@ -182,50 +180,58 @@ private fun testGeometry() {
     }
 }
 
-/** §7.5 — walls block MOVE (silent no-op), stop projectiles, register in AHEAD. */
+/** §7.5 — blocks and edge walls block MOVE (silent no-op), stop projectiles, and register in AHEAD. */
 private fun testWallBehavior() {
     println("\n[wall behavior — §7.5]")
-    // BLOCKS: the 2×2 block at (6,6) — its south face is (6,8) facing N.
+    // BLOCKS: the 2×2 block at (6,6) — the cell (6,8) sits south of it facing N.
     val w = World(Arena.byId(1)!!)
     val b = Bot("A", 'A', 2, 6, 8, DIR_N, "WAIT\n")
     w.add(b)
-    check("AHEAD=1 facing a wall", w.aheadBlocked(b) == 1)
+    check("AHEAD=1 facing a block", w.aheadBlocked(b) == 1)
     b.move()
-    check("MOVE into a wall is a silent no-op", b.px == 6 && b.py == 8)
+    check("MOVE into a block is a silent no-op", b.px == 6 && b.py == 8)
     b.facing = DIR_S
     check("AHEAD=0 on a free cell", w.aheadBlocked(b) == 0)
     b.move()
     check("MOVE onto a free cell works", b.px == 6 && b.py == 9)
 
-    // RING: a shot fired at the ring from inside is absorbed; through a gate it flies.
-    // Both bots exist up front so the world never "finishes" on a single survivor
-    // (which would make later tickOnce() calls no-ops and freeze the projectiles).
+    // RING: a shot fired at the ring from inside is absorbed at the edge wall;
+    // through a gate it flies. Both bots exist up front so the world never
+    // "finishes" on a single survivor (which would make later tickOnce() calls
+    // no-ops and freeze the projectiles).
     val wr = World(Arena.byId(2)!!)
-    val ba = Bot("A", 'A', 2, 8, 8, DIR_N, "loop: WAIT\nJMP loop\n")
-    val bg = Bot("B", 'B', 4, 9, 8, DIR_N, "loop: WAIT\nJMP loop\n")
+    val ba = Bot("A", 'A', 2, 8, 7, DIR_N, "loop: WAIT\nJMP loop\n")
+    val bg = Bot("B", 'B', 4, 9, 7, DIR_N, "loop: WAIT\nJMP loop\n")
     wr.add(ba)
     wr.add(bg)
-    wr.spawnProjectile(ba, 8, 7, DIR_N)          // (8,6) above is ring wall
+    wr.spawnProjectile(ba, 8, 6, DIR_N)          // (8,6): the top edge wall is just above (rows 5|6, x=8)
     check("projectile spawns on a free cell", wr.projectiles.size == 1)
     wr.tickOnce()
-    check("projectile absorbed by the ring wall", wr.projectiles.isEmpty())
-    wr.spawnProjectile(bg, 9, 7, DIR_N)          // (9,6) above is a gate
+    check("projectile absorbed by the ring edge wall", wr.projectiles.isEmpty())
+    wr.spawnProjectile(bg, 9, 6, DIR_N)          // (9,6): x=9 is a gate (no edge wall between rows 5|6)
     wr.tickOnce()
-    check("projectile passes through the gate", wr.projectiles.size == 1 && wr.projectiles[0].y == 6,
+    check("projectile passes through the gate", wr.projectiles.size == 1 && wr.projectiles[0].y == 5,
         "n=${wr.projectiles.size} ${wr.projectiles.firstOrNull()}")
 
-    // Firing straight into a wall: the shot never materializes.
+    // Firing straight into a block: the shot never materializes.
     val wf = World(Arena.byId(1)!!)
     val bs = Bot("S", 'S', 2, 6, 8, DIR_N, "WAIT\n")
     wf.add(bs)
-    wf.spawnProjectile(bs, 6, 7, DIR_N)          // (6,7) is BLOCKS wall
-    check("projectile cannot spawn on a wall cell", wf.projectiles.isEmpty())
+    wf.spawnProjectile(bs, 6, 7, DIR_N)          // (6,7) is a BLOCKS block
+    check("projectile cannot spawn on a block cell", wf.projectiles.isEmpty())
 
-    // OPEN is unchanged: no walls anywhere, edge still blocks.
+    // Firing straight into an edge wall: the shot never materializes either.
+    val we = World(Arena.byId(2)!!)
+    val bw = Bot("W", 'W', 2, 8, 6, DIR_N, "WAIT\n")
+    we.add(bw)
+    bw.shoot()                                    // (8,5) ahead is separated by the top ring edge wall
+    check("shot into an edge wall never materializes", we.projectiles.isEmpty())
+
+    // OPEN is unchanged: no terrain anywhere, edge still blocks.
     val wo = World(Arena.byId(0)!!)
     val be = Bot("E", 'E', 2, 0, 5, DIR_W, "WAIT\n")
     wo.add(be)
-    check("OPEN has zero walls", wo.layout.wallCount() == 0)
+    check("OPEN has no terrain", wo.layout.blockCount() == 0 && wo.layout.edgeCount() == 0)
     check("OPEN: arena edge still registers in AHEAD", wo.aheadBlocked(be) == 1)
 }
 
