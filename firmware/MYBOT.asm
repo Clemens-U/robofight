@@ -1,52 +1,57 @@
-; OPCODE ARENA MYBOT — your bot. Edit it,
-; then hit RUN.
-; (RF-8 cheat sheet at the bottom.)
+; ============================================================
+;  OPCODE ARENA firmware — HAREHUNTER
 ;
-; AHEAD is the wall sensor: IN AHEAD -> A = 1 when a wall or an
-; enemy blocks the cell directly in front of you, 0 when it's
-; clear. Check it before every MOVE so you steer around walls
-; instead of stalling against them.
+;  A counter-duelist tuned for ANGSTHASE:
+;    * finds the safe perpendicular dodge direction at spawn
+;    * aims in constant time by adding ANGLE to DIR
+;    * fires while closing so aligned targets cannot camp or flee
+;    * at point-blank range, fires and immediately sidesteps
+; ============================================================
 
-      MOV    X, #3           ; strafe length
-loop:  IN     DIST           ; 0 = no enemy in range
-      JZ     idle
-      IN     AHEAD           ; wall / enemy straight ahead?
-      JNZ    turnaround      ; blocked -> flip now
-      MOVE
-      DEC    X
-      JZ     turnaround
-      JMP    loop
-turnaround:
-      TURN   R
-      TURN   R               ; 180 degrees, off the wall
-      SHOOT
-      MOV    X, #3
-      JMP    loop
-idle:  WAIT
-      JMP    loop
+; Both robots initially face each other on the dominant axis. Test
+; a perpendicular step: if DIST shrank, that step went toward the
+; enemy's firing row/column, so cross back and dodge the other way.
+        IN     DIST
+        MOV    Y, A
+        TURN   R
+        MOVE
+        IN     DIST
+        CMP    Y
+        JGE    loop
+        TURN   R
+        TURN   R
+        MOVE
+        MOVE
 
-; ================================
-; RF-8 cheat sheet
-; ================================
-; MOV  A,#n / A,X / A,Y / A,(X) /
-;      A,[n]                    load
-; MOV  X,Y,#n                   regs
-; MOV  [n],A / (X),A            memory
-; ADD  #n|X|Y|(X)|[n]  A=A+op
-; SUB MUL DIV AND OR XOR CMP
-; INC|DEC|TST  A|X|Y
-; JZ JNZ JC JNC JN JNN JG JGE
-; JL JLE JE JNE   branch to label
-; PUSH|POP  #n|A|X|Y
-; CALL label   RET
-; SHOOT MOVE TURN L|R|#n
-; SHIELD WAIT
-; IN   DIST|ANGLE|HP|ENEMY_HP|
-;      RAND|X|Y|DIR|HEAT|AHEAD
-; OUT  DIR, A
-; Ports:
-;   DIST   dist to enemy (0=none)
-;   ANGLE  cw turns to face it
-;   AHEAD  1 = wall/enemy blocks the cell ahead, 0 = clear
-;   RAND   random byte 0..255
-; ================================
+; ANGLE is a clockwise delta, while DIR is the absolute direction.
+; Adding them and writing the low two bits through OUT DIR turns to
+; the current enemy direction in a fixed five instructions.
+loop:   IN     DIR
+        MOV    X, A
+        IN     ANGLE
+        ADD    X
+        OUT    DIR, A
+
+        IN     DIST
+        JZ     idle
+        CMP    #1
+        JE     point
+
+; Keep pressure on distant and evasive opponents. The sensing,
+; movement, and loop-control ticks cool enough heat between shots
+; to avoid a self-destructive locked-gun loop.
+        SHOOT
+        IN     AHEAD
+        JNZ    side
+        MOVE
+        JMP    loop
+
+; An adjacent shot hits immediately. Rotate and move afterward so
+; return fire aimed at the old square is likely to miss.
+point:  SHOOT
+side:   TURN   R
+        MOVE
+        JMP    loop
+
+idle:   WAIT
+        JMP    loop

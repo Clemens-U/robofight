@@ -1195,9 +1195,10 @@ class MainActivity : Activity() {
     /**
      * The execution monitor: two code panes side by side, one per combatant.
      * Each pane shows the original firmware source in a scrolling window
-     * (2 lines back, the current line marked with ">", 3 lines ahead) plus a
-     * one-line register readout. Built in both the portrait and landscape
-     * branches of buildRunScreen(); content is refreshed by updateMonitor().
+     * around the current line plus a one-line register readout. The number of
+     * source lines adapts to the viewport height while retaining a small gap
+     * above the registers. Built in both the portrait and landscape branches
+     * of buildRunScreen(); content is refreshed by updateMonitor().
      */
     private fun buildCodeMonitorRow(): LinearLayout {
         val row = LinearLayout(this).apply {
@@ -1226,7 +1227,6 @@ class MainActivity : Activity() {
         val code = terminalText(7f, C_GREEN).apply {
             setPadding(dp(1), 0, dp(1), 0)
             gravity = Gravity.TOP or Gravity.START
-            maxLines = MON_CODE_LINES
         }
         val codeScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
@@ -1290,19 +1290,32 @@ class MainActivity : Activity() {
         val atEnd = insn !in 0 until bc.lineOf.size
         val lines = bc.source.split("\n")
         val curLine = if (atEnd) lines.size - 1 else bc.lineOf[insn]
-        // Window: MON_BEFORE lines back, current, MON_AFTER ahead (total
-        // MON_CODE_LINES). from is solved so the current line sits in the
-        // lower third — MON_AFTER lines stay visible ahead of it.
-        val from = (curLine - MON_BEFORE).coerceAtMost((lines.size - MON_CODE_LINES).coerceAtLeast(0))
-        val to = (from + MON_CODE_LINES - 1).coerceAtMost(lines.size - 1)
+        // Fill the measured code viewport instead of always rendering the old
+        // fixed six-line window. Reserve a deliberate gap above the register
+        // row, then bias the current instruction toward the upper third so
+        // there is still useful look-ahead.
+        val viewportHeight = (code.parent as? View)?.height ?: 0
+        val lineHeight = code.lineHeight.coerceAtLeast(1)
+        val windowLines = if (viewportHeight > 0) {
+            ((viewportHeight - dp(MON_CODE_GAP_DP)).coerceAtLeast(lineHeight) / lineHeight)
+                .coerceAtLeast(MON_MIN_CODE_LINES)
+        } else {
+            MON_MIN_CODE_LINES
+        }
+        code.maxLines = windowLines
+        val linesBefore = maxOf(MON_MIN_LINES_BEFORE, windowLines / 3)
+        val from = (curLine - linesBefore)
+            .coerceAtMost((lines.size - windowLines).coerceAtLeast(0))
+            .coerceAtLeast(0)
+        val to = (from + windowLines - 1).coerceAtMost(lines.size - 1)
         val out = SpannableStringBuilder()
         for (ln in from..to) {
             val isCur = ln == curLine
             val marker = if (isCur) ">" else " "
             val text = "  $marker ${lines[ln]}${if (atEnd && isCur) " …END" else ""}"
+            if (out.isNotEmpty()) out.append("\n")
             val start = out.length
             out.append(text)
-            out.append("\n")
             val color = if (isCur) C_BRIGHT else if (ln < curLine) C_DIM else C_GREEN
             out.setSpan(ForegroundColorSpan(color), start, out.length, SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
@@ -1383,12 +1396,11 @@ class MainActivity : Activity() {
         private const val STATE_DIRTY = "state.dirty"
         private const val STATE_RUN_MODE = "state.runMode"
         private const val REQ_EXPORT_TREE = 41
-        // Execution-monitor window: how many source lines to show around the
-        // current one. 2 back, the current line, 3 ahead — the current opcode
-        // marker sits in the lower third with clear lookahead.
-        private const val MON_BEFORE = 2
-        private const val MON_AFTER = 3
-        private const val MON_CODE_LINES = MON_BEFORE + 1 + MON_AFTER
+        // The execution monitor fills its measured viewport but deliberately
+        // keeps a narrow blank strip before the register row.
+        private const val MON_MIN_CODE_LINES = 6
+        private const val MON_MIN_LINES_BEFORE = 2
+        private const val MON_CODE_GAP_DP = 6
         private val C_BG = Color.rgb(1, 7, 3)
         private val C_BLACK = Color.rgb(0, 3, 1)
         private val C_PANEL = Color.rgb(2, 13, 6)
