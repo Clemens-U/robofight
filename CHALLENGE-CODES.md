@@ -592,8 +592,9 @@ dependency, §12.3).
 
 ### 12.3 Fight matrix (per arena, free and Pro)
 
-The 5-preset × 5-preset matrix (25 ordered pairs) on **each** arena, in
-both DUEL and MELEE — **250 headless fights per arena** — each must
+The 5-preset × 5-preset matrix (25 ordered pairs) in both DUEL and MELEE —
+the 25-pair × 2-mode matrix on each arena — 50 fights per arena, 250 total —
+each must
 **resolve** (KO or timed end, never the 1,000,000-tick cap) within a
 **2,000-tick budget**. An arena that fails is fixed or cut. This matrix is
 the enforcement of the §7.2 invariants against *actual* preset behavior;
