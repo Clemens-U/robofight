@@ -34,7 +34,11 @@ advance:MOVE
 retreat:TURN   R
         TURN   R               ; pivot off the wall
         JMP    top
-idle:   WAIT
+idle:   IN     AHEAD           ; blind: keep last heading
+        JZ     sgo
+        TURN   R
+        JMP    idle
+sgo:    MOVE
         JMP    top
 """.trimIndent()
 
@@ -49,7 +53,11 @@ loop:   IN     DIST
         JMP    loop
 hold:   SHIELD
         JMP    loop
-idle:   WAIT
+idle:   IN     AHEAD           ; blind: keep last heading
+        JZ     sgo
+        TURN   R
+        JMP    idle
+sgo:    MOVE
         JMP    loop
 """.trimIndent()
 
@@ -70,7 +78,11 @@ flip:   TURN   R
         SHOOT
         MOV    X, #3
         JMP    loop
-idle:   WAIT
+idle:   IN     AHEAD           ; blind: keep last heading
+        JZ     sgo
+        TURN   R
+        JMP    idle
+sgo:    MOVE
         JMP    loop
 """.trimIndent()
 

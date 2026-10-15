@@ -286,12 +286,12 @@ Read with `IN <port>` (result → `A`), write with `OUT <port>, A` (writes `A`).
 | `DIR` | 1 | R/W | your facing: **0=W 1=N 2=E 3=S**. Writing it sets your facing directly. |
 | `RX` | 2 | R | your grid column (0–19) |
 | `RY` | 3 | R | your grid row (0–19) |
-| `DIST` | 4 | R | Manhattan distance to nearest enemy (**0 = none in range**) |
+| `DIST` | 4 | R | distance to the nearest enemy in line of sight (**0 = none visible**) |
 | `ANGLE` | 5 | R | **clockwise steps** to face nearest enemy (`0` = already facing, `255` = none) |
 | `FIRE` | 6 | — | reads back 0; use `SHOOT` instead |
 | `SHIELD` | 7 | R | 1 if you shielded this tick, else 0 |
 | `HEAT` | 8 | R | your current heat (0–100; +20 per SHOOT/SHIELD, −2 per idle tick, **above 80 = 2 HP/sec self-damage**) |
-| `ENEMY_HP` | 9 | R | nearest enemy's HP (0 if none) |
+| `ENEMY_HP` | 9 | R | nearest enemy's HP (255 if none in line of sight) |
 | `RAND` | 10 | R | random byte 0–255 (per-fight seeded) |
 | `AHEAD` | 11 | R | 1 if terrain (a block or edge wall) or an enemy blocks the cell straight ahead, 0 if clear |
 

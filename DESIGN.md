@@ -147,7 +147,7 @@ An 8-bit-class machine. **1 KB** of memory, 7 registers, robot state exposed as
 | `$00C6` | `FIRE` | W | write 1 → shoot (SHOOT alias) |
 | `$00C7` | `SHIELD` | R/W | shield active this tick |
 | `$00C8` | `HEAT` | R | heat level |
-| `$00C9` | `ENEMY_HP` | R | nearest enemy HP |
+| `$00C9` | `ENEMY_HP` | R | nearest enemy HP (255 = none) |
 | `$00CA` | `ENEMY_X` | R | nearest enemy column |
 | `$00CB` | `ENEMY_Y` | R | nearest enemy row |
 | `$00CC` | `TICK` | R | global tick counter |

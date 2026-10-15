@@ -348,7 +348,7 @@ fun main() {
 
         val w7d = World()
         val shieldingTurtle = Bot("T", 'T', 4, 0, 0, DIR_E, Presets.TURTLE)
-        val distantDummy = Bot("D", 'D', 2, 19, 19, DIR_W, "WAIT\n")
+        val distantDummy = Bot("D", 'D', 2, 19, 0, DIR_W, "WAIT\n")  // same row: line of sight
         w7d.add(shieldingTurtle); w7d.add(distantDummy)
         repeat(80) { w7d.tickOnce() }   // TURTLE loop is ~5x slower in ticks
         check("TURTLE repeated shielding accumulates heat", shieldingTurtle.heat > HEAT_DAMAGE_THRESHOLD,
@@ -616,6 +616,36 @@ fun main() {
         val solo = Bot("S", 'S', 2, 5, 5, DIR_E, "WAIT\n")
         wb.add(solo)
         check("DIST=0 when no enemy", solo.portIn(4) == 0, "got ${solo.portIn(4)}")
+    }
+
+    // ---- terrain-aware enemy sensors (stealth) ----
+    run {
+        println("\n[terrain-aware enemy sensors]")
+
+        // Clear line of sight → sensors read the enemy (unchanged from before).
+        val sClear = World(Arena.OPEN)
+        val sA = Bot("A", 'A', 2, 5, 5, DIR_E, "WAIT\n")
+        val sB = Bot("B", 'B', 4, 9, 5, DIR_W, "WAIT\n")   // same row, 4 away
+        sClear.add(sA); sClear.add(sB)
+        check("LOS: same-row enemy visible (DIST=4)", sA.portIn(4) == 4, "got ${sA.portIn(4)}")
+        check("LOS: ENEMY_HP reads the visible enemy", sA.portIn(9) == MAX_HP, "got ${sA.portIn(9)}")
+        check("LOS: ANGLE=0 when already facing the enemy", sA.portIn(5) == 0, "got ${sA.portIn(5)}")
+
+        // A ring wall between them → the enemy is concealed (full stealth).
+        val sWall = World(Arena.RING)
+        val sC = Bot("C", 'C', 2, 7, 4, DIR_S, "WAIT\n")   // outside, col 7
+        val sD = Bot("D", 'D', 4, 7, 7, DIR_N, "WAIT\n")   // inside the ring, col 7
+        sWall.add(sC); sWall.add(sD)
+        check("stealth: edge wall between → DIST=0 (concealed)", sC.portIn(4) == 0, "got ${sC.portIn(4)}")
+        check("stealth: edge wall between → ENEMY_HP=255", sC.portIn(9) == 255, "got ${sC.portIn(9)}")
+        check("stealth: edge wall between → ANGLE=255 (none visible)", sC.portIn(5) == 255, "got ${sC.portIn(5)}")
+
+        // A block between them (CROSS) → also concealed.
+        val sCross = World(Arena.CROSS)
+        val sE = Bot("E", 'E', 2, 7, 8, DIR_E, "WAIT\n")   // west of the vertical bar, row 8
+        val sF = Bot("F", 'F', 4, 12, 8, DIR_W, "WAIT\n")  // east of the vertical bar, row 8
+        sCross.add(sE); sCross.add(sF)
+        check("stealth: block between → DIST=0 (concealed)", sE.portIn(4) == 0, "got ${sE.portIn(4)}")
     }
 
     println("\n== RESULT: $passed passed, $failed failed ==")

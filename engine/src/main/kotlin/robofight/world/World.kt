@@ -1,5 +1,6 @@
 package robofight.world
 
+import kotlin.math.abs
 import robofight.assembler.assemble
 import robofight.isa.ISA
 import robofight.vm.Env
@@ -268,26 +269,60 @@ class World(val layout: Layout = Arena.OPEN) {
         return (rng shr 16) % 256
     }
 
+    /**
+     * True if [from] can see [to]: they share a row or column and no obstacle
+     * (edge wall or block) sits on the straight line between them. Bots never
+     * block sight. This is the cover rule — a wall between two robots hides
+     * them from each other's enemy sensors.
+     */
+    private fun lineOfSight(from: Bot, to: Bot): Boolean {
+        if (from.px != to.px && from.py != to.py) return false
+        val stepX = if (from.px == to.px) 0 else if (to.px > from.px) 1 else -1
+        val stepY = if (from.py == to.py) 0 else if (to.py > from.py) 1 else -1
+        var x = from.px
+        var y = from.py
+        while (x != to.px || y != to.py) {
+            val nx = x + stepX
+            val ny = y + stepY
+            if (layout.stepBlocked(x, y, nx, ny)) return false   // wall or block in the way
+            x = nx
+            y = ny
+        }
+        return true
+    }
+
+    /** Living enemies [b] can see (clear line of sight), nearest first. */
+    private fun visibleEnemies(b: Bot): List<Bot> =
+        bots.filter { it.alive && it !== b && lineOfSight(b, it) }
+            .sortedWith(compareBy({ abs(it.px - b.px) + abs(it.py - b.py) }, { it.py * GRID + it.px }))
+
+    /**
+     * DIST port: straight-line distance to the nearest enemy [b] can see, 0 when
+     * none is in line of sight. A walled-off enemy reads as absent — cover
+     * conceals, it does not merely add range. 8-bit: capped at 255.
+     */
     fun nearestEnemyDist(b: Bot): Int {
-        val e = enemies(b).minByOrNull { manhattan(b, it) } ?: return 0
-        return manhattan(b, e)
+        val nearest = visibleEnemies(b).firstOrNull() ?: return 0
+        return (abs(nearest.px - b.px) + abs(nearest.py - b.py)).coerceAtMost(255)
     }
 
-    fun nearestEnemyHp(b: Bot): Int = enemies(b).minByOrNull { manhattan(b, it) }?.hp ?: 0
+    /**
+     * ENEMY_HP port: HP of the nearest enemy [b] can see; 255 when none is in
+     * line of sight. 255 (not 0) is the "no enemy" sentinel so that a future
+     * multi-bot arena can still read a visible, already-destroyed enemy's 0 HP.
+     */
+    fun nearestEnemyHp(b: Bot): Int = visibleEnemies(b).firstOrNull()?.hp ?: 255
 
-    /** 0..3 = how many steps clockwise to face the nearest enemy; 255 = none.
-     *  Returns a clockwise DELTA from the bot's current facing (not the target
-     *  direction itself) — firmware counts this many `TURN R` steps and tests
-     *  `JZ` when it reads back 0. */
+    /**
+     * ANGLE port: clockwise turns (0-3) from [b] to face the nearest enemy it
+     * can see; 255 when none is in line of sight. Returns a clockwise DELTA
+     * from the bot's current facing (not the target direction) — firmware
+     * counts this many `TURN R` steps and tests `JZ` when it reads back 0.
+     */
     fun neededTurn(b: Bot): Int {
-        val e = enemies(b).minByOrNull { manhattan(b, it) } ?: return 255
-        val target = turnToward(b, e)
-        return (target - b.facing + 4) % 4
+        val e = visibleEnemies(b).firstOrNull() ?: return 255
+        return (turnToward(b, e) - b.facing + 4) % 4
     }
-
-    private fun enemies(b: Bot) = bots.filter { it.alive && it !== b }
-
-    private fun manhattan(a: Bot, b: Bot) = kotlin.math.abs(a.px - b.px) + kotlin.math.abs(a.py - b.py)
 
     private fun turnToward(from: Bot, to: Bot): Int {
         val dx = to.px - from.px
