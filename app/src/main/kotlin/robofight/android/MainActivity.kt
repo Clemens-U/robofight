@@ -42,6 +42,14 @@ import robofight.world.Palette
 import robofight.world.Presets
 import robofight.vm.Vm
 import robofight.world.Bot
+import robofight.world.World
+import robofight.world.GRID
+import robofight.world.SPAWN_SCATTER
+import robofight.world.scatterSpawn
+import robofight.world.DIR_E
+import robofight.assembler.assemble
+import robofight.challenge.ChallengeRun
+import robofight.challenge.ChallengeFormat
 
 /**
  * Two-screen native UI for Opcode Arena.
@@ -52,7 +60,7 @@ import robofight.world.Bot
  */
 class MainActivity : Activity() {
 
-    private enum class AppMode { SHELL, RUN }
+    private enum class AppMode { SHELL, RUN, CODES }
 
     private lateinit var shellScreen: LinearLayout
     private lateinit var runScreen: LinearLayout
@@ -82,6 +90,38 @@ class MainActivity : Activity() {
     private lateinit var regA: TextView
     private lateinit var regB: TextView
 
+    // --- [ CODES ] screen (R2): import a challenge code, preview its arena +
+    // rules (opponent firmware hard-hidden), pick a bot for each open slot,
+    // then RUN (deterministic eng=1) or SAVE the canonical code to the store.
+    private lateinit var codesScreen: LinearLayout
+    private lateinit var codesTab: Button
+    private lateinit var codePaste: EditText
+    private lateinit var codePasteBtnPaste: Button
+    private lateinit var codePasteBtnImport: Button
+    private lateinit var codePasteBtnClear: Button
+    private lateinit var previewArena: ArenaView
+    private lateinit var codeMode: TextView
+    private lateinit var codeRules: TextView
+    private lateinit var codeOpponent: TextView
+    private lateinit var codeResult: TextView
+    private lateinit var codeWarning: TextView
+    private lateinit var codePreviewCard: LinearLayout
+    private lateinit var codeErrorCard: LinearLayout
+    private lateinit var codeErrorText: TextView
+    private lateinit var codePickRow: LinearLayout
+    private lateinit var codePickLabel: TextView
+    private lateinit var codeBtnRun: Button
+    private lateinit var codeBtnSave: Button
+    private val codePickers = ArrayList<Button>()      // one per OPEN slot, in slot order
+    private val codePickSlotOf = ArrayList<Int>()      // slot index (0=A,1=B) per picker
+    private val codePickIdx = intArrayOf(0, 0)         // selected BotSlot index per slot
+    private var importedDesc: ChallengeFormat.FightDescriptor? = null
+    private var importedCode: String? = null
+    /** The challenge code loaded in the RUN screen, so "RUN AGAIN" re-runs the
+     *  SAME deterministic fight (identical seed/spawns) rather than a random
+     *  one. Cleared by any manual fight start or RESET. */
+    private var currentChallenge: ChallengeFormat.FightDescriptor? = null
+
     private lateinit var editor: EditText
     private lateinit var btnSave: Button
     private lateinit var btnNew: Button
@@ -108,6 +148,7 @@ class MainActivity : Activity() {
 
     private var mode = AppMode.SHELL
     private var currentFile: String? = null
+    private var currentCode: String? = null   // a saved .chc code being viewed read-only (R2)
     private var editorDirty = false
     private var autoRunning = false
     /**
@@ -196,9 +237,13 @@ class MainActivity : Activity() {
 
         shellTab.setOnClickListener { showShellTerminal() }
         runTab.setOnClickListener { showRunMode(startFight = false) }
-        btnA.setOnClickListener { ai = (ai + 1) % slots.size; updateBtnTexts() }
-        btnB.setOnClickListener { bi = (bi + 1) % slots.size; updateBtnTexts() }
-        btnRun.setOnClickListener { doRun() }
+        codesTab.setOnClickListener { showCodesMode() }
+        btnA.setOnClickListener { if (currentChallenge == null) { ai = (ai + 1) % slots.size; updateBtnTexts() } }
+        btnB.setOnClickListener { if (currentChallenge == null) { bi = (bi + 1) % slots.size; updateBtnTexts() } }
+        btnRun.setOnClickListener {
+            val ch = currentChallenge
+            if (ch != null) doCodeRun(ch) else doRun()
+        }
         btnStep.setOnClickListener { doStep() }
         btnReset.setOnClickListener { doReset() }
         btnSound.setOnClickListener { toggleSound() }
@@ -227,6 +272,7 @@ class MainActivity : Activity() {
         printBoot()
         runCmd("DIR")
         updateStats()
+        handleSendIntent()
     }
 
     override fun onDestroy() {
@@ -268,11 +314,26 @@ class MainActivity : Activity() {
         when (command) {
             "DIR", "D", "LS" -> printDir()
             "EDIT", "E", "OPEN" -> {
-                if (arg.isEmpty()) printLine("USAGE: EDIT <NAME>") else openFile(arg)
+                if (arg.isEmpty()) {
+                    printLine("USAGE: EDIT <NAME>")
+                } else if (store.codeExists(arg)) {
+                    openCode(arg)
+                } else {
+                    openFile(arg)
+                }
             }
             "DEL", "DELETE", "RM" -> {
                 if (arg.isEmpty()) {
                     printLine("USAGE: DEL <NAME>")
+                } else if (store.codeExists(arg)) {
+                    // Saved challenge codes live in the `codes` table, never the bot cycle.
+                    if (currentCode.equals(arg, ignoreCase = true)) {
+                        currentCode = null
+                        editor.text.clear()
+                        makeEditorEditable()
+                    }
+                    printLine(if (store.deleteCode(arg)) "DELETED $arg" else "DELETE FAILED: $arg")
+                    updateShellContext()
                 } else if (!store.exists(arg)) {
                     printLine("NO SUCH FILE: $arg")
                 } else {
@@ -307,6 +368,8 @@ class MainActivity : Activity() {
             store.upsert(open, editor.text.toString())
             printLine("SAVED $open  // UNSAVED CHANGES KEPT")
         }
+        makeEditorEditable()
+        currentCode = null
         editor.setText(text)
         editor.setSelection(0)
         editorDirty = false
@@ -319,6 +382,51 @@ class MainActivity : Activity() {
             editor.setSelection(0)
             editor.scrollTo(0, 0)
         }
+    }
+
+    /**
+     * EDIT <name.chc>: open a saved challenge code READ-ONLY. Re-opening
+     * re-runs full validation (spec §11); a corrupt stored code reports its
+     * exact §10 string. The editor is locked so the code can be read and
+     * copied but never edited or re-saved as firmware.
+     */
+    private fun openCode(name: String) {
+        val raw = store.readCode(name)
+        if (raw == null) { printLine("NO SUCH CODE: $name"); return }
+        when (val r = ChallengeFormat.parse(raw)) {
+            is ChallengeFormat.ParseResult.Err -> {
+                printLine("CODE INVALID: ${r.message}")
+                printLine("  // STORED CODE FAILED RE-VALIDATION  // DEL $name TO REMOVE")
+                return
+            }
+            is ChallengeFormat.ParseResult.Ok -> { /* valid — view it */ }
+        }
+        currentFile = null
+        currentCode = name
+        editor.setText(raw)
+        editor.setSelection(0)
+        editorDirty = false        // setText fired the watcher; viewing a code is not a dirty edit
+        makeEditorReadonly()
+        status.text = "VIEWING $name  (READ ONLY)"
+        updateShellContext()
+        showEditor()
+        editor.post {
+            editor.setSelection(0)
+            editor.scrollTo(0, 0)
+        }
+    }
+
+    /** Lock the editor so the code currently shown can't be edited or saved. */
+    private fun makeEditorReadonly() {
+        editor.keyListener = null
+        editor.isFocusableInTouchMode = false
+    }
+
+    /** Restore normal multi-line text editing (re-creates the key listener). */
+    private fun makeEditorEditable() {
+        editor.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+            InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        editor.isFocusableInTouchMode = true
     }
 
     private fun doNew(name: String) {
@@ -335,6 +443,8 @@ class MainActivity : Activity() {
         // A new bot ships with the RF-8 cheat sheet as comments — the program
         // is empty, so it assembles fine and RUN works immediately.
         store.upsert(name, Firmware.NEW_TEMPLATE)
+        makeEditorEditable()
+        currentCode = null
         editor.setText(Firmware.NEW_TEMPLATE)
         editor.setSelection(0)
         currentFile = name.uppercase()
@@ -346,6 +456,12 @@ class MainActivity : Activity() {
     }
 
     private fun saveFile() {
+        if (currentCode != null) {
+            status.text = "CODES ARE READ-ONLY  // EDIT <NAME> FOR FIRMWARE"
+            printLine("CODES ARE READ-ONLY  // CHALLENGE CODES CAN'T BE EDITED OR RE-SAVED")
+            commitText()
+            return
+        }
         val name = currentFile
         if (name == null) {
             status.text = "NO FILE OPEN  // USE NEW <NAME>"
@@ -572,7 +688,8 @@ class MainActivity : Activity() {
     private fun printDir() {
         commitText()
         val files = store.list()
-        if (files.isEmpty()) { printLine("  NO FILES  // NEW <NAME>"); return }
+        val codes = store.listCodes()
+        if (files.isEmpty() && codes.isEmpty()) { printLine("  NO FILES  // NEW <NAME>"); return }
         printLine("  NAME                 SIZE   MODIFIED")
         commitText()
         for (file in files) {
@@ -596,12 +713,38 @@ class MainActivity : Activity() {
             row.addView(modified)
             out.addView(row)
         }
-        printLine("  // TAP A FILE TO EDIT")
+        if (codes.isNotEmpty()) {
+            printLine("  SAVED CHALLENGE CODES  (.chc)")
+            commitText()
+            for (code in codes) {
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(0, dp(3), 0, dp(3))
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener { printLine("OPENING ${code.name} ..."); openCode(code.name) }
+                }
+                val name = terminalText(12f, C_CODE).apply {
+                    text = "  > ${code.name}"
+                    setSingleLine(true)
+                    ellipsize = TextUtils.TruncateAt.END
+                }
+                val bytes = terminalText(12f, C_GREEN).apply { text = code.bytes.toString().padStart(6) }
+                val modified = terminalText(11f, C_DIM).apply { text = "  ${store.fmtTime(code.modified)}" }
+                row.addView(name, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                row.addView(bytes)
+                row.addView(modified)
+                out.addView(row)
+            }
+        }
+        printLine("  // TAP A FILE TO EDIT  // TAP A CODE TO VIEW (READ-ONLY)")
     }
 
     private fun printHelp() {
-        printLine("DIR              LIST FIRMWARE (PRESETS + YOUR BOTS)")
+        printLine("DIR              LIST FIRMWARE + SAVED CODES (.chc)")
         printLine("EDIT <NAME>      OPEN IN EDITOR (HUNTER.asm, MYBOT, BOT1, …)")
+        printLine("EDIT <NAME.chc>  VIEW A SAVED CHALLENGE CODE (READ-ONLY)")
         printLine("NEW <NAME>       CREATE FIRMWARE (STARTS WITH CHEAT SHEET)")
         printLine("DEL <NAME>       DELETE FIRMWARE")
         printLine("EXPORT           PICK A FOLDER, ZIP-EXPORT ALL FIRMWARE THERE")
@@ -648,8 +791,30 @@ class MainActivity : Activity() {
         mode = next
         shellScreen.visibility = if (next == AppMode.SHELL) View.VISIBLE else View.GONE
         runScreen.visibility = if (next == AppMode.RUN) View.VISIBLE else View.GONE
+        codesScreen.visibility = if (next == AppMode.CODES) View.VISIBLE else View.GONE
         styleModeTab(shellTab, next == AppMode.SHELL)
         styleModeTab(runTab, next == AppMode.RUN)
+        styleModeTab(codesTab, next == AppMode.CODES)
+    }
+
+    /**
+     * Receive a shared challenge code (ACTION_SEND, text/plain) — e.g. from
+     * another device's share sheet or a messaging app. The code is loaded into
+     * the [ CODES ] tab and imported immediately, so a tap on a shared code
+     * drops the user straight onto its preview.
+     */
+    private fun handleSendIntent() {
+        if (intent?.action != Intent.ACTION_SEND) return
+        // The share carries the code in EXTRA_TEXT. The MIME type is unreliable —
+        // an explicit-component launch and some share paths omit it — so only
+        // reject clearly non-text types; a valid RF1 code is the real signal.
+        val type = intent.type
+        if (type != null && !"text/plain".equals(type, ignoreCase = true)) return
+        val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+        if (text.isNullOrBlank()) return
+        showCodesMode()
+        codePaste.setText(text)
+        importCode(text)
     }
 
     private fun hideKeyboard() {
@@ -662,8 +827,13 @@ class MainActivity : Activity() {
 
     private fun updateShellContext() {
         if (!::shellContext.isInitialized) return
-        val file = currentFile ?: "NO FILE"
-        shellContext.text = "WORKSPACE / $file${if (editorDirty) " *" else ""}"
+        val code = currentCode
+        if (code != null) {
+            shellContext.text = "VIEWING $code  (READ-ONLY)"
+        } else {
+            val file = currentFile ?: "NO FILE"
+            shellContext.text = "WORKSPACE / $file${if (editorDirty) " *" else ""}"
+        }
     }
 
     /**
@@ -758,6 +928,8 @@ class MainActivity : Activity() {
 
     private fun doRun() {
         handler.removeCallbacks(tickLoop)
+        currentChallenge = null   // a manual fight supersedes any loaded challenge
+        updateBtnTexts()          // restore the normal A/B picker labels
         if (!controller.start(slots[ai], slots[bi], ::sourceFor, arenaLayout)) {
             autoRunning = false
             status.text = "ASSEMBLER ERROR  // ${controller.status.uppercase()}"
@@ -778,6 +950,8 @@ class MainActivity : Activity() {
         btnRun.isEnabled = true
         btnRun.text = "RUN"
         if (controller.world == null) {
+            currentChallenge = null
+            updateBtnTexts()      // restore the normal A/B picker labels
             if (!controller.start(slots[ai], slots[bi], ::sourceFor, arenaLayout)) {
                 status.text = "ASSEMBLER ERROR  // ${controller.status.uppercase()}"
                 return
@@ -791,7 +965,9 @@ class MainActivity : Activity() {
     private fun doReset() {
         handler.removeCallbacks(tickLoop)
         autoRunning = false
+        currentChallenge = null
         controller.reset()
+        updateBtnTexts()          // restore the normal A/B picker labels
         btnRun.isEnabled = true
         btnRun.text = "RUN"
         updateStats()
@@ -888,15 +1064,19 @@ class MainActivity : Activity() {
         }
         shellTab = terminalButton("[ SHELL ]", strong = true)
         runTab = terminalButton("[ RUN ]", strong = true)
+        codesTab = terminalButton("[ CODES ]", strong = true)
         tabs.addView(shellTab, LinearLayout.LayoutParams(0, dp(46), 1f))
         tabs.addView(runTab, LinearLayout.LayoutParams(0, dp(46), 1f).apply { marginStart = dp(6) })
+        tabs.addView(codesTab, LinearLayout.LayoutParams(0, dp(46), 1f).apply { marginStart = dp(6) })
         root.addView(tabs)
 
         val screenHost = FrameLayout(this)
         shellScreen = buildShellScreen()
         runScreen = buildRunScreen()
+        codesScreen = buildCodesScreen()
         screenHost.addView(shellScreen, matchFrame())
         screenHost.addView(runScreen, matchFrame())
+        screenHost.addView(codesScreen, matchFrame())
         root.addView(screenHost, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
         status = terminalText(11f, C_BRIGHT).apply {
@@ -1177,7 +1357,13 @@ class MainActivity : Activity() {
         Arena.all().forEachIndexed { i, l ->
             val b = terminalButton(l.name)
             arenaButtons.add(b)
-            b.setOnClickListener { arenaIdx = i; updateArenaBtns() }
+            b.setOnClickListener {
+                // While a challenge is loaded its layout is fixed: re-assert it
+                // rather than desync the display from the fight's own world.
+                val ch = currentChallenge
+                if (ch != null) { syncArenaToChallenge(ch); return@setOnClickListener }
+                arenaIdx = i; updateArenaBtns()
+            }
             row.addView(b, weightedButton(if (i == 0) 0 else dp(5)))
         }
         return row
@@ -1190,6 +1376,376 @@ class MainActivity : Activity() {
             b.background = panelBackground(if (i == arenaIdx) C_GREEN else C_BLACK, C_GREEN_DARK)
         }
         if (::arena.isInitialized) arena.arenaLayout = Arena.all()[arenaIdx]
+    }
+
+    /**
+     * Point the live arena view and picker at a challenge's layout. The fight's
+     * World already carries that layout (ChallengeRun.buildWorld), but the
+     * display reads [arena.arenaLayout] — so without this the view would keep
+     * showing the last-picked arena while the bots fight on a different one.
+     */
+    private fun syncArenaToChallenge(desc: ChallengeFormat.FightDescriptor) {
+        val layout = Arena.byId(desc.layoutId) ?: return
+        val idx = Arena.all().indexOf(layout)
+        if (idx >= 0) {
+            arenaIdx = idx
+            updateArenaBtns()
+        }
+    }
+
+    // =========================================================================
+    //  [ CODES ] screen — R2 challenge-code import / preview / run / save
+    // =========================================================================
+
+    /**
+     * The [ CODES ] screen (R2). Paste or receive a challenge code (`RF1-…`),
+     * preview its arena + rules — the pinned opponent's firmware is hard-hidden
+     * in v1 (LOCKED DECISION, no reveal) — pick a bot for each open slot, then
+     * RUN the deterministic fight (eng=1, via [ChallengeRun.buildWorld]) or SAVE
+     * the canonical code to the store. See CHALLENGE-CODES.md.
+     */
+    private fun buildCodesScreen(): LinearLayout {
+        val screen = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+        }
+        screen.addView(terminalText(12f, C_BRIGHT).apply {
+            text = "CHALLENGE CODES"
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(4))
+        })
+        screen.addView(terminalText(8f, C_DIM).apply {
+            text = "PASTE A RF1-… CODE, TAP IMPORT   //   OR OPEN A SHARE"
+            setPadding(0, 0, 0, dp(6))
+        })
+
+        // --- paste box ---
+        val pasteFrame = FrameLayout(this).apply {
+            background = panelBackground(C_BLACK, C_BORDER)
+            setPadding(dp(6), dp(6), dp(6), dp(6))
+        }
+        codePaste = EditText(this).apply {
+            background = null
+            hint = "RF1-…"
+            setHintTextColor(C_DIM)
+            setTextColor(C_CODE)
+            textSize = 10f
+            gravity = Gravity.TOP or Gravity.START
+            typeface = pixelTypeface
+            usePixelTextRendering()
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            maxLines = 3
+            minLines = 2
+        }
+        pasteFrame.addView(codePaste, matchFrame())
+        screen.addView(pasteFrame, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(74)
+        ))
+
+        // --- paste buttons ---
+        val pasteBtns = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        codePasteBtnPaste = terminalButton("PASTE")
+        codePasteBtnImport = terminalButton("IMPORT", strong = true)
+        codePasteBtnClear = terminalButton("CLEAR")
+        pasteBtns.addView(codePasteBtnPaste, weightedButton())
+        pasteBtns.addView(codePasteBtnImport, weightedButton(dp(5)))
+        pasteBtns.addView(codePasteBtnClear, weightedButton(dp(5)))
+        screen.addView(pasteBtns, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = dp(6) })
+
+        // --- error card (hidden until a failed import) ---
+        codeErrorCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = panelBackground(C_DARK, C_BORDER)
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            visibility = View.GONE
+        }
+        codeErrorCard.addView(terminalText(9f, C_ERR).apply { text = "IMPORT FAILED" })
+        codeErrorText = terminalText(8f, C_BRIGHT)
+        codeErrorCard.addView(codeErrorText)
+        screen.addView(codeErrorCard, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = dp(6) })
+
+        // --- preview card (hidden until a valid import) ---
+        codePreviewCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = panelBackground(C_PANEL, C_GREEN_DARK)
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            visibility = View.GONE
+        }
+        val arenaFrame = FrameLayout(this).apply {
+            background = panelBackground(C_BLACK, C_BORDER)
+            setPadding(dp(5), dp(5), dp(5), dp(5))
+        }
+        previewArena = ArenaView(this)
+        arenaFrame.addView(previewArena, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER
+        ))
+        codePreviewCard.addView(arenaFrame, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.3f
+        ).apply { topMargin = dp(4) })
+
+        codeMode = terminalText(11f, C_BRIGHT).apply { gravity = Gravity.CENTER }
+        codePreviewCard.addView(codeMode)
+        codeRules = terminalText(8f, C_GREEN)
+        codePreviewCard.addView(codeRules)
+        codeOpponent = terminalText(8f, C_DIM)
+        codePreviewCard.addView(codeOpponent)
+        codeResult = terminalText(8f, C_CODE).apply { visibility = View.GONE }
+        codePreviewCard.addView(codeResult)
+        codeWarning = terminalText(8f, C_WARN).apply { visibility = View.GONE }
+        codePreviewCard.addView(codeWarning)
+
+        codePickLabel = terminalText(8f, C_DIM)
+        codePreviewCard.addView(codePickLabel)
+        codePickRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        codePreviewCard.addView(codePickRow)
+
+        val actionRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(6), 0, 0)
+        }
+        codeBtnRun = terminalButton("RUN", strong = true)
+        codeBtnSave = terminalButton("SAVE")
+        actionRow.addView(codeBtnRun, weightedButton())
+        actionRow.addView(codeBtnSave, weightedButton(dp(5)))
+        codePreviewCard.addView(actionRow)
+
+        screen.addView(codePreviewCard, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
+        ).apply { topMargin = dp(6) })
+
+        // --- wire the buttons ---
+        codePasteBtnPaste.setOnClickListener { pasteFromClipboard() }
+        codePasteBtnImport.setOnClickListener { importCode(codePaste.text.toString()) }
+        codePasteBtnClear.setOnClickListener {
+            codePaste.setText("")
+            importedDesc = null
+            codePreviewCard.visibility = View.GONE
+            codeErrorCard.visibility = View.GONE
+        }
+        codeBtnRun.setOnClickListener { val d = importedDesc ?: return@setOnClickListener; doCodeRun(d) }
+        codeBtnSave.setOnClickListener { doCodeSave() }
+        return screen
+    }
+
+    /** Switch to the [ CODES ] tab and settle the keyboard. */
+    private fun showCodesMode() {
+        handler.removeCallbacks(tickLoop)
+        setMode(AppMode.CODES)
+        hideKeyboard()
+    }
+
+    /** Copy the clipboard text into the paste box (no auto-import). */
+    private fun pasteFromClipboard() {
+        val clip = getSystemService(CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+        val text = clip?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)
+        if (!text.isNullOrEmpty()) codePaste.setText(text)
+    }
+
+    /**
+     * Parse a pasted code and show either its preview (Ok) or the exact §10
+     * error string (Err). A valid import re-canonicalizes the code (parse →
+     * encode round-trip) so the stored/played form is always canonical.
+     */
+    private fun importCode(raw: String) {
+        val code = raw.trim()   // tolerate pasted/share text with surrounding whitespace
+        when (val r = ChallengeFormat.parse(code)) {
+            is ChallengeFormat.ParseResult.Err -> {
+                importedDesc = null
+                importedCode = null
+                codePreviewCard.visibility = View.GONE
+                codeErrorText.text = r.message
+                codeErrorCard.visibility = View.VISIBLE
+                status.text = "IMPORT FAILED"
+            }
+            is ChallengeFormat.ParseResult.Ok -> {
+                importedDesc = r.desc
+                importedCode = ChallengeFormat.encode(r.desc)
+                codeErrorCard.visibility = View.GONE
+                codePreviewCard.visibility = View.VISIBLE
+                status.text = "CODE OK  // ${r.desc.codeMode}"
+                buildPreview(r.desc, r.warning)
+            }
+        }
+    }
+
+    /**
+     * Populate the preview card for a parsed code: static arena + spawn markers
+     * (opponent firmware hard-hidden), mode/rules, the hidden-slot panel, the
+     * recorded result badge, any eng-skew warning, and one bot picker per open
+     * slot.
+     */
+    private fun buildPreview(desc: ChallengeFormat.FightDescriptor, warning: String?) {
+        val layout = Arena.byId(desc.layoutId) ?: return
+        previewArena.arenaLayout = layout
+
+        val cells = spawnCellsFor(desc, layout)
+        val markers = ArrayList<ArenaView.PreviewMarker>()
+        markers.add(ArenaView.PreviewMarker(
+            cells[0], 'A', if (desc.slotAOpen) C_YELLOW else C_GREEN,
+            if (desc.slotAOpen) "YOU" else "HIDDEN"
+        ))
+        markers.add(ArenaView.PreviewMarker(
+            cells[1], 'B', if (desc.slotBOpen) C_YELLOW else C_GREEN,
+            if (desc.slotBOpen) "YOU" else "HIDDEN"
+        ))
+        previewArena.previewSpawns = markers
+
+        codeMode.text = desc.codeMode
+        val rules = StringBuilder()
+        rules.append("MODE ").append(desc.modeLabel)
+            .append("  ·  SPAWN ").append(desc.spawnLabel)
+            .append("  ·  HP ").append(desc.hpA).append('/').append(desc.hpB)
+        if (desc.spawn == SPAWN_SCATTER) rules.append("  ·  SEED ").append(desc.seed)
+        codeRules.text = rules.toString()
+
+        val hidden = ArrayList<String>()
+        if (!desc.slotAOpen) hidden.add("A ▸ HIDDEN · ${desc.fwA.size} B")
+        if (!desc.slotBOpen) hidden.add("B ▸ HIDDEN · ${desc.fwB.size} B")
+        codeOpponent.text =
+            if (hidden.isEmpty()) "NO HIDDEN SLOT   //   YOU PLAY BOTH SLOTS"
+            else hidden.joinToString("    ")
+
+        val res = desc.result
+        if (res != null && res.winner != 0xFF) {
+            codeResult.visibility = View.VISIBLE
+            val winner = when (res.winner) { 0 -> "A WINS"; 1 -> "B WINS"; else -> "DRAW" }
+            codeResult.text = "RECORDED: $winner  ·  T+${res.ticks}  ·  HP ${res.endHp}"
+        } else {
+            codeResult.visibility = View.GONE
+        }
+
+        if (warning != null) {
+            codeWarning.visibility = View.VISIBLE
+            codeWarning.text = warning
+        } else {
+            codeWarning.visibility = View.GONE
+        }
+
+        // One bot picker per open slot (cycles through the same slot list the
+        // RUN screen uses: 5 presets + user files).
+        codePickers.clear()
+        codePickSlotOf.clear()
+        codePickRow.removeAllViews()
+        codePickIdx[0] = 0
+        codePickIdx[1] = 0
+        val openSlots = ArrayList<Int>()
+        if (desc.slotAOpen) openSlots.add(0)
+        if (desc.slotBOpen) openSlots.add(1)
+        codePickLabel.text =
+            if (openSlots.isEmpty()) "" else "PICK " + (if (openSlots.size > 1) "BOTH BOTS" else "YOUR BOT")
+        openSlots.forEachIndexed { i, slotIdx ->
+            val b = terminalButton("…")
+            b.setOnClickListener {
+                codePickIdx[slotIdx] = (codePickIdx[slotIdx] + 1) % slots.size
+                updateCodePickers()
+            }
+            codePickers.add(b)
+            codePickSlotOf.add(slotIdx)
+            codePickRow.addView(b, weightedButton(if (i > 0) dp(5) else 0))
+        }
+        updateCodePickers()
+    }
+
+    /**
+     * The A/B spawn cells for a code's preview, computed EXACTLY as
+     * [ChallengeRun.buildWorld] does (SEPARATE/CLASH fixed cells; SCATTER draws
+     * through a fresh world LCG seeded with the code's seed) so the markers land
+     * on the very cells the bots start on.
+     */
+    private fun spawnCellsFor(desc: ChallengeFormat.FightDescriptor, layout: Layout): IntArray {
+        val w = World(layout)
+        w.setSeed(desc.seed)
+        val ax: Int; val ay: Int; val bx: Int; val by: Int
+        if (desc.spawn == SPAWN_SCATTER) {
+            val s = scatterSpawn(layout, w::nextRand)
+            ax = s.first.x; ay = s.first.y; bx = s.second.x; by = s.second.y
+        } else {
+            val (a, b) = layout.spawnCells(desc.spawn)
+            ax = a.x; ay = a.y; bx = b.x; by = b.y
+        }
+        return intArrayOf(ay * GRID + ax, by * GRID + bx)
+    }
+
+    /** Refresh each picker button's label from its current pick. */
+    private fun updateCodePickers() {
+        codePickers.forEachIndexed { i, b ->
+            val slotIdx = codePickSlotOf[i]
+            val slot = slots[codePickIdx[slotIdx]]
+            b.text = "${if (slotIdx == 0) "A" else "B"}  ${slot.name}  >"
+        }
+    }
+
+    /** SAVE the imported code to the store (canonical base32, `codes` table). */
+    private fun doCodeSave() {
+        val desc = importedDesc ?: return
+        val code = importedCode ?: return
+        val name = autoCodeName()
+        store.upsertCode(name, code)
+        status.text = "SAVED  $name.chc"
+        printLine("SAVED CHALLENGE CODE  $name.chc   //   ${code.length} CHARS")
+        printLine("  $code")
+    }
+
+    /** Next free auto-name for a saved code (CODE1, CODE2, …). */
+    private fun autoCodeName(): String {
+        var n = 1
+        while (store.codeExists("CODE$n")) n++
+        return "CODE$n"
+    }
+
+    /**
+     * RUN a parsed challenge deterministically (eng=1): assemble the picked
+     * firmware for each OPEN slot, build the exact fight via
+     * [ChallengeRun.buildWorld] (pinned slots load the code's binary opcodes),
+     * adopt it on the RUN screen and tick it. Identical code + identical picks
+     * → identical result, matching the headless codec tests.
+     */
+    private fun doCodeRun(desc: ChallengeFormat.FightDescriptor) {
+        val resA = if (desc.slotAOpen) assemble(sourceFor(slots[codePickIdx[0]])) else null
+        val resB = if (desc.slotBOpen) assemble(sourceFor(slots[codePickIdx[1]])) else null
+        val bad = when {
+            resA != null && !resA.ok -> "A  LINE ${resA.errors.first().line}: ${resA.errors.first().msg}"
+            resB != null && !resB.ok -> "B  LINE ${resB.errors.first().line}: ${resB.errors.first().msg}"
+            else -> null
+        }
+        if (bad != null) {
+            setMode(AppMode.CODES)
+            status.text = "ASSEMBLER ERROR  // $bad"
+            return
+        }
+        val openA: Bot? = if (desc.slotAOpen) {
+            val s = slots[codePickIdx[0]]
+            Bot(s.name, s.glyph, s.color, 0, 0, DIR_E, sourceFor(s))
+        } else null
+        val openB: Bot? = if (desc.slotBOpen) {
+            val s = slots[codePickIdx[1]]
+            Bot(s.name, s.glyph, s.color, 0, 0, DIR_E, sourceFor(s))
+        } else null
+        val w = ChallengeRun.buildWorld(desc, openA, openB)
+        val codes = arrayOf<RunController.BotCode?>(
+            if (desc.slotAOpen) RunController.BotCode(sourceFor(slots[codePickIdx[0]]), resA!!.lineOf) else null,
+            if (desc.slotBOpen) RunController.BotCode(sourceFor(slots[codePickIdx[1]]), resB!!.lineOf) else null,
+        )
+        currentChallenge = desc
+        handler.removeCallbacks(tickLoop)
+        controller.startDeterministic(w, codes)
+        syncArenaToChallenge(desc)
+        // Reflect the challenge on the A/B pickers: open slots show the picked
+        // bot; pinned slots show HIDDEN so the opponent's identity stays hidden.
+        btnA.text = if (desc.slotAOpen) "A  ${slots[codePickIdx[0]].name}  >" else "A  HIDDEN  ▒"
+        btnB.text = if (desc.slotBOpen) "B  ${slots[codePickIdx[1]].name}  >" else "B  HIDDEN  ▒"
+        autoRunning = true
+        btnRun.isEnabled = false
+        btnRun.text = "RUNNING"
+        setMode(AppMode.RUN)
+        hideKeyboard()
+        updateStats()
+        handler.postDelayed(tickLoop, 100L)
     }
 
     /**
@@ -1269,8 +1825,16 @@ class MainActivity : Activity() {
         val world = controller.world
         val bc = controller.botCodes[side]
         if (world == null || bc == null) {
-            head.text = if (side == 0) "A" else "B"
-            code.text = "  (idle)"
+            if (world != null) {
+                // A fight is running but this slot ships hidden firmware
+                // (a pinned challenge opponent) — no source to window.
+                head.text = "${if (side == 0) "A" else "B"} ▸ HIDDEN"
+                head.setTextColor(C_DIM)
+                code.text = "  ▒▒ FIRMWARE HIDDEN ▒▒"
+            } else {
+                head.text = if (side == 0) "A" else "B"
+                code.text = "  (idle)"
+            }
             reg.text = ""
             return
         }
@@ -1410,6 +1974,10 @@ class MainActivity : Activity() {
         private val C_DIM = Color.rgb(48, 130, 67)
         private val C_GREEN = Color.rgb(52, 236, 91)
         private val C_BRIGHT = Color.rgb(180, 255, 190)
+        private val C_CODE = Color.rgb(234, 255, 147)   // phosphor-yellow: saved challenge codes
+        private val C_YELLOW = Color.rgb(248, 184, 0)   // #f8b800: the player's (open-slot) bot
+        private val C_WARN = Color.rgb(248, 216, 120)   // #f8d878: non-fatal warnings
+        private val C_ERR = Color.rgb(255, 90, 90)      // #ff5a5a: import / parse errors
     }
 }
 

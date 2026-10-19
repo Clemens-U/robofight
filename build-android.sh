@@ -82,23 +82,13 @@ find build/rjava -name '*.java' -print0 | xargs -0 \
   "$JAVA_HOME/bin/javac.exe" --release 11 -cp "$ANDROID_JAR" -d build/rcls
 
 echo "[3/7] kotlinc (engine + app → app-cls)…"
+# Compile EVERY engine + app source (find, not a hand list) so new engine
+# modules (challenge/, disasm/, …) are picked up automatically.
+mapfile -t ENG_SRC < <(find engine/src/main/kotlin -name '*.kt' | sort)
+mapfile -t APP_SRC < <(find app/src/main/kotlin -name '*.kt' | sort)
+echo "   engine=${#ENG_SRC[@]} app=${#APP_SRC[@]} sources"
 "$JAVA" -cp "$KOTLINC_JAR" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler \
-  engine/src/main/kotlin/robofight/isa/ISA.kt \
-  engine/src/main/kotlin/robofight/assembler/Assembler.kt \
-  engine/src/main/kotlin/robofight/vm/Vm.kt \
-  engine/src/main/kotlin/robofight/world/Arena.kt \
-  engine/src/main/kotlin/robofight/world/World.kt \
-  engine/src/main/kotlin/robofight/world/TextGrid.kt \
-  engine/src/main/kotlin/robofight/world/Presets.kt \
-  engine/src/main/kotlin/robofight/world/Simulator.kt \
-  app/src/main/kotlin/robofight/android/BotSlot.kt \
-  app/src/main/kotlin/robofight/android/BotFiles.kt \
-  app/src/main/kotlin/robofight/android/Firmware.kt \
-  app/src/main/kotlin/robofight/android/FirmwareExport.kt \
-  app/src/main/kotlin/robofight/android/RunController.kt \
-  app/src/main/kotlin/robofight/android/ArenaView.kt \
-  app/src/main/kotlin/robofight/android/RetroSound.kt \
-  app/src/main/kotlin/robofight/android/MainActivity.kt \
+  "${ENG_SRC[@]}" "${APP_SRC[@]}" \
   -classpath "$ANDROID_JAR;build/rcls" \
   -jvm-target 11 \
   -d build/app-cls

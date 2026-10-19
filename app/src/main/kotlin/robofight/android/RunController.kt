@@ -128,6 +128,30 @@ class RunController {
     }
 
     /**
+     * Start a fight from a fully-built deterministic [World] (challenge codes,
+     * eng=1). Unlike [start], the World is constructed by
+     * [robofight.challenge.ChallengeRun.buildWorld] (fixed seed, fixed spawns,
+     * fixed mode / timeLimit / HP) — this method only adopts it and wires the
+     * front-end hooks, so "identical code → identical result" holds on the very
+     * path the headless codec tests exercise.
+     *
+     * [codes] is the execution-monitor listing per slot. A null entry means the
+     * slot's firmware is hidden (a pinned opponent shipped as binary opcodes)
+     * — the monitor renders it as "HIDDEN" instead of a source window.
+     */
+    fun startDeterministic(w: World, codes: Array<BotCode?>) {
+        world = w
+        botCodes = codes
+        errorLine = -1
+        errorCount = 0
+        errorMsg = ""
+        errorBot = ""
+        status = "running…  // CODE"
+        w.onHit = { e -> onHit?.invoke(e) }
+        onFrame?.invoke()
+    }
+
+    /**
      * Advance up to [n] ticks. Returns the number actually advanced.
      * Caps at the world's finished state so we never over-tick.
      */

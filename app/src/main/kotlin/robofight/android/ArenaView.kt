@@ -341,9 +341,26 @@ class ArenaView @JvmOverloads constructor(
 
         val world = controller?.world
         if (world == null) {
-            glyphPaint.color = Color.parseColor("#34ec5b")
-            glyphPaint.textSize = cellSize * 0.75f
-            canvas.drawText("SYSTEM IDLE", w / 2f, h / 2f, glyphPaint)
+            if (previewSpawns.isNotEmpty()) {
+                // Static challenge preview: terrain (above) + A/B spawn
+                // markers. No live world — the [ CODES ] tab previews a code's
+                // arena + spawns without running a fight.
+                for (m in previewSpawns) {
+                    val cx = (m.cell % GRID + 0.5f) * cellSize
+                    val cy = (m.cell / GRID + 0.5f) * cellSize
+                    glyphPaint.color = m.color
+                    glyphPaint.textSize = cellSize * 0.5f
+                    canvas.drawText(m.glyph.toString(), cx, cy + cellSize * 0.2f, glyphPaint)
+                    if (m.label != null) {
+                        glyphPaint.textSize = cellSize * 0.26f
+                        canvas.drawText(m.label, cx, cy - cellSize * 0.55f, glyphPaint)
+                    }
+                }
+            } else {
+                glyphPaint.color = Color.parseColor("#34ec5b")
+                glyphPaint.textSize = cellSize * 0.75f
+                canvas.drawText("SYSTEM IDLE", w / 2f, h / 2f, glyphPaint)
+            }
             canvas.drawRect(1.5f, 1.5f, w - 1.5f, h - 1.5f, borderPaint)
             drawFx(canvas, w, h)
             return
@@ -415,6 +432,21 @@ class ArenaView @JvmOverloads constructor(
      * even before RUN.
      */
     var arenaLayout: Layout? = null
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /**
+     * Static challenge preview: one spawn marker. [cell] is `y * 20 + x`
+     * (the same 20x20 grid the renderer uses). When [previewSpawns] is
+     * non-empty and [controller] is null, [onDraw] renders the terrain plus
+     * these markers instead of "SYSTEM IDLE" — used by the [ CODES ] tab to
+     * preview a challenge code's arena + A/B spawns without a live fight.
+     */
+    data class PreviewMarker(val cell: Int, val glyph: Char, val color: Int, val label: String?)
+
+    var previewSpawns: List<PreviewMarker> = emptyList()
         set(value) {
             field = value
             invalidate()

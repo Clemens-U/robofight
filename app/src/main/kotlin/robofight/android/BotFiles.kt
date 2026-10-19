@@ -22,7 +22,7 @@ class BotFiles(context: Context) {
 
     private val db = Helper(context.applicationContext).writableDatabase
 
-    private class Helper(context: Context) : SQLiteOpenHelper(context, "botfiles", null, 1) {
+    private class Helper(context: Context) : SQLiteOpenHelper(context, "botfiles", null, 2) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
                 "CREATE TABLE files(" +
@@ -32,10 +32,26 @@ class BotFiles(context: Context) {
                     " created INTEGER NOT NULL," +
                     " modified INTEGER NOT NULL)"
             )
+            db.execSQL(
+                "CREATE TABLE codes(" +
+                    " name TEXT PRIMARY KEY COLLATE NOCASE," +
+                    " code TEXT NOT NULL," +
+                    " created INTEGER NOT NULL," +
+                    " modified INTEGER NOT NULL)"
+            )
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-            // v1 — nothing to migrate yet.
+            // v2 — add the saved-challenge-code store (R2). Firmware stays in `files`.
+            if (oldVersion < 2) {
+                db.execSQL(
+                    "CREATE TABLE codes(" +
+                        " name TEXT PRIMARY KEY COLLATE NOCASE," +
+                        " code TEXT NOT NULL," +
+                        " created INTEGER NOT NULL," +
+                        " modified INTEGER NOT NULL)"
+                )
+            }
         }
     }
 
@@ -105,6 +121,52 @@ class BotFiles(context: Context) {
         }
         return db.update("files", values, "id=?", arrayOf(id.toString())) > 0
     }
+
+    // ---- Saved challenge codes (R2) ------------------------------------------------
+    // Separate table from `files`: a code is a canonical base32 challenge string,
+    // NOT robot firmware — so it must never be fed to refreshSlots()/the bot cycle.
+    // The stored name carries the ".chc" marker (e.g. "MYCODE.chc").
+
+    data class CodeRec(val name: String, val bytes: Long, val modified: Long)
+
+    /** All saved codes, sorted by name (case-insensitive). */
+    fun listCodes(): List<CodeRec> =
+        db.query("codes", arrayOf("name", "length(code)", "modified"),
+                null, null, null, null, "name COLLATE NOCASE ASC", null)
+            .use { c ->
+                buildList {
+                    while (c.moveToNext()) {
+                        add(CodeRec(c.getString(0), c.getLong(1), c.getLong(2)))
+                    }
+                }
+            }
+
+    fun readCode(name: String): String? =
+        db.rawQuery("SELECT code FROM codes WHERE name=?", arrayOf(name))
+            .use { c -> if (c.moveToFirst()) c.getString(0) else null }
+
+    fun codeExists(name: String): Boolean = readCode(name) != null
+
+    fun countCodes(): Int =
+        db.rawQuery("SELECT COUNT(*) FROM codes", null).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
+
+    /** Insert or replace a saved code by name (case-insensitive). */
+    fun upsertCode(name: String, code: String): Boolean {
+        val now = System.currentTimeMillis()
+        val values = ContentValues().apply {
+            put("name", name)
+            put("code", code)
+            put("created", now)
+            put("modified", now)
+        }
+        return if (codeExists(name)) {
+            db.update("codes", values, "name=?", arrayOf(name)) > 0
+        } else {
+            db.insert("codes", null, values) >= 0
+        }
+    }
+
+    fun deleteCode(name: String): Boolean = db.delete("codes", "name=?", arrayOf(name)) > 0
 
     private val fmt = SimpleDateFormat("MM-dd HH:mm", Locale.US)
     fun fmtTime(ms: Long): String = fmt.format(Date(ms))
