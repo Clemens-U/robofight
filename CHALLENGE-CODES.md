@@ -140,6 +140,18 @@ outcome (winner may be A, B, or DRAW).
   - A receiver with no embedded source shows a **disassembly** of the
     binary instead (labels absent — acceptable; the display path, not the
     execution path).
+- **Display policy (v1, app layer — not a format change).** The v1 app does
+  **not** render the opponent's firmware on the challenge/replay screen: no
+  embedded source, no disassembly, no in-app reveal control. The program stays
+  fully present in the code (self-contained; readable by hand — base32 → `fw`
+  block → 3-byte triples); *reading it is the intended hacking axis of play*,
+  not a feature the app hands over. This is display-layer only: the format,
+  `eng`, and the append-only invariants are untouched, and nothing here blocks
+  creating / sharing / importing / parsing / replaying any code. It does not
+  restrict §9.3 — disassembling remains an always-available mechanism (never
+  entitlement-gated); v1 simply does not surface it on the challenge screen.
+  An **assisted reveal** (app-side disassembly) and a **sender-chosen reveal**
+  (a later `flags` bit or field — a format change) are deferred to v2.
 - **Decode scan (import-time integrity):** the importer dry-decodes every
   3-byte triple of each *pinned* firmware against the current build's ISA
   table. Any unknown opcode ⇒ reject `NEW OPCODES — UPDATE APP`. (In

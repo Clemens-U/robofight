@@ -29,6 +29,7 @@ Thumbs.db
 
 # scratch / debug artifacts
 build.log
+build-*.log
 shot.png
 window_dump.xml
 # uiautomator hierarchy dumps (scratch, device-specific)

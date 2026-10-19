@@ -11,11 +11,13 @@
 | Release | versionCode | Content | Stage |
 |---------|-------------|---------|-------|
 | R1 — "arena"    | 5 (`0.4-arena`)  | 5 free arenas + wall engine | 1 |
-| R2 — "import"   | 6 (`0.5-codes`)  | import + preview + deterministic playback of codes | 3 |
+| R2 — "import"   | 6 (`0.5-codes`)  | import + preview + deterministic playback + saved codes (.chc) | 3 |
 | R3 — "full v1"  | 7 (`0.6-codes`)  | builder + response flow + share + history | 4 |
 | — (no release)  | — | gating scaffolding, release process, docs | 5 |
 
-Current state: `versionCode = 4`, `versionName = "0.3-m3"` (`app/build.gradle.kts`).
+Current state: **R2 built + device smoke passed** — `versionCode = 6`, `versionName =
+"0.5-codes"` (set in `app/src/main/AndroidManifest.xml`; built offline, no Gradle).
+See `HANDOVER-R2.md` for the full status and smoke results.
 
 ## Why this split
 
@@ -29,6 +31,24 @@ Current state: `versionCode = 4`, `versionName = "0.3-m3"` (`app/build.gradle.kt
   §5 release-gate question. This avoids re-verifying determinism mid-project.
 - The codec (stage 2) is pure-JVM and fully testable headless (§12.2) before a
   line of UI exists, so the R2 UI wires against a verified parser.
+
+## Locked v1 decisions (this project)
+
+- **Opponent firmware is hidden in v1.** No in-app reveal — no source, no
+  disassembly on the challenge/replay screen. Reading it by hand (base32 →
+  `fw` block → 3-byte triples) is the intended hacking axis. Assisted reveal + a
+  sender-chosen reveal are **v2**. (Spec §4.1 display policy; the stage-2
+  disassembler is built + tested but not surfaced in-app in v1.)
+- **Saved codes = `.chc`.** SAVE writes the canonical base32 code string to a
+  dedicated `codes` table in the `botfiles` SQLite store (name `LABEL.chc`);
+  listed in DIR, openable in EDIT, re-open re-validates; **never** fed to
+  `refreshSlots()` / the bot cycle.
+- **Canonical challenge = `slots 0b01`** (A open, B pinned = the sender's bot).
+  The recipient fills A with their own bot and plays it against the hidden B.
+- **R2 = receive + play + save; R3 = build + share + respond.** Building a
+  challenge (arena + your firmware) and sharing it to the clipboard is R3;
+  importing + playing + saving is R2. Both are free for predefined
+  (`0x00–0x04`) arenas.
 
 ---
 
@@ -183,9 +203,9 @@ Goal: the user can paste/receive a code and play it exactly.
     Errors show the exact §10 string, terminal-voiced.
   - **Challenge screen:** arena preview (static grid: walls + spawn markers),
     rules line (mode / spawn / HP A–B / seed), mode label (REPLAY · CHALLENGE ·
-    OPEN DUEL), opponent panel (embedded source if present, else the
-    disassembly — §4.3), recorded-result badge ("as the author recorded it" —
-    never re-verified).
+    OPEN DUEL), opponent panel (**firmware hidden in v1** — identity + size only,
+    no source / disassembly / reveal; §4.1 display policy), recorded-result badge
+    ("as the author recorded it" — never re-verified).
   - **eng skew:** `OLD ENGINE — REPLAY USES CURRENT RULES` = warning, playable;
     newer eng/fmt = blocked with the §10 string.
   - **Open slots:** pick a local bot per open slot (5 presets or BotFiles) →
@@ -198,6 +218,14 @@ Goal: the user can paste/receive a code and play it exactly.
 - **Result capture:** on finish, store the actual outcome (winner relative to
   the code's slots, ticks, loser `end_hp`) in activity-local state — input for
   the stage-4 response flow and history.
+- **Saved codes (SAVE → `.chc`):** a SAVE action writes the **canonical base32 code
+  string** (`RF1-…`) into a dedicated `codes` table in the existing `botfiles`
+  SQLite store (name = `LABEL.chc`) — **not** the firmware `files` table, so a code
+  string is never fed to `refreshSlots()` / `Bot.load()`. **DIR** lists both (codes
+  shown with the `.chc` marker; firmware stays bare, e.g. `TURTLE`); **EDIT** opens
+  a `.chc` to read the code (base32 — the artifact, **not** a firmware reveal, §4.1).
+  Re-open re-validates (§11). This is the store stage 4's "local history" manages over
+  (§9.3 "local history always works"). No eng / format impact.
 - **Manifest:** `MainActivity` gains an `intent-filter` for
   `android.intent.action.SEND` (`text/plain`) so shared codes open the app;
   the extra is parsed through the same importer (same §10 handling).
@@ -233,9 +261,9 @@ Goal: create, win, and send back — the complete §6/§8 loop.
 - **Share:** `ACTION_SEND` text/plain + clipboard copy. **QR is deferred** (no
   offline ZXing on the curated Maven mirror; a self-contained QR encoder is a
   follow-up — the mechanism is never gated, §9.3, so this doesn't break v1).
-- **Local history** (BotFiles-style store): per-code outcomes, per-arena win
-  counts; shown on the challenge screen / in the shell. App feature, outside
-  the format (§8).
+- **Local history** (BotFiles-style store over stage 3's saved-codes store):
+  per-code outcomes, per-arena win counts; shown on the challenge screen / in the
+  shell. App feature, outside the format (§8).
 - `versionCode 6 → 7`, `versionName "0.6-codes"` — full v1 acceptance: §12.1–12.4
   all green.
 

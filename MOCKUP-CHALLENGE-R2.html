@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoboFight — Stage 3 (R2 "import") concept</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+:root{
+  --bg:#000502; --black:#010703;
+  --panel:#020d06; --panel2:#021208;
+  --border:#24843d; --border-dim:#145c2a;
+  --dim:#308243; --green:#34ec5b; --bright:#b4ffbe;
+  --cell:#020c05; --gridline:#0b2b14; --dot:#174525;
+  --proj:#eaff93;
+  --hunter:#bc0000; --turtle:#00a800; --snake:#00e8d8;
+  --mybot:#f8b800; --warn:#f8d878; --err:#ff5a5a;
+  --mono:'Press Start 2P','Courier New',monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg); color:var(--green);
+  font-family:var(--mono); font-size:11px; line-height:1.5;
+  padding:26px 22px 60px;
+  -webkit-font-smoothing:none;
+}
+body::before{ /* faint CRT scanlines */
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:9999;
+  background:repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px, rgba(0,0,0,.18) 3px);
+  mix-blend-mode:multiply;
+}
+.page{max-width:1180px;margin:0 auto;}
+
+/* ---------- header ---------- */
+h1{font-size:16px;color:var(--bright);margin:0 0 4px;letter-spacing:1px;}
+h1 .ver{color:var(--dim);font-size:11px;}
+.sub{color:var(--dim);font-size:9px;margin:0 0 18px;max-width:900px;}
+.sub b{color:var(--green);}
+.flow{
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  border:1px solid var(--border-dim);background:var(--panel);
+  padding:10px 12px;margin:0 0 26px;font-size:9px;color:var(--green);
+}
+.flow .step{background:var(--black);border:1px solid var(--border);padding:6px 8px;color:var(--bright);white-space:nowrap;}
+.flow .step.hot{background:#0a3a18;border-color:var(--green);color:var(--bright);}
+.flow .arw{color:var(--dim);}
+.flow .r3{color:var(--warn);border-color:#5a4a12;background:#241d06;}
+
+/* ---------- phone grid ---------- */
+.grid{display:flex;flex-wrap:wrap;gap:26px;justify-content:flex-start;}
+.col{display:flex;flex-direction:column;gap:10px;}
+.cap{font-size:9px;color:var(--bright);text-align:center;line-height:1.7;}
+.cap .n{color:var(--dim);}
+.cap em{color:var(--dim);font-style:normal;}
+
+/* ---------- phone frame ---------- */
+.phone{
+  width:300px;background:#000;border:2px solid #0c1a10;border-radius:22px;
+  padding:8px 8px 6px;position:relative;
+  box-shadow:0 0 0 1px #000,0 14px 40px rgba(0,0,0,.6);
+}
+.phone .screenbg{background:var(--bg);border-radius:14px;overflow:hidden;}
+.statusbar{display:flex;justify-content:space-between;align-items:center;
+  padding:5px 12px 4px;font-size:8px;color:var(--dim);}
+.statusbar .r{letter-spacing:1px;}
+.masthead{display:flex;align-items:center;gap:7px;padding:7px 10px 6px;
+  border-bottom:1px solid var(--border-dim);}
+.masthead .ic{width:20px;height:20px;background:var(--green);border-radius:3px;
+  display:flex;align-items:center;justify-content:center;color:#000;font-size:11px;}
+.masthead .t{color:var(--bright);font-size:10px;letter-spacing:1px;}
+.masthead .cur{width:7px;height:15px;background:var(--bright);}
+.masthead .rf{margin-left:auto;color:var(--dim);font-size:8px;}
+.tabs{display:flex;gap:5px;padding:7px 8px;}
+.tab{flex:1;text-align:center;font-size:8px;padding:8px 0;border:1px solid var(--border);
+  color:var(--green);background:var(--black);}
+.tab.on{background:var(--green);color:var(--black);border-color:var(--green);}
+.screen{padding:8px 8px 10px;display:flex;flex-direction:column;gap:8px;height:452px;overflow:hidden;}
+.status{font-size:8px;color:var(--bright);padding:6px 10px 8px;border-top:1px solid var(--border-dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.status.err{color:var(--err);}
+.status.ok{color:var(--bright);}
+
+/* ---------- widgets ---------- */
+.ctx{font-size:8px;color:var(--dim);padding:1px 2px;}
+.panel{border:1px solid var(--border);background:var(--panel);padding:8px;}
+.panel.dim{background:var(--panel2);}
+.label{font-size:8px;color:var(--dim);margin-bottom:6px;letter-spacing:.5px;}
+.codebox{
+  font-size:7px;color:var(--bright);background:var(--black);
+  border:1px solid var(--border-dim);padding:8px;line-height:1.6;
+  min-height:86px;word-break:break-all;
+}
+.codebox.bad{color:var(--warn);}
+.btnrow{display:flex;gap:6px;margin-top:8px;}
+.btn{flex:1;text-align:center;font-size:8px;padding:9px 0;border:1px solid var(--border);
+  color:var(--bright);background:var(--black);}
+.btn.strong{background:var(--green);color:var(--black);border-color:var(--green);}
+.btn.lock{color:var(--dim);border-color:var(--border-dim);background:#000;position:relative;}
+.log{font-size:7px;line-height:1.8;padding:6px 2px 1px;color:var(--dim);}
+.log .ok{color:var(--green);}
+.log .err{color:var(--err);}
+.log .wrn{color:var(--warn);}
+.log .hl{color:var(--bright);}
+.note{font-size:7px;color:var(--dim);line-height:1.7;padding-top:2px;}
+
+/* mode strip */
+.modestrip{display:flex;align-items:center;justify-content:space-between;
+  border:1px solid var(--green);background:#07280f;padding:8px 10px;}
+.modestrip .m{font-size:12px;color:var(--bright);letter-spacing:1px;}
+.modestrip .a{font-size:8px;color:var(--green);text-align:right;line-height:1.6;}
+
+/* arena */
+.arenawrap{display:flex;flex-direction:column;align-items:center;gap:5px;}
+.arena{position:relative;background:var(--bg);border:2px solid var(--green);}
+.legend{font-size:7px;color:var(--dim);}
+.legend b{color:var(--bright);}
+
+/* rules */
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px;font-size:8px;}
+.rules .k{color:var(--dim);}
+.rules .v{color:var(--bright);}
+
+/* opponent / code pane */
+.pane{border:1px solid var(--border);background:var(--black);}
+.pane .ph{display:flex;justify-content:space-between;align-items:center;
+  padding:6px 8px;border-bottom:1px solid var(--border-dim);font-size:8px;}
+.pane .ph .l{color:var(--bright);}
+.pane .ph .r{color:var(--dim);font-size:7px;}
+.pane .pc{padding:6px 8px;font-size:7px;line-height:1.7;color:var(--dim);min-height:56px;}
+.pane .pc .cm{color:#1f6b37;}
+.pane .pc .cur{color:var(--bright);}
+.pane .pf{padding:4px 8px 6px;border-top:1px solid var(--border-dim);font-size:6px;color:var(--dim);line-height:1.6;}
+.twopane{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+
+/* badge */
+.badge{display:flex;align-items:center;gap:8px;border:1px solid var(--border-dim);
+  background:var(--panel2);padding:7px 9px;font-size:7px;color:var(--dim);line-height:1.5;}
+.badge .dot{width:9px;height:9px;border-radius:50%;background:var(--green);flex:0 0 auto;}
+.badge .dot.none{background:var(--dim);}
+.badge .b{color:var(--bright);}
+
+/* picker */
+.picker{border:1px solid var(--border);background:var(--panel);}
+.picker .ph{display:flex;justify-content:space-between;padding:6px 8px;border-bottom:1px solid var(--border-dim);font-size:8px;}
+.picker .ph .l{color:var(--bright);}
+.picker .ph .r{color:var(--dim);font-size:7px;}
+.picker .pv{padding:9px 8px;font-size:10px;color:var(--mybot);text-align:center;letter-spacing:1px;}
+.picker .pv .arr{color:var(--dim);font-size:8px;margin-left:6px;}
+.picker .hint{font-size:6px;color:var(--dim);padding:0 8px 7px;text-align:center;line-height:1.6;}
+
+.warn{border:1px solid #5a4a12;background:#241d06;padding:7px 9px;font-size:7px;color:var(--warn);line-height:1.6;}
+
+/* variants strip */
+.section{margin-top:34px;}
+.section h2{font-size:11px;color:var(--bright);margin:0 0 12px;border-left:3px solid var(--green);padding-left:9px;}
+.chips{display:flex;flex-wrap:wrap;gap:14px;}
+.chip{width:300px;border:1px solid var(--border-dim);background:var(--panel);padding:11px 12px;}
+.chip .t{font-size:9px;color:var(--bright);margin-bottom:7px;letter-spacing:.5px;}
+.chip .d{font-size:7px;color:var(--dim);line-height:1.8;}
+.chip .d b{color:var(--green);}
+.chip .d .w{color:var(--warn);}
+.chip .d .e{color:var(--err);}
+.chip .d code{color:var(--bright);}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>CHALLENGE CODES <span class="ver">— STAGE 3 / R2 "import" (0.5-codes)</span></h1>
+  <p class="sub">Concept for the <b>import + preview + deterministic playback</b> release. A third mode tab
+  <b>[ CODES ]</b> sits beside SHELL / RUN. It reuses the existing terminal panels, the
+  <b>ArenaView</b> terrain renderer, and the <b>RUN</b> execution monitor — no new visual system.
+  The four phones below are the states a user actually sees.</p>
+
+  <div class="flow">
+    <span class="step">share / paste code</span><span class="arw">→</span>
+    <span class="step hot">IMPORT&nbsp;·&nbsp;parse (§10 strings)</span><span class="arw">→</span>
+    <span class="step hot">challenge screen<br>preview · rules · opponent</span><span class="arw">→</span>
+    <span class="step">fill open slot</span><span class="arw">→</span>
+    <span class="step">RUN (deterministic)</span><span class="arw">→</span>
+    <span class="step r3">R3: win → SEND BACK</span>
+  </div>
+
+  <div class="grid">
+
+    <!-- ============ 1 · IMPORT ============ -->
+    <div class="col">
+      <div class="phone"><div class="screenbg">
+        <div class="statusbar"><span>21:37</span><span class="r">▮▮▮ ⌁ ▰</span></div>
+        <div class="masthead"><div class="ic">▚</div><div class="t">OPCODE ARENA</div><div class="cur"></div><div class="rf">RF-8 / ONLINE</div></div>
+        <div class="tabs"><div class="tab">[ SHELL ]</div><div class="tab">[ RUN ]</div><div class="tab on">[ CODES ]</div></div>
+        <div class="screen">
+          <div class="ctx">CODES // IMPORT</div>
+          <div class="panel">
+            <div class="label">PASTE A CHALLENGE CODE</div>
+            <div class="codebox" id="code1"></div>
+            <div class="btnrow">
+              <div class="btn">PASTE</div>
+              <div class="btn strong">IMPORT</div>
+            </div>
+          </div>
+          <div class="log">
+            <span class="hl">&gt; READ CLIPBOARD</span> ........ <span class="ok">OK · 412 CH</span><br>
+            <span class="hl">&gt; PARSE RF1-…</span><br>
+            <span class="ok">OK // CHALLENGE</span> · <span class="hl">MAZE (0x04)</span> · ENG 1<br>
+            <span class="hl">&gt; OPEN SLOT A</span> · PINNED B=TURTLE · RES=NONE
+          </div>
+          <div class="note">A shared code (ACTION_SEND text/plain) drops straight
+            into this box — tap IMPORT. Same importer, same §10 handling, either way.</div>
+        </div>
+        <div class="status ok">READY // TAP IMPORT OR PICK A MODE</div>
+      </div></div>
+      <div class="cap"><span class="n">1 ·</span> IMPORT<br><em>paste / share-intent → parse → §10 errors</em></div>
+    </div>
+
+    <!-- ============ 2 · DECODED CHALLENGE (hero) ============ -->
+    <div class="col">
+      <div class="phone"><div class="screenbg">
+        <div class="statusbar"><span>21:37</span><span class="r">▮▮▮ ⌁ ▰</span></div>
+        <div class="masthead"><div class="ic">▚</div><div class="t">OPCODE ARENA</div><div class="cur"></div><div class="rf">RF-8 / ONLINE</div></div>
+        <div class="tabs"><div class="tab">[ SHELL ]</div><div class="tab">[ RUN ]</div><div class="tab on">[ CODES ]</div></div>
+        <div class="screen">
+          <div class="modestrip"><span class="m">CHALLENGE</span><span class="a">MAZE · 0x04<br>SEED 0x1B2A3F</span></div>
+          <div class="arenawrap">
+            <div class="arena" id="maze"></div>
+            <div class="legend">SPAWN <b>SEPARATE</b> · <b style="color:var(--mybot)">A</b> YOU · <b style="color:var(--turtle)">B</b> TURTLE</div>
+          </div>
+          <div class="panel dim rules">
+            <span><span class="k">MODE </span><span class="v">KO</span></span>
+            <span><span class="k">HP </span><span class="v">A100 · B100</span></span>
+          </div>
+          <div class="pane">
+            <div class="ph"><span class="l">B ▸ TURTLE</span><span class="r">PINNED · 96 B</span></div>
+            <div class="pc" style="display:flex;align-items:center;justify-content:center;min-height:64px;color:var(--dim);letter-spacing:1px;">▒▒ FIRMWARE HIDDEN ▒▒</div>
+            <div class="pf">HIDDEN IN v1 · READ IT BY DECODING THE CODE</div>
+          </div>
+          <div class="badge"><span class="dot none"></span><span>RECORD&nbsp;&nbsp;<span class="b">—</span>&nbsp;&nbsp;cold challenge, author never ran it</span></div>
+          <div class="picker">
+            <div class="ph"><span class="l">A ▸ YOU</span><span class="r">OPEN · PICK</span></div>
+            <div class="pv">MYBOT<span class="arr">▸</span></div>
+            <div class="hint">TAP TO CYCLE · 5 PRESETS + SAVED FILES</div>
+          </div>
+          <div class="btnrow" style="margin-top:2px;">
+            <div class="btn strong" style="flex:2;">RUN</div>
+            <div class="btn" style="flex:1;">SAVE</div>
+          </div>
+        </div>
+        <div class="status">T+ 0 // STANDBY · DETERMINISTIC · ENG 1</div>
+      </div></div>
+      <div class="cap"><span class="n">2 ·</span> CHALLENGE · decoded<br><em>preview · rules · opponent · open slot → RUN</em></div>
+    </div>
+
+    <!-- ============ 3 · IMPORT ERROR ============ -->
+    <div class="col">
+      <div class="phone"><div class="screenbg">
+        <div class="statusbar"><span>21:37</span><span class="r">▮▮▮ ⌁ ▰</span></div>
+        <div class="masthead"><div class="ic">▚</div><div class="t">OPCODE ARENA</div><div class="cur"></div><div class="rf">RF-8 / ONLINE</div></div>
+        <div class="tabs"><div class="tab">[ SHELL ]</div><div class="tab">[ RUN ]</div><div class="tab on">[ CODES ]</div></div>
+        <div class="screen">
+          <div class="ctx">CODES // IMPORT</div>
+          <div class="panel">
+            <div class="label">PASTE A CHALLENGE CODE</div>
+            <div class="codebox bad" id="code3"></div>
+            <div class="btnrow">
+              <div class="btn">PASTE</div>
+              <div class="btn strong">IMPORT</div>
+            </div>
+          </div>
+          <div class="log">
+            <span class="hl">&gt; READ CLIPBOARD</span> ........ <span class="ok">OK · 398 CH</span><br>
+            <span class="hl">&gt; PARSE RF1-…</span><br>
+            <span class="err">CODE CORRUPT — CHECK THE COPY</span><br>
+            <span>· first failing check wins (§11) · nothing played</span>
+          </div>
+          <div class="note">Every §10 string shows verbatim, terminal-voiced:
+            <code style="color:var(--bright)">NOT AN RF CODE</code>, <code style="color:var(--bright)">CODE TOO LONG</code>,
+            <code style="color:var(--bright)">UNKNOWN ARENA — NEWER VERSION</code>,
+            <code style="color:var(--bright)">MADE WITH NEWER ENGINE — UPDATE APP</code>, …</div>
+        </div>
+        <div class="status err">PARSE FAILED // CODE CORRUPT — CHECK THE COPY</div>
+      </div></div>
+      <div class="cap"><span class="n">3 ·</span> IMPORT · error<br><em>exact §10 string · no silent misplay</em></div>
+    </div>
+
+    <!-- ============ 4 · REPLAY ============ -->
+    <div class="col">
+      <div class="phone"><div class="screenbg">
+        <div class="statusbar"><span>21:37</span><span class="r">▮▮▮ ⌁ ▰</span></div>
+        <div class="masthead"><div class="ic">▚</div><div class="t">OPCODE ARENA</div><div class="cur"></div><div class="rf">RF-8 / ONLINE</div></div>
+        <div class="tabs"><div class="tab">[ SHELL ]</div><div class="tab">[ RUN ]</div><div class="tab on">[ CODES ]</div></div>
+        <div class="screen">
+          <div class="modestrip"><span class="m">REPLAY</span><span class="a">BLOCKS · 0x01<br>SEED 0x00C0FFEE</span></div>
+          <div class="arenawrap">
+            <div class="arena" id="blocks"></div>
+            <div class="legend">SPAWN <b>SEPARATE</b> · <b style="color:var(--hunter)">A</b> HUNTER · <b style="color:var(--turtle)">B</b> TURTLE</div>
+          </div>
+          <div class="panel dim rules">
+            <span><span class="k">MODE </span><span class="v">KO</span></span>
+            <span><span class="k">HP </span><span class="v">A100 · B100</span></span>
+          </div>
+          <div class="twopane">
+            <div class="pane">
+              <div class="ph"><span class="l">A ▸ HUNTER</span></div>
+              <div class="pc" style="display:flex;align-items:center;justify-content:center;min-height:56px;color:var(--dim);">▒▒ HIDDEN ▒▒</div>
+            </div>
+            <div class="pane">
+              <div class="ph"><span class="l">B ▸ TURTLE</span></div>
+              <div class="pc" style="display:flex;align-items:center;justify-content:center;min-height:56px;color:var(--dim);">▒▒ HIDDEN ▒▒</div>
+            </div>
+          </div>
+          <div class="badge"><span class="dot"></span><span>RECORD&nbsp;&nbsp;<span class="b">A · 388 T · B HP 40</span>&nbsp;· as the author recorded it (never re-verified)</span></div>
+          <div class="note" style="text-align:center;">both slots pinned — nothing to pick, play as-is</div>
+          <div class="btn strong" style="padding:12px 0;font-size:10px;">REPLAY</div>
+        </div>
+        <div class="status">T+ 0 // STANDBY · REPLAY · ENG 1</div>
+      </div></div>
+      <div class="cap"><span class="n">4 ·</span> REPLAY<br><em>both pinned · author's result · no picker</em></div>
+    </div>
+
+  </div>
+
+  <!-- ============ variants ============ -->
+  <div class="section">
+    <h2>Same screen, other states</h2>
+    <div class="chips">
+      <div class="chip">
+        <div class="t">OPEN DUEL · slots 0b11</div>
+        <div class="d">Both slots open → <b>two</b> pickers (A ▸ YOU and B ▸ PICK), no pinned
+        opponent panel. Arena + rules fixed by the code; the recipient fills both from their own store.
+        <b>Not</b> a survival mode (§13).</div>
+      </div>
+      <div class="chip">
+        <div class="t">OLD ENGINE · eng &lt; app</div>
+        <div class="d">Playable, with an amber strip above RUN:<br>
+        <span class="w">OLD ENGINE — REPLAY USES CURRENT RULES</span><br>
+        Fight runs under current semantics; the recorded result is still shown
+        <b>as recorded by the author</b>, never re-verified.</div>
+      </div>
+      <div class="chip">
+        <div class="t">NEWER ENGINE / FMT · eng &gt; app</div>
+        <div class="d">Blocked at import (never reaches the screen):<br>
+        <span class="e">MADE WITH NEWER ENGINE — UPDATE APP</span><br>
+        <span class="e">MADE WITH NEWER VERSION — UPDATE APP</span><br>
+        The decode scan is the last gate — no unvalidated opcode reaches the VM.</div>
+      </div>
+      <div class="chip">
+        <div class="t">ARENA NEEDS PRO · layout 0x10+ (free build)</div>
+        <div class="d">Arena preview + opponent pane <b>stay visible</b> (firmware hidden, as always); RUN is locked:<br>
+        <span class="w">ARENA NEEDS PRO — UNLOCK TO PLAY</span><br>
+        Gating is at playback + builder menu only, never at parse (§9.3). v1 ships no Pro ids.</div>
+      </div>
+      <div class="chip">
+        <div class="t">Playback reuses RUN</div>
+        <div class="d">RUN builds the <b>World</b> from the descriptor — fixed spawns / SCATTER,
+        per-slot HP, code seed, timed limit, <code>Bot.fromBinary</code> for pinned slots,
+        assembled local firmware for open slots. The existing arena + execution monitor
+        render it tick-for-tick. Free-play <code>start()</code> is untouched.</div>
+      </div>
+      <div class="chip">
+        <div class="t">Result capture (feeds R3)</div>
+        <div class="d">On finish the actual outcome — winner (relative to the code's slots),
+        ticks, loser <code>end_hp</code> — is stored in activity-local state. R2 shows it in
+        the RECORD badge; R3 reads it to unlock <span class="w">SEND BACK</span> and the history.</div>
+      </div>
+      <div class="chip">
+        <div class="t">Opponent firmware — hidden in v1</div>
+        <div class="d">The program is <b>not</b> shown on the challenge screen and there is
+        <b>no reveal button</b>. Reading it is the <b>hacking</b> axis: decode the base32 →
+        parse the fw block → disassemble the triples. Display-layer only — <b>no eng bump</b>.
+        <span class="w">v2: sender-chosen reveal</span> is a format change (a flags bit / field).</div>
+      </div>
+      <div class="chip">
+        <div class="t">Saved codes (R2 — SAVE → <code>.chc</code>)</div>
+        <div class="d"><span class="g">SAVE</span> writes the <b>canonical base32 code string</b>
+        (<code>RF1-…</code>) into a dedicated <code>codes</code> table in the existing
+        <code>botfiles</code> SQLite store (name = <code>LABEL.chc</code>) — not the firmware
+        <code>files</code> table, so a code is never fed to the bot cycle. <span class="w">DIR</span>
+        lists both (firmware stays bare, e.g. <code>TURTLE</code>); <span class="w">EDIT</span> opens a
+        <code>.chc</code> to read the code — base32, the artifact, <b>not</b> a firmware reveal
+        (v1 §4.1 holds). Re-open re-validates (§11). This is the store
+        <span class="w">R3's history</span> manages over (§9.3). No eng / format impact.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---- arena geometry, transcribed 1:1 from engine/.../world/Arena.kt ----
+const GRID=20;
+const v=(x,y)=>y*(GRID-1)+x, h=(x,y)=>y*GRID+x;
+function maze(){
+  const blocks=new Set(),vert=new Set(),horiz=new Set();
+  for(let x=8;x<=11;x++)for(let y=8;y<=11;y++)blocks.add(h(x,y));
+  for(let x=1;x<=18;x++)if(!(x>=9&&x<=10)){horiz.add(h(x,0));horiz.add(h(x,18));}
+  for(let y=1;y<=18;y++)if(!(y>=9&&y<=10)){vert.add(v(0,y));vert.add(v(18,y));}
+  for(let x=5;x<=14;x++)if(!(x>=9&&x<=10)){horiz.add(h(x,4));horiz.add(h(x,14));}
+  for(let y=5;y<=14;y++)if(!(y>=9&&y<=10)){vert.add(v(4,y));vert.add(v(14,y));}
+  return {blocks,vert,horiz,sA:[2,2],sB:[17,17]};
+}
+function blocks(){
+  const blocks=new Set();
+  for(const[cx,cy]of[[6,6],[12,6],[6,12],[12,12]])
+    for(let dy=0;dy<=1;dy++)for(let dx=0;dx<=1;dx++)blocks.add(h(cx+dx,cy+dy));
+  return {blocks,vert:new Set(),horiz:new Set(),sA:[1,1],sB:[18,18]};
+}
+function render(id,L,cs,aCol,bCol){
+  const el=document.getElementById(id); if(!el)return;
+  el.style.width=(GRID*cs+4)+'px'; el.style.height=(GRID*cs+4)+'px';
+  let o='';
+  for(let y=0;y<GRID;y++)for(let x=0;x<GRID;x++){
+    const blk=L.blocks.has(h(x,y));
+    const br=(x<GRID-1)&&L.vert.has(v(x,y));
+    const bb=(y<GRID-1)&&L.horiz.has(h(x,y));
+    let b='';
+    if(br)b+='border-right:2px solid #34ec5b;';
+    if(bb)b+='border-bottom:2px solid #34ec5b;';
+    o+=`<div style="position:absolute;left:${2+x*cs}px;top:${2+y*cs}px;width:${cs}px;height:${cs}px;background:${blk?'#24843d':'#020c05'};${b}"></div>`;
+  }
+  o+=marker(L.s[0],aCol); o+=marker(L.s[1],bCol);
+  el.innerHTML=o;
+  function marker([x,y],c){
+    return `<div style="position:absolute;left:${2+x*cs+cs/2-5}px;top:${2+y*cs+cs/2-5}px;width:10px;height:10px;background:${c};border:1px solid #000"></div>`;
+  }
+}
+// spawn markers: A/B (SEPARATE points for both mockups)
+document.addEventListener('DOMContentLoaded',()=>{
+  const M=maze(); M.s=[M.sA,M.sB]; render('maze',M,12,'#f8b800','#00a800');
+  const B=blocks(); B.s=[B.sA,B.sB]; render('blocks',B,12,'#bc0000','#00a800');
+  fillCode();
+});
+// ---- plausible RF1- text (visual only) ----
+function fillCode(){
+  let s=12345; const rnd=()=> (s=(s*1103515245+12345)&0x7fffffff)/0x7fffffff;
+  const A='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const g=()=>{let t='';for(let i=0;i<4;i++)t+=A[(rnd()*32)|0];return t;};
+  const code=(n)=>'RF1-'+Array.from({length:n},g).join('-');
+  const c1=code(24), c3=code(22);
+  document.getElementById('code1').textContent=c1;
+  const bad=c3.slice(0,40)+'Q'+c3.slice(41); // one out-of-alphabet char
+  document.getElementById('code3').textContent=bad;
+}
+</script>
+</body>
+</html>
