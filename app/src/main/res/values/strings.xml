@@ -4,5 +4,5 @@
     <string name="app_icon_description">Opcode Arena icon</string>
     <string name="editor_hint">edit firmware, then RUN</string>
     <string name="status_idle">T:0   no fight yet — press RUN</string>
-    <string name="changelog">0.4-arena — five arenas (OPEN, BLOCKS, RING, CROSS, MAZE) with a picker on the RUN screen; terrain is solid obstacle blocks (full cells) plus thin edge walls (lines on cell borders) — both block movement and shots.</string>
+    <string name="changelog">0.5-codes — import, preview, save, and deterministically run RF1 challenge codes, including open-slot bot selection and locked Pro-arena handling.</string>
 </resources>

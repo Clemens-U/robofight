@@ -678,7 +678,7 @@ class MainActivity : Activity() {
     }
 
     private fun printBoot() {
-        printLine("OPCODE ARENA OS 0.4  // RF-8 COMBAT SYSTEM")
+        printLine("OPCODE ARENA OS 0.5  // RF-8 COMBAT SYSTEM")
         printLine("MEM 64K  GRID 20x20  LINK READY")
         printLine("TYPE HELP FOR AVAILABLE COMMANDS")
         printLine("")
@@ -1568,7 +1568,7 @@ class MainActivity : Activity() {
                 codeErrorCard.visibility = View.GONE
                 codePreviewCard.visibility = View.VISIBLE
                 status.text = "CODE OK  // ${r.desc.codeMode}"
-                buildPreview(r.desc, r.warning)
+                buildPreview(r.desc, r.warning, r.lock)
             }
         }
     }
@@ -1579,21 +1579,29 @@ class MainActivity : Activity() {
      * recorded result badge, any eng-skew warning, and one bot picker per open
      * slot.
      */
-    private fun buildPreview(desc: ChallengeFormat.FightDescriptor, warning: String?) {
-        val layout = Arena.byId(desc.layoutId) ?: return
+    private fun buildPreview(
+        desc: ChallengeFormat.FightDescriptor,
+        warning: String?,
+        lock: String?,
+    ) {
+        val layout = Arena.byId(desc.layoutId)
         previewArena.arenaLayout = layout
+        previewArena.previewSpawns = emptyList()
+        previewArena.idleText = if (lock != null) "ARENA LOCKED" else "SYSTEM IDLE"
 
-        val cells = spawnCellsFor(desc, layout)
-        val markers = ArrayList<ArenaView.PreviewMarker>()
-        markers.add(ArenaView.PreviewMarker(
-            cells[0], 'A', if (desc.slotAOpen) C_YELLOW else C_GREEN,
-            if (desc.slotAOpen) "YOU" else "HIDDEN"
-        ))
-        markers.add(ArenaView.PreviewMarker(
-            cells[1], 'B', if (desc.slotBOpen) C_YELLOW else C_GREEN,
-            if (desc.slotBOpen) "YOU" else "HIDDEN"
-        ))
-        previewArena.previewSpawns = markers
+        if (layout != null) {
+            val cells = spawnCellsFor(desc, layout)
+            val markers = ArrayList<ArenaView.PreviewMarker>()
+            markers.add(ArenaView.PreviewMarker(
+                cells[0], 'A', if (desc.slotAOpen) C_YELLOW else C_GREEN,
+                if (desc.slotAOpen) "YOU" else "HIDDEN"
+            ))
+            markers.add(ArenaView.PreviewMarker(
+                cells[1], 'B', if (desc.slotBOpen) C_YELLOW else C_GREEN,
+                if (desc.slotBOpen) "YOU" else "HIDDEN"
+            ))
+            previewArena.previewSpawns = markers
+        }
 
         codeMode.text = desc.codeMode
         val rules = StringBuilder()
@@ -1619,12 +1627,16 @@ class MainActivity : Activity() {
             codeResult.visibility = View.GONE
         }
 
-        if (warning != null) {
+        val notices = listOfNotNull(lock, warning)
+        if (notices.isNotEmpty()) {
             codeWarning.visibility = View.VISIBLE
-            codeWarning.text = warning
+            codeWarning.text = notices.joinToString("\n")
         } else {
             codeWarning.visibility = View.GONE
         }
+
+        codeBtnRun.isEnabled = lock == null
+        codeBtnRun.text = if (lock == null) "RUN" else "LOCKED"
 
         // One bot picker per open slot (cycles through the same slot list the
         // RUN screen uses: 5 presets + user files).
@@ -1706,6 +1718,11 @@ class MainActivity : Activity() {
      * → identical result, matching the headless codec tests.
      */
     private fun doCodeRun(desc: ChallengeFormat.FightDescriptor) {
+        if (Arena.byId(desc.layoutId) == null) {
+            setMode(AppMode.CODES)
+            status.text = ChallengeFormat.E_PRO_ARENA
+            return
+        }
         val resA = if (desc.slotAOpen) assemble(sourceFor(slots[codePickIdx[0]])) else null
         val resB = if (desc.slotBOpen) assemble(sourceFor(slots[codePickIdx[1]])) else null
         val bad = when {

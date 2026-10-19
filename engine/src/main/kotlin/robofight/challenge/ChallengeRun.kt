@@ -51,7 +51,8 @@ object ChallengeRun {
      * Build the fight. [openA]/[openB] are non-null exactly for the slots
      * that are open in the descriptor (pinned slots ignore them). The open
      * bots are repositioned via `Bot.reset` — their firmware (source or
-     * binary) is reloaded, hp restored to their `startHp`.
+     * binary) is reloaded and the descriptor's per-slot HP becomes their
+     * configured starting HP.
      *
      * @throws IllegalArgumentException on an unknown layout id or a
      * slot/firmware mismatch (open slot without a bot, etc.) — the parse
@@ -83,11 +84,11 @@ object ChallengeRun {
         val dirB = facingToward(bx, by, ax, ay)
 
         val a: Bot = if (desc.slotAOpen) {
-            openA!!.reset(ax, ay, dirA)
+            openA!!.reset(ax, ay, dirA, desc.hpA)
             openA
         } else Bot.fromBinary("A", 'A', Palette.RED, ax, ay, dirA, desc.fwA, desc.hpA)
         val b: Bot = if (desc.slotBOpen) {
-            openB!!.reset(bx, by, dirB)
+            openB!!.reset(bx, by, dirB, desc.hpB)
             openB
         } else Bot.fromBinary("B", 'B', Palette.GREEN, bx, by, dirB, desc.fwB, desc.hpB)
 

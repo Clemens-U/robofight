@@ -359,7 +359,7 @@ class ArenaView @JvmOverloads constructor(
             } else {
                 glyphPaint.color = Color.parseColor("#34ec5b")
                 glyphPaint.textSize = cellSize * 0.75f
-                canvas.drawText("SYSTEM IDLE", w / 2f, h / 2f, glyphPaint)
+                canvas.drawText(idleText, w / 2f, h / 2f, glyphPaint)
             }
             canvas.drawRect(1.5f, 1.5f, w - 1.5f, h - 1.5f, borderPaint)
             drawFx(canvas, w, h)
@@ -447,6 +447,13 @@ class ArenaView @JvmOverloads constructor(
     data class PreviewMarker(val cell: Int, val glyph: Char, val color: Int, val label: String?)
 
     var previewSpawns: List<PreviewMarker> = emptyList()
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    /** Text shown when no live world or static preview can be rendered. */
+    var idleText: String = "SYSTEM IDLE"
         set(value) {
             field = value
             invalidate()

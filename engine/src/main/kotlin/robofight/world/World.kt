@@ -43,7 +43,8 @@ class Bot(
     val vm = Vm()
     var px = x; var py = y
     var facing = dir
-    val startHp = hp          // configured HP — restored by [reset]
+    var startHp = hp          // configured HP — restored by [reset]
+        private set
     var hp = hp
     var heat = 0
     var heatedThisTick = false  // set by shoot()/shield(); consumed by the cool step
@@ -80,9 +81,10 @@ class Bot(
 
     fun bind(w: World) { world = w }
 
-    fun reset(x: Int, y: Int, dir: Int) {
+    fun reset(x: Int, y: Int, dir: Int, configuredHp: Int = startHp) {
         px = x; py = y; facing = dir
-        hp = startHp; heat = 0; heatedThisTick = false; heatOverload = 0f; shielded = false; alive = true
+        startHp = configuredHp
+        hp = configuredHp; heat = 0; heatedThisTick = false; heatOverload = 0f; shielded = false; alive = true
         shots = 0; hits = 0; dmgDealt = 0; dmgTaken = 0
         val binary = fwBinary
         if (binary != null) vm.load(binary) else load(fw)
@@ -437,17 +439,24 @@ class World(val layout: Layout = Arena.OPEN) {
     }
 
     fun finishByHp() {
-        winner = bots.maxByOrNull { it.hp }?.takeIf { it.hp > 0 }
+        winner = uniqueHpLeader()
     }
 
     fun forceEnd() {
         finished = true
-        if (winner == null) winner = bots.maxByOrNull { it.hp }?.takeIf { it.hp > 0 }
+        if (winner == null) winner = uniqueHpLeader()
     }
 
     private fun checkWinner() {
         if (winner != null) return
-        winner = bots.maxByOrNull { it.hp }?.takeIf { it.hp > 0 }
+        winner = uniqueHpLeader()
+    }
+
+    /** Highest-HP bot, or null when nobody is alive or the top HP is tied. */
+    private fun uniqueHpLeader(): Bot? {
+        val top = bots.maxOfOrNull { it.hp } ?: return null
+        if (top <= 0) return null
+        return bots.singleOrNull { it.hp == top }
     }
 }
 
