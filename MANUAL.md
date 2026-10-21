@@ -1,4 +1,4 @@
-# OPCODE ARENA — Manual (v1, first edition)
+# OPCODE ARENA — Manual (v0.6-codes)
 
 > **The game in one line:** you are a combat-programmer. You write *firmware* in a
 > tiny assembly language for a robot on a 20×20 grid, then pit it against a preset
@@ -6,40 +6,42 @@
 > The skill is **programming, not reflexes** — read the sensor ports, branch, fire,
 > manage heat. Everything renders in chunky 8-bit ASCII.
 
-This manual covers the **native Android app** (the `app/` module) and the **RF-8
-language** it runs.
+This manual covers the **native Android app** (the `app/` module), its challenge-code
+workflow, and the **RF-8 language** it runs.
 
 ---
 
-## 1. The two modes
+## 1. The three main tabs
 
 ```
 +--------------------------------------+
 |  OPCODE ARENA█           RF-8 / ONLINE|
 +--------------------------------------+
-|       [ SHELL ]     [ RUN ]           |  <- mode switch
+|   [ SHELL ]     [ RUN ]     [ CODES ] |  <- main tabs
 +--------------------------------------+
-|  SHELL                                |  RUN
-|  DIR | HELP | EDIT                    |  20×20 arena
-|                                      |  [A code window][B code window]
-|  RF:\> EDIT MYBOT                    |  A HUNTER >        B TURTLE >
-|  ; edit RF-8 firmware                |  RUN STEP RESET
+|  SHELL             RUN          CODES |
+|  DIR/HELP/EDIT     arena        import |
+|  firmware files   monitors      build  |
+|  RF:\> EDIT ...   RUN/STEP      share  |
 +--------------------------------------+
 |  SYS READY / TICK + BOT TELEMETRY     |  <- status line
 +--------------------------------------+
 ```
 
-The app has two deliberately separate modes with the same green-screen terminal
-design:
+The app has three deliberately separate tabs with the same green-screen terminal
+design. The challenge builder opens as a focused sub-screen of CODES:
 
 - **SHELL** is the firmware workspace. Manage saved programs in the command terminal,
   then open one in the full-height editor. The command line and editor remain above
   the Android keyboard while you type. The block cursor in the title and the native
   text cursor blink like an old terminal.
 - **RUN** dedicates the screen to the arena, the **execution monitor** (live code
-  view of both bots, §6.1), bot selection, fight controls, and live telemetry.
+  view of both bots, §7.1), bot selection, fight controls, and live telemetry.
   Entering RUN dismisses the keyboard. A running fight pauses when you return to
   SHELL and resumes when you come back.
+- **CODES** imports, previews, runs, saves, copies, and shares deterministic `RF1-…`
+  challenge codes. **BUILD** opens the challenge builder. Pinned opponent firmware
+  stays hidden in the app; open slots let you pick a local bot.
 
 ---
 
@@ -51,26 +53,128 @@ design:
 3. Tap **FIGHT >** or the top **[ RUN ]** mode tab. In RUN mode, tap the A or B bot
    selector until one slot is `MYBOT` (otherwise it is preset-vs-preset).
 4. Tap **RUN**. The arena advances continuously; the per-bot readouts update. When a bot
-   hits 0 HP the winner is shown (fights run to a KO — see §6).
+   hits 0 HP the winner is shown (fights run to a KO — see §7).
 5. Tap **`STEP`** to advance one tick at a time, or **`RESET`** to clear.
 
 > **The *file* is what runs, not the editor.** On `RUN`, each slot reads its firmware
 > from the file store — for `MYBOT` that's the saved `MYBOT` file. Always **SAVE** after
 > editing, otherwise the fight uses the last saved version.
 
+### Quick start: accept a challenge
+
+1. Open **[ CODES ]** and paste an `RF1-…` string into the large text box. You can
+   also tap **PASTE**, or open a code shared to Opcode Arena from another Android app.
+2. Tap **IMPORT**. Check the arena, rules, HP, recorded result (if present), and any
+   compatibility warning. The pinned firmware is marked **HIDDEN**.
+3. Pick your firmware for each open slot, then tap **RUN**. The code fixes the arena,
+   spawn, seed, rules, and pinned binary, so the same code and picks replay identically.
+4. After a win, return to **[ CODES ]** and tap **SEND BACK** to create and share the
+   counter-challenge. A loss or draw does not unlock a response.
+
 ---
 
-## 3. The file shell
+## 3. Challenge codes
+
+A challenge code is a self-contained, copy-pasteable fight description. Codes begin
+with `RF1-` and include the arena, seed, rule dials, pinned firmware binaries, and an
+optional recorded result. They do not need a server or network connection. The binary
+inside the code is what runs; any embedded source is display metadata only.
+
+### 3.1 Import, preview, and play
+
+On **[ CODES ]**, use the four buttons above the preview:
+
+| Button | Effect |
+|--------|--------|
+| **PASTE** | Copy the Android clipboard into the code box. It does not import automatically. |
+| **IMPORT** | Validate the text, canonicalize it, and show the fight preview. Invalid codes show a specific error instead of running. |
+| **CLEAR** | Clear the text and current preview. |
+| **BUILD** | Open the challenge builder (§3.2). |
+
+A valid preview shows the arena and exact spawn points, mode, spawn rule, A/B health,
+hidden pinned slots, and one picker for every open slot. A recorded result appears as
+`RECORDED: A WINS`, `B WINS`, or `DRAW` with its tick and losing-side HP. Select local
+firmware for the open slot(s), then use:
+
+| Button | Effect |
+|--------|--------|
+| **RUN** | Play the deterministic fight. Pinned slots execute the binary in the code; open slots use your selected local firmware. |
+| **SHARE** | Open Android's share sheet with the canonical code as plain text. |
+| **COPY** | Put the canonical code on the Android clipboard. |
+| **SAVE** | Open a naming dialog prefilled with the next free name (`CODE1.chc`, `CODE2.chc`, …). The `.chc` suffix stays visible and is added automatically if omitted. Saving over an existing name requires confirmation. |
+
+Saved codes appear in the SHELL `DIR` listing under **SAVED CHALLENGE CODES**. Tap a
+saved code to view and copy it read-only; challenge codes are never treated as robot
+firmware and never enter the A/B bot cycle. `DEL <name>` removes a saved code just as
+it removes a firmware file. Firmware `EXPORT` remains separate and does not export
+challenge codes. Older extensionless saved-code names are upgraded automatically to
+visible `.chc` names; if that would collide with an existing name, `_2`, `_3`, … is
+added so no saved code is overwritten.
+
+### 3.2 Build a challenge
+
+Tap **BUILD** on the CODES screen. The builder always creates the canonical challenge
+orientation: **A is open for the recipient; B contains your pinned opponent**.
+
+The named modes are convenient presets over the visible dials; the name itself is not
+stored in the code:
+
+| Preset | Mode | Spawn | HP A/B |
+|--------|------|-------|--------|
+| **DUEL** | KO | SEPARATE | 100/100 |
+| **MELEE** | KO | CLASH | 100/100 |
+| **SIEGE** | 300 ticks | SEPARATE | 200/200 |
+| **GAMBIT** | KO | SEPARATE | 50/150 |
+| **CUSTOM** | Keeps current value | Keeps current value | Keeps current values |
+
+You can change every dial directly:
+
+- **MODE:** KO, or a 100/150/200/300-tick fight. A timed fight ends early on a KO;
+  otherwise the higher remaining HP wins and equal HP is a draw.
+- **SPAWN:** SEPARATE, CLASH, or SCATTER. SCATTER uses the code's seed.
+- **HP A / HP B:** 50, 100, 150, or 200 independently.
+- **ARENA:** OPEN, BLOCKS, RING, CROSS, or MAZE.
+- **SEED:** decimal or `0x` hexadecimal; blank means zero. **RND** generates one.
+- **OPPONENT:** any preset or saved firmware. It is assembled and pinned in slot B.
+
+The source-size note tells you whether source text fits in the 2,048-byte display block.
+Large sources still work: the canonical assembled binary is embedded, while the source
+text is omitted. Tap **BUILD CODE** to validate the opponent, create the cold challenge
+(no recorded result), and return to its preview. **SHARE** and **COPY** act on the last
+code built; **< CODES** returns without building.
+
+### 3.3 Results, history, and SEND BACK
+
+Finished challenge fights are counted locally per canonical code as played, wins,
+losses, and draws. The preview also shows each arena's total wins/plays, for example:
+
+```text
+CODE  3P 2W 0L 1D   //   ARENAS MAZE 2/3
+```
+
+If the human-controlled open slot wins, **SEND BACK** appears when you return to
+CODES. It creates the next challenge with the same arena, seed, mode, spawn, and HP
+dials; puts the winning firmware in pinned slot B; leaves A open; and records the
+finished result with B as the winner in the new orientation. The Android share sheet
+opens immediately. A loss or draw leaves the chain waiting and does not show
+**SEND BACK**.
+
+History and saved codes are local to the app. A code itself remains portable and
+self-contained, so copying or sharing it is enough for another player to replay it.
+
+---
+
+## 4. The file shell
 
 A small terminal for managing firmware. Type a command in the bottom box, tap **ENTER**;
 or use the quick buttons **DIR** / **HELP**.
 
 | Command | Aliases | Effect |
 |---------|---------|--------|
-| `DIR`   | `D`, `LS` | List all saved firmware (name, bytes, modified). **Tap a name to open it** in the editor. |
-| `EDIT <name>` | `E`, `OPEN` | Load `MYBOT`, `BOT1`, … into the editor. |
+| `DIR`   | `D`, `LS` | List saved firmware and challenge codes (name, bytes, modified). **Tap a name to open it**. |
+| `EDIT <name>` | `E`, `OPEN` | Load `MYBOT`, `BOT1`, … into the editor, or open a saved challenge code read-only. |
 | `NEW <name>`  | `N` | Create + open a new file, pre-filled with the RF-8 cheat sheet as comments. Auto-named `BOT1`, `BOT2`, … |
-| `DEL <name>`  | `RM` | Delete a file. |
+| `DEL <name>`  | `RM` | Delete a firmware file or saved challenge code. |
 | `EXPORT` / `EXPORT ALL` | `FULL` | ZIP-archive **all** firmware. The standard folder picker opens; the `robofight-export-<date>.zip` is written into the folder you pick (any folder on the device — no permissions needed). On devices without a documents UI (plain AOSP emulators) it falls back to the app's own `Android/data/robofight.android/files/` folder and says so in the terminal. |
 | `EXPORT <name>` | — | Same picker, but writes **one** firmware file (e.g. `EXPORT HUNTER.asm`). |
 | `RUN`   | `FIGHT` | Switch to RUN mode and start a fight. |
@@ -82,6 +186,8 @@ Notes:
 - Opening a different file while you have unsaved edits **auto-saves** the current
   file first ("saved MYBOT (unsaved changes kept)") — you won't lose work.
 - Files live in the app's local SQLite store; they persist across launches.
+- Saved challenge codes occupy a separate read-only list. They cannot be saved as
+  firmware, selected as bots, or included in firmware ZIP exports.
 
 ### Editor buttons
 | Button | Effect |
@@ -93,7 +199,7 @@ Notes:
 
 ---
 
-## 4. The bots you can fight
+## 5. The bots you can fight
 
 Slots **A** and **B** each cycle through the whole roster (tap to advance): the five
 engine presets first, then **one slot per firmware file** in the store (`MYBOT`,
@@ -116,7 +222,7 @@ engine presets first, then **one slot per firmware file** in the store (`MYBOT`,
 
 ---
 
-## 5. Reading the arena
+## 6. Reading the arena
 
 Each cell is a glyph and edge walls run along the borders between cells; a bot is
 drawn as **its letter + a facing arrow**:
@@ -133,7 +239,7 @@ Bots are colored per the table above. When a bot dies it disappears.
 
 ---
 
-## 6. How a fight works (combat rules)
+## 7. How a fight works (combat rules)
 
 - **Grid:** 20×20, coordinates 0–19. A bot occupies one cell and faces one of four
   ways (N/E/S/W).
@@ -188,7 +294,7 @@ after a KO the block dims to `HP ---` placeholders with an all-dim bar. The stat
 line above the arena reads `T+ 42  // EXECUTING`, and swaps the state for
 `// WINNER: HUNTER` (or `// DRAW`) once the fight ends.
 
-### 6.1 The execution monitor
+### 7.1 The execution monitor
 
 Directly under the arena, between it and the A/B slot buttons, sits the **execution
 monitor**: two side-by-side windows, one per combatant, showing the bot's *original
@@ -225,7 +331,7 @@ firmware source* with a marker on the line being executed. It updates every tick
 
 ---
 
-## 7. The RF-8 language
+## 8. The RF-8 language
 
 A tiny 8-bit machine: **3 registers** (`A`, `X`, `Y`), a **stack**, **memory-mapped
 I/O ports**, and a small instruction set. Every instruction is exactly **3 bytes**
@@ -234,9 +340,9 @@ place — the address of instruction *i* is `$0100 + i·3`.
 
 A source line is `[label:]  MNEMONIC  [operand]`; `;` starts a comment. Numbers are
 0–255 unless noted. The machine clock is the *tick*: an instruction occupies as many
-ticks as its **cost** (most are 1; `SHOOT`/`SHIELD` are 3, `MOVE` is 2 — see §6).
+ticks as its **cost** (most are 1; `SHOOT`/`SHIELD` are 3, `MOVE` is 2 — see §7).
 
-### 7.1 Registers & flags
+### 8.1 Registers & flags
 | Reg | Size | Role |
 |-----|------|------|
 | `A` | 8-bit | accumulator — most ALU results land here |
@@ -251,7 +357,7 @@ two's complement); these are set by the ALU, `INC`/`DEC`/`TST`, `CMP`, and `POP 
 `CMP` sets the flags on `A − B` *without* changing `A`. (The `C` carry bit is defined
 but not yet set by the ALU, so `JC`/`JNC` read as "never / always".)
 
-### 7.2 Memory map (1 KB, `$0000–$03FF`)
+### 8.2 Memory map (1 KB, `$0000–$03FF`)
 | Range | What |
 |-------|------|
 | `$0000–$000F` | **system zero-page** — owned by the world, not your firmware (see below) |
@@ -276,7 +382,7 @@ Operand forms, wherever they appear:
 > `MOV A,[0]` / `MOV A,[1]` / `MOV A,[2]`. 24 bits covers the 1,000,000-tick
 > cap, so the counter never wraps mid-fight — no 256-wrap bookkeeping.
 
-### 7.3 I/O ports
+### 8.3 I/O ports
 Read with `IN <port>` (result → `A`), write with `OUT <port>, A` (writes `A`). Only
 `DIR` is writable (it sets your facing directly); the rest are sensors.
 
@@ -300,8 +406,8 @@ Read with `IN <port>` (result → `A`), write with `OUT <port>, A` (writes `A`).
 > to face it, `255` = no enemy. That's how HUNTER aims: `IN ANGLE` → `JZ` to skip
 > if already facing → else `TURN R` / `DEC` / loop until it reads `0`.
 
-### 7.4 Robot ops (what the body does)
-These drive the robot and carry the real tick costs (§6). A heat op that is
+### 8.4 Robot ops (what the body does)
+These drive the robot and carry the real tick costs (§7). A heat op that is
 **locked out** (heat too high) collapses to a **1-tick no-op** instead of animating
 — so a bot spamming a jammed gun still cools and re-arms in ~10 ticks.
 
@@ -316,7 +422,7 @@ These drive the robot and carry the real tick costs (§6). A heat op that is
 | `WAIT` | 1 | do nothing this tick (idle; heat cools) |
 | `NOP` | 1 | do nothing — same as `WAIT`, for padding / timing |
 
-### 7.5 Data movement (`MOV` / `XCH`)
+### 8.5 Data movement (`MOV` / `XCH`)
 | Mnemonic | Effect |
 |----------|--------|
 | `MOV A,#n` | load immediate → `A` (sets Z/N) |
@@ -332,7 +438,7 @@ These drive the robot and carry the real tick costs (§6). A heat op that is
 The `A`-destined loads set the Z/N flags; the `X`/`Y`/store forms and `XCH` do not.
 Every `MOV`/`XCH`/`NOP` costs **1 tick**.
 
-### 7.6 Arithmetic & logic
+### 8.6 Arithmetic & logic
 The `ADD`–`CMP` group takes one operand in any form `#n` / `X` / `Y` / `(X)` / `[n]`,
 computes into `A`, and sets the Z/N flags.
 
@@ -359,7 +465,7 @@ Single-register / `A`-only ops:
 
 All cost **1 tick**.
 
-### 7.7 Branches
+### 8.7 Branches
 `JMP` / `CALL` take a **10-bit absolute** address (0–1023, a label or number). The
 conditional jumps take a **relative** target — the label must be **within ±127
 instructions** of the *next* instruction (the assembler enforces the range).
@@ -380,7 +486,7 @@ The signed comparisons (`JG`/`JGE`/`JL`/`JLE`) compare `A` against the operand s
 by the most recent `CMP`, read as **signed** bytes (so `JG` distinguishes 250 < 100
 from 250 > 100). All branches cost **1 tick**.
 
-### 7.8 Subroutines & stack
+### 8.8 Subroutines & stack
 | Mnemonic | Effect |
 |----------|--------|
 | `CALL label` | push the return address (next instruction), jump to `label` |
@@ -394,7 +500,7 @@ it would collide with the data RAM. All of these cost **1 tick**.
 
 ---
 
-## 8. A worked example — HUNTER
+## 9. A worked example — HUNTER
 
 ```
 ; HUNTER — face the nearest enemy, step in, fire
@@ -422,7 +528,7 @@ the register line shows `A`/`X`/`Y`, `SP`, `PC` and the flags after every instru
 
 ---
 
-## 9. Assembler errors
+## 10. Assembler errors
 
 `RUN` assembles before it plays. On a bad line the fight **won't start** and the stats
 bar shows the first error, e.g.:
@@ -437,7 +543,7 @@ Fix the highlighted line and `RUN` again.
 
 ---
 
-## 10. Tips & troubleshooting
+## 11. Tips & troubleshooting
 
 - **Nothing happens on RUN?** You probably have A and B on two *presets* — set one slot
   to `MYBOT` so your code is in the fight.

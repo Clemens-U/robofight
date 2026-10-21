@@ -1,6 +1,7 @@
 package robofight.android
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -51,6 +52,7 @@ import robofight.assembler.assemble
 import robofight.challenge.ChallengeRun
 import robofight.challenge.ChallengeFormat
 import robofight.challenge.ChallengeResponse
+import robofight.challenge.ChallengeCodeFileName
 import robofight.world.SPAWN_SEPARATE
 import robofight.world.SPAWN_CLASH
 
@@ -2131,22 +2133,82 @@ class MainActivity : Activity() {
         }
     }
 
-    /** SAVE the imported code to the store (canonical base32, `codes` table). */
+    /**
+     * SAVE the imported code to the store. The suggested name is editable and
+     * visibly includes `.chc`; omitting the suffix adds it automatically.
+     */
     private fun doCodeSave() {
-        val desc = importedDesc ?: return
+        importedDesc ?: return
         val code = importedCode ?: return
-        val name = autoCodeName()
-        store.upsertCode(name, code)
-        status.text = "SAVED  $name.chc"
-        printLine("SAVED CHALLENGE CODE  $name.chc   //   ${code.length} CHARS")
+        val suggested = autoCodeName()
+        val input = EditText(this).apply {
+            setText(suggested)
+            setTextColor(C_CODE)
+            setHintTextColor(C_DIM)
+            textSize = 13f
+            typeface = pixelTypeface
+            usePixelTextRendering()
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+            setSingleLine(true)
+            // Keep the real suffix visible while making the generated base name
+            // immediately replaceable.
+            setSelection(0, suggested.length - ChallengeCodeFileName.EXT.length)
+        }
+        val inputFrame = FrameLayout(this).apply {
+            setPadding(dp(20), dp(4), dp(20), 0)
+            addView(input, FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ))
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("SAVE CHALLENGE CODE")
+            .setMessage("FILE NAME  //  .chc IS ADDED IF OMITTED")
+            .setView(inputFrame)
+            .setNegativeButton("CANCEL", null)
+            .setPositiveButton("SAVE", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val name = ChallengeCodeFileName.normalize(input.text.toString())
+                if (name == null) {
+                    input.error = "USE A FILE NAME UP TO ${ChallengeCodeFileName.MAX_LENGTH} CHARS"
+                    return@setOnClickListener
+                }
+                if (store.codeExists(name)) {
+                    AlertDialog.Builder(this)
+                        .setTitle("OVERWRITE $name?")
+                        .setMessage("A SAVED CHALLENGE WITH THIS NAME ALREADY EXISTS.")
+                        .setNegativeButton("CANCEL", null)
+                        .setPositiveButton("OVERWRITE") { _, _ ->
+                            saveCodeAs(name, code)
+                            dialog.dismiss()
+                        }
+                        .show()
+                } else {
+                    saveCodeAs(name, code)
+                    dialog.dismiss()
+                }
+            }
+            input.requestFocus()
+            dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
+        }
+        dialog.show()
+    }
+
+    private fun saveCodeAs(name: String, code: String) {
+        if (!store.upsertCode(name, code)) {
+            status.text = "SAVE FAILED  // $name"
+            return
+        }
+        status.text = "SAVED  $name"
+        printLine("SAVED CHALLENGE CODE  $name   //   ${code.length} CHARS")
         printLine("  $code")
     }
 
-    /** Next free auto-name for a saved code (CODE1, CODE2, …). */
+    /** Next free auto-name for a saved code (CODE1.chc, CODE2.chc, …). */
     private fun autoCodeName(): String {
-        var n = 1
-        while (store.codeExists("CODE$n")) n++
-        return "CODE$n"
+        return ChallengeCodeFileName.nextDefault(store.listCodes().map { it.name })
     }
 
     /**

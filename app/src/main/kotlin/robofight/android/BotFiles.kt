@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteOpenHelper
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import robofight.challenge.ChallengeCodeFileName
 
 /**
  * Persistent store for robot firmware files, backed by Android's built-in
@@ -22,7 +23,7 @@ class BotFiles(context: Context) {
 
     private val db = Helper(context.applicationContext).writableDatabase
 
-    private class Helper(context: Context) : SQLiteOpenHelper(context, "botfiles", null, 3) {
+    private class Helper(context: Context) : SQLiteOpenHelper(context, "botfiles", null, 4) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
                 "CREATE TABLE files(" +
@@ -76,6 +77,24 @@ class BotFiles(context: Context) {
                         " draws INTEGER NOT NULL DEFAULT 0," +
                         " last INTEGER NOT NULL)"
                 )
+            }
+            // v4 — saved challenge names visibly carry their real `.chc`
+            // extension. Preserve every legacy row; add _2, _3, ... if a
+            // user already has an extension-bearing name that would collide.
+            if (oldVersion < 4) {
+                val names = db.query(
+                    "codes", arrayOf("name"), null, null, null, null,
+                    "name COLLATE NOCASE ASC",
+                ).use { c -> buildList { while (c.moveToNext()) add(c.getString(0)) } }
+                val used = names.toMutableSet()
+                for (name in names) {
+                    if (name.endsWith(ChallengeCodeFileName.EXT, ignoreCase = true)) continue
+                    used.remove(name)
+                    val migrated = ChallengeCodeFileName.migratedLegacyName(name, used)
+                    val values = ContentValues().apply { put("name", migrated) }
+                    db.update("codes", values, "name=?", arrayOf(name))
+                    used.add(migrated)
+                }
             }
         }
     }
@@ -150,7 +169,7 @@ class BotFiles(context: Context) {
     // ---- Saved challenge codes (R2) ------------------------------------------------
     // Separate table from `files`: a code is a canonical base32 challenge string,
     // NOT robot firmware — so it must never be fed to refreshSlots()/the bot cycle.
-    // The stored name carries the ".chc" marker (e.g. "MYCODE.chc").
+    // The stored name carries the visible ".chc" extension (e.g. "MYCODE.chc").
 
     data class CodeRec(val name: String, val bytes: Long, val modified: Long)
 
