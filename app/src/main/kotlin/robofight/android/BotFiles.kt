@@ -22,7 +22,7 @@ class BotFiles(context: Context) {
 
     private val db = Helper(context.applicationContext).writableDatabase
 
-    private class Helper(context: Context) : SQLiteOpenHelper(context, "botfiles", null, 2) {
+    private class Helper(context: Context) : SQLiteOpenHelper(context, "botfiles", null, 3) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
                 "CREATE TABLE files(" +
@@ -39,6 +39,16 @@ class BotFiles(context: Context) {
                     " created INTEGER NOT NULL," +
                     " modified INTEGER NOT NULL)"
             )
+            db.execSQL(
+                "CREATE TABLE history(" +
+                    " code TEXT PRIMARY KEY COLLATE NOCASE," +
+                    " layout TEXT NOT NULL," +
+                    " played INTEGER NOT NULL DEFAULT 0," +
+                    " wins INTEGER NOT NULL DEFAULT 0," +
+                    " losses INTEGER NOT NULL DEFAULT 0," +
+                    " draws INTEGER NOT NULL DEFAULT 0," +
+                    " last INTEGER NOT NULL)"
+            )
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -50,6 +60,21 @@ class BotFiles(context: Context) {
                         " code TEXT NOT NULL," +
                         " created INTEGER NOT NULL," +
                         " modified INTEGER NOT NULL)"
+                )
+            }
+            // v3 — local fight history (R3): one row per played challenge code,
+            // per-arena wins rolled up from `layout`. App feature only — the
+            // format never stores outcomes (§4 display policy).
+            if (oldVersion < 3) {
+                db.execSQL(
+                    "CREATE TABLE history(" +
+                        " code TEXT PRIMARY KEY COLLATE NOCASE," +
+                        " layout TEXT NOT NULL," +
+                        " played INTEGER NOT NULL DEFAULT 0," +
+                        " wins INTEGER NOT NULL DEFAULT 0," +
+                        " losses INTEGER NOT NULL DEFAULT 0," +
+                        " draws INTEGER NOT NULL DEFAULT 0," +
+                        " last INTEGER NOT NULL)"
                 )
             }
         }
@@ -167,6 +192,64 @@ class BotFiles(context: Context) {
     }
 
     fun deleteCode(name: String): Boolean = db.delete("codes", "name=?", arrayOf(name)) > 0
+
+    // ---- Local fight history (R3) -------------------------------------------------
+    // App-side only (spec §4 display policy — outside the format): one row per
+    // played challenge code (keyed by its canonical string) with outcome counts,
+    // plus a per-arena roll-up. Written after each finished challenge fight.
+
+    data class HistoryRec(
+        val layout: String,
+        val played: Int,
+        val wins: Int,
+        val losses: Int,
+        val draws: Int,
+        val last: Long,
+    )
+
+    /**
+     * Record one finished challenge fight. [win] = the player's (open-slot)
+     * side won — i.e. a SEND-BACK-eligible win (§8); [draw] = neither side won.
+     */
+    fun recordOutcome(code: String, layout: String, win: Boolean, draw: Boolean) {
+        val now = System.currentTimeMillis()
+        val cur = db.rawQuery(
+            "SELECT played, wins, losses, draws FROM history WHERE code=?",
+            arrayOf(code),
+        ).use { c -> if (c.moveToFirst()) intArrayOf(c.getInt(0), c.getInt(1), c.getInt(2), c.getInt(3)) else null }
+        val values = ContentValues().apply {
+            put("code", code)
+            put("layout", layout)
+            put("played", (cur?.get(0) ?: 0) + 1)
+            put("wins", (cur?.get(1) ?: 0) + if (win) 1 else 0)
+            put("losses", (cur?.get(2) ?: 0) + if (win || draw) 0 else 1)
+            put("draws", (cur?.get(3) ?: 0) + if (draw) 1 else 0)
+            put("last", now)
+        }
+        if (cur == null) db.insert("history", null, values)
+        else db.update("history", values, "code=?", arrayOf(code))
+    }
+
+    /** This code's outcome row, or null when it has never been played. */
+    fun codeHistory(code: String): HistoryRec? =
+        db.rawQuery(
+            "SELECT layout, played, wins, losses, draws, last FROM history WHERE code=?",
+            arrayOf(code),
+        ).use { c ->
+            if (c.moveToFirst()) HistoryRec(c.getString(0), c.getInt(1), c.getInt(2), c.getInt(3), c.getInt(4), c.getLong(5))
+            else null
+        }
+
+    /** Per-arena roll-up: (arena name, wins, played), arena-name order. */
+    fun arenaHistory(): List<Triple<String, Int, Int>> =
+        db.rawQuery(
+            "SELECT layout, SUM(wins), SUM(played) FROM history GROUP BY layout ORDER BY layout",
+            null,
+        ).use { c ->
+            buildList {
+                while (c.moveToNext()) add(Triple(c.getString(0), c.getInt(1), c.getInt(2)))
+            }
+        }
 
     private val fmt = SimpleDateFormat("MM-dd HH:mm", Locale.US)
     fun fmtTime(ms: Long): String = fmt.format(Date(ms))

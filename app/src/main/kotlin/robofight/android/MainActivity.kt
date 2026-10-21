@@ -50,6 +50,9 @@ import robofight.world.DIR_E
 import robofight.assembler.assemble
 import robofight.challenge.ChallengeRun
 import robofight.challenge.ChallengeFormat
+import robofight.challenge.ChallengeResponse
+import robofight.world.SPAWN_SEPARATE
+import robofight.world.SPAWN_CLASH
 
 /**
  * Two-screen native UI for Opcode Arena.
@@ -60,7 +63,7 @@ import robofight.challenge.ChallengeFormat
  */
 class MainActivity : Activity() {
 
-    private enum class AppMode { SHELL, RUN, CODES }
+    private enum class AppMode { SHELL, RUN, CODES, BUILD }
 
     private lateinit var shellScreen: LinearLayout
     private lateinit var runScreen: LinearLayout
@@ -121,6 +124,46 @@ class MainActivity : Activity() {
      *  SAME deterministic fight (identical seed/spawns) rather than a random
      *  one. Cleared by any manual fight start or RESET. */
     private var currentChallenge: ChallengeFormat.FightDescriptor? = null
+
+    // --- R3: response flow + share + local history --------------------------------
+    private lateinit var codeBtnShare: Button
+    private lateinit var codeBtnCopy: Button
+    private lateinit var codeBtnRespond: Button
+    private lateinit var codeHistory: TextView
+    /** The last FINISHED challenge fight (descriptor + slot-oriented outcome),
+     *  captured by [captureCodeOutcome] when the fight ends. A player win in
+     *  this pair unlocks SEND BACK (spec §8); a draw/loss never does. */
+    private var lastCodeOutcome: Pair<ChallengeFormat.FightDescriptor, ChallengeRun.Outcome>? = null
+    /** The canonical code string of the challenge currently on the RUN screen —
+     *  the history-table key for the fight that just finished. */
+    private var lastCodeText: String? = null
+
+    // --- R3: [ BUILD ] screen — named modes + dials + opponent picker → RF1- code --
+    private lateinit var buildScreen: LinearLayout
+    private lateinit var buildBtnBack: Button
+    private lateinit var buildBtnBuild: Button
+    private lateinit var buildBtnShare: Button
+    private lateinit var buildBtnCopy: Button
+    private lateinit var buildDialMode: Button
+    private lateinit var buildDialSpawn: Button
+    private lateinit var buildDialHpA: Button
+    private lateinit var buildDialHpB: Button
+    private lateinit var buildDialArena: Button
+    private lateinit var buildSeed: EditText
+    private lateinit var buildBtnRngSeed: Button
+    private lateinit var buildBtnOpponent: Button
+    private lateinit var buildOppNote: TextView
+    private lateinit var buildOutput: TextView
+    private lateinit var codeBtnBuild: Button
+    private val buildModeBtns = ArrayList<Button>()   // DUEL/MELEE/SIEGE/GAMBIT/CUSTOM
+    private var buildModeIdx = 0        // 0=DUEL 1=MELEE 2=SIEGE 3=GAMBIT 4=CUSTOM (§6.1)
+    private var buildModeDial = 0       // ChallengeFormat.MODE_*
+    private var buildSpawnDial = 0      // SPAWN_SEPARATE / CLASH / SCATTER
+    private var buildHpADial = 1        // index into HP_OPTS (default 100)
+    private var buildHpBDial = 1
+    private var buildArenaIdx = 0
+    private var buildOppIdx = 0         // index into [slots] (5 presets + user files)
+    private var lastBuiltCode: String? = null
 
     private lateinit var editor: EditText
     private lateinit var btnSave: Button
@@ -194,8 +237,38 @@ class MainActivity : Activity() {
                 status.text = controller.status
                 btnRun.isEnabled = true
                 btnRun.text = "RUN AGAIN"
+                captureCodeOutcome(world)
             }
         }
+    }
+
+    /**
+     * R3: the fight on the RUN screen just finished — if it was a challenge
+     * ([currentChallenge]), record its outcome in the CODE's slot orientation
+     * (exactly [ChallengeRun.run]'s computation, so the app's result equals
+     * the headless one) and write the local history row. A player win in this
+     * pair is what unlocks SEND BACK (spec §8).
+     */
+    private fun captureCodeOutcome(world: World) {
+        val ch = currentChallenge ?: return
+        val a = world.bots[0]
+        val b = world.bots[1]
+        val winnerSlot: Int
+        val loserEndHp: Int
+        when (world.winner) {
+            a -> { winnerSlot = 0; loserEndHp = b.hp }
+            b -> { winnerSlot = 1; loserEndHp = a.hp }
+            else -> { winnerSlot = 2; loserEndHp = a.hp } // DRAW: slot A's HP
+        }
+        val outcome = ChallengeRun.Outcome(winnerSlot, world.tick, loserEndHp)
+        lastCodeOutcome = ch to outcome
+        val layoutName = Arena.byId(ch.layoutId)?.name ?: "OPEN"
+        store.recordOutcome(
+            lastCodeText ?: ch.let { ChallengeFormat.encode(it) },
+            layoutName,
+            ChallengeResponse.isPlayerWin(ch, outcome),
+            outcome.winnerSlot == ChallengeFormat.WIN_DRAW,
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -678,7 +751,7 @@ class MainActivity : Activity() {
     }
 
     private fun printBoot() {
-        printLine("OPCODE ARENA OS 0.5  // RF-8 COMBAT SYSTEM")
+        printLine("OPCODE ARENA OS 0.6  // RF-8 COMBAT SYSTEM")
         printLine("MEM 64K  GRID 20x20  LINK READY")
         printLine("TYPE HELP FOR AVAILABLE COMMANDS")
         printLine("")
@@ -792,6 +865,7 @@ class MainActivity : Activity() {
         shellScreen.visibility = if (next == AppMode.SHELL) View.VISIBLE else View.GONE
         runScreen.visibility = if (next == AppMode.RUN) View.VISIBLE else View.GONE
         codesScreen.visibility = if (next == AppMode.CODES) View.VISIBLE else View.GONE
+        buildScreen.visibility = if (next == AppMode.BUILD) View.VISIBLE else View.GONE
         styleModeTab(shellTab, next == AppMode.SHELL)
         styleModeTab(runTab, next == AppMode.RUN)
         styleModeTab(codesTab, next == AppMode.CODES)
@@ -860,6 +934,7 @@ class MainActivity : Activity() {
             }
         }
         refreshSlots()
+        syncBuilder()   // R3: slots exist now — refresh the builder's opponent row
         store.read("MYBOT")?.takeIf { it.isNotEmpty() }?.let {
             editor.setText(it)
             editor.setSelection(0)
@@ -1074,9 +1149,11 @@ class MainActivity : Activity() {
         shellScreen = buildShellScreen()
         runScreen = buildRunScreen()
         codesScreen = buildCodesScreen()
+        buildScreen = buildBuildScreen()
         screenHost.addView(shellScreen, matchFrame())
         screenHost.addView(runScreen, matchFrame())
         screenHost.addView(codesScreen, matchFrame())
+        screenHost.addView(buildScreen, matchFrame())
         root.addView(screenHost, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
 
         status = terminalText(11f, C_BRIGHT).apply {
@@ -1394,6 +1471,297 @@ class MainActivity : Activity() {
     }
 
     // =========================================================================
+    //  [ BUILD ] screen — R3: named modes + dials + opponent picker → RF1- code
+    // =========================================================================
+
+    /**
+     * The [ BUILD ] screen (R3, spec §6/§6.1): one row of NAMED modes
+     * (DUEL/MELEE/SIEGE/GAMBIT — UI-only presets that just set the dials),
+     * the free dials (mode, spawn, HP A/B, arena, seed), and the opponent
+     * picker for the PINNED slot B (the same 5 presets + user files the RUN
+     * screen cycles). BUILD assembles the opponent's firmware, pins it in B,
+     * leaves A open (slots = 0b01 always), embeds the source when it is
+     * ≤ 2,048 B, and hands the canonical cold code to the [ CODES ] screen —
+     * where it can be previewed, RUN, SAVED and SHARED like any import.
+     */
+    private fun buildBuildScreen(): LinearLayout {
+        val screen = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+        }
+        screen.addView(terminalText(12f, C_BRIGHT).apply {
+            text = "BUILD CHALLENGE"
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(4))
+        })
+        screen.addView(terminalText(8f, C_DIM).apply {
+            text = "NAMED MODE OR CUSTOM DIALS  ·  PICK AN OPPONENT  ·  BUILD"
+            setPadding(0, 0, 0, dp(6))
+        })
+
+        // --- named modes (§6.1 — display layer; codes store the dials) ---
+        screen.addView(terminalText(8f, C_DIM).apply { text = "MODE" })
+        val modeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        arrayOf("DUEL", "MELEE", "SIEGE", "GAMBIT", "CUSTOM").forEachIndexed { i, n ->
+            val b = terminalButton(n)
+            b.setOnClickListener { applyNamedMode(i) }
+            buildModeBtns.add(b)
+            modeRow.addView(b, weightedButton(if (i == 0) 0 else dp(4)))
+        }
+        screen.addView(modeRow)
+
+        // --- dials (CUSTOM exposes them; a named mode just presets them) ---
+        val dial1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        buildDialMode = terminalButton("MODE")
+        buildDialSpawn = terminalButton("SPAWN")
+        buildDialHpA = terminalButton("HP A")
+        buildDialHpB = terminalButton("HP B")
+        buildDialMode.setOnClickListener { buildModeDial = (buildModeDial + 1) % MODE_LABELS.size; syncBuilder() }
+        buildDialSpawn.setOnClickListener { buildSpawnDial = (buildSpawnDial + 1) % SPAWN_LABELS.size; syncBuilder() }
+        buildDialHpA.setOnClickListener { buildHpADial = (buildHpADial + 1) % HP_OPTS.size; syncBuilder() }
+        buildDialHpB.setOnClickListener { buildHpBDial = (buildHpBDial + 1) % HP_OPTS.size; syncBuilder() }
+        dial1.addView(buildDialMode, weightedButton())
+        dial1.addView(buildDialSpawn, weightedButton(dp(4)))
+        dial1.addView(buildDialHpA, weightedButton(dp(4)))
+        dial1.addView(buildDialHpB, weightedButton(dp(4)))
+        screen.addView(dial1, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = dp(6) })
+
+        val dial2 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        buildDialArena = terminalButton("ARENA")
+        buildDialArena.setOnClickListener {
+            buildArenaIdx = (buildArenaIdx + 1) % Arena.all().size; syncBuilder()
+        }
+        buildSeed = EditText(this).apply {
+            background = null
+            hint = "SEED  (DEC OR 0xHEX)"
+            setHintTextColor(C_DIM)
+            setTextColor(C_CODE)
+            textSize = 10f
+            typeface = pixelTypeface
+            usePixelTextRendering()
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+            setSingleLine(true)
+            setPadding(dp(4), 0, dp(4), 0)
+        }
+        buildBtnRngSeed = terminalButton("RND")
+        buildBtnRngSeed.setOnClickListener {
+            val s = kotlin.random.Random.nextInt(Int.MIN_VALUE, Int.MAX_VALUE)
+            buildSeed.setText((s.toLong() and 0xFFFFFFFFL).toString(16))
+            syncBuilder()
+        }
+        dial2.addView(buildDialArena, LinearLayout.LayoutParams(0, dp(42), 1f))
+        dial2.addView(buildSeed, LinearLayout.LayoutParams(0, dp(42), 2f).apply { marginStart = dp(4) })
+        dial2.addView(buildBtnRngSeed, weightedButton(dp(4)))
+        screen.addView(dial2, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = dp(5) })
+
+        // --- opponent picker (the pinned slot B) ---
+        screen.addView(terminalText(8f, C_DIM).apply {
+            text = "OPPONENT  //  PINNED SLOT B"
+            setPadding(0, dp(9), 0, dp(3))
+        })
+        buildBtnOpponent = terminalButton("OPPONENT  …")
+        buildBtnOpponent.setOnClickListener {
+            buildOppIdx = (buildOppIdx + 1) % slots.size
+            syncBuilder()
+        }
+        screen.addView(buildBtnOpponent, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(46)
+        ))
+        buildOppNote = terminalText(8f, C_DIM)
+        screen.addView(buildOppNote)
+
+        // --- output code ---
+        screen.addView(terminalText(8f, C_DIM).apply {
+            text = "CODE"
+            setPadding(0, dp(9), 0, dp(3))
+        })
+        val outFrame = FrameLayout(this).apply {
+            background = panelBackground(C_BLACK, C_BORDER)
+            setPadding(dp(5), dp(5), dp(5), dp(5))
+        }
+        buildOutput = terminalText(8f, C_CODE)
+        buildOutput.text = "(BUILD A CODE)"
+        outFrame.addView(buildOutput, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+        screen.addView(outFrame, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(86)
+        ))
+
+        // --- actions ---
+        val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        buildBtnBuild = terminalButton("BUILD CODE", strong = true)
+        buildBtnShare = terminalButton("SHARE")
+        buildBtnCopy = terminalButton("COPY")
+        buildBtnBack = terminalButton("< CODES")
+        actions.addView(buildBtnBuild, weightedButton())
+        actions.addView(buildBtnShare, weightedButton(dp(4)))
+        actions.addView(buildBtnCopy, weightedButton(dp(4)))
+        actions.addView(buildBtnBack, weightedButton(dp(4)))
+        screen.addView(actions, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = dp(9) })
+
+        buildBtnBuild.setOnClickListener { doCodeBuild() }
+        buildBtnShare.setOnClickListener { shareCode(lastBuiltCode) }
+        buildBtnCopy.setOnClickListener { copyCode(lastBuiltCode) }
+        buildBtnBack.setOnClickListener { showCodesMode() }
+        syncBuilder()
+        return screen
+    }
+
+    /** §6.1 named modes — UI-only presets over the dials (codes never store a name). */
+    private fun applyNamedMode(i: Int) {
+        when (i) {
+            0 -> { // DUEL: KO · SEPARATE · 100/100
+                buildModeDial = ChallengeFormat.MODE_KO; buildSpawnDial = SPAWN_SEPARATE
+                buildHpADial = 1; buildHpBDial = 1
+            }
+            1 -> { // MELEE: KO · CLASH · 100/100
+                buildModeDial = ChallengeFormat.MODE_KO; buildSpawnDial = SPAWN_CLASH
+                buildHpADial = 1; buildHpBDial = 1
+            }
+            2 -> { // SIEGE: 300 ticks · SEPARATE · 200/200
+                buildModeDial = ChallengeFormat.MODE_300; buildSpawnDial = SPAWN_SEPARATE
+                buildHpADial = 3; buildHpBDial = 3
+            }
+            3 -> { // GAMBIT: KO · SEPARATE · 50/150 (pinned side over-equipped)
+                buildModeDial = ChallengeFormat.MODE_KO; buildSpawnDial = SPAWN_SEPARATE
+                buildHpADial = 0; buildHpBDial = 2
+            }
+            else -> { /* CUSTOM — the dials stay exactly as the user set them */ }
+        }
+        buildModeIdx = i
+        syncBuilder()
+    }
+
+    /** Do the current dials still match named mode [i]? (row highlighting) */
+    private fun dialsMatchNamed(i: Int): Boolean = when (i) {
+        0 -> buildModeDial == ChallengeFormat.MODE_KO && buildSpawnDial == SPAWN_SEPARATE &&
+            buildHpADial == 1 && buildHpBDial == 1
+        1 -> buildModeDial == ChallengeFormat.MODE_KO && buildSpawnDial == SPAWN_CLASH &&
+            buildHpADial == 1 && buildHpBDial == 1
+        2 -> buildModeDial == ChallengeFormat.MODE_300 && buildSpawnDial == SPAWN_SEPARATE &&
+            buildHpADial == 3 && buildHpBDial == 3
+        3 -> buildModeDial == ChallengeFormat.MODE_KO && buildSpawnDial == SPAWN_SEPARATE &&
+            buildHpADial == 0 && buildHpBDial == 2
+        else -> false
+    }
+
+    /** Refresh every builder label + the named-mode row highlight. */
+    private fun syncBuilder() {
+        if (!::buildDialMode.isInitialized || slots.isEmpty()) return
+        if (buildOppIdx >= slots.size) buildOppIdx = (slots.size - 1).coerceAtLeast(0)
+        buildDialMode.text = "MODE ${MODE_LABELS[buildModeDial]} >"
+        buildDialSpawn.text = "SPAWN ${SPAWN_LABELS[buildSpawnDial]} >"
+        buildDialHpA.text = "HP A ${HP_OPTS[buildHpADial]} >"
+        buildDialHpB.text = "HP B ${HP_OPTS[buildHpBDial]} >"
+        buildDialArena.text = "ARENA ${Arena.all()[buildArenaIdx].name} >"
+        buildBtnOpponent.text = "OPPONENT  ${slots[buildOppIdx].name}  >"
+        val src = sourceFor(slots[buildOppIdx])
+        val asm = assemble(src)
+        if (!asm.ok) {
+            buildOppNote.text = "ASSEMBLER ERROR  // LINE ${asm.errors.first().line}: ${asm.errors.first().msg}"
+            buildOppNote.setTextColor(C_ERR)
+        } else {
+            val srcBytes = src.toByteArray(Charsets.UTF_8).size
+            buildOppNote.text = if (srcBytes <= ChallengeFormat.MAX_SRC) {
+                "SRC ${srcBytes} B ≤ ${ChallengeFormat.MAX_SRC}  //  EMBEDS SOURCE"
+            } else {
+                "SRC ${srcBytes} B > ${ChallengeFormat.MAX_SRC}  //  BINARY ONLY  (FW ${asm.code.size} B)"
+            }
+            buildOppNote.setTextColor(C_DIM)
+        }
+        // Highlight the named row whose dials still match; else CUSTOM.
+        val effective = (0..3).firstOrNull { buildModeIdx == it && dialsMatchNamed(it) } ?: 4
+        buildModeBtns.forEachIndexed { i, b ->
+            b.setTextColor(if (i == effective) C_BLACK else C_BRIGHT)
+            b.background = panelBackground(if (i == effective) C_GREEN else C_BLACK, C_GREEN_DARK)
+        }
+    }
+
+    /** Seed dial value: decimal or 0x-hex, any 32-bit value; empty = 0. */
+    private fun parseSeed(text: String): Int? {
+        val t = text.trim()
+        if (t.isEmpty()) return 0
+        return try {
+            if (t.startsWith("0x") || t.startsWith("0X")) {
+                (t.substring(2).toLong(16) and 0xFFFFFFFFL).toInt()
+            } else {
+                (t.toLong() and 0xFFFFFFFFL).toInt()
+            }
+        } catch (e: NumberFormatException) {
+            null
+        }
+    }
+
+    /**
+     * R3: BUILD CODE — assemble the picked opponent, pin it in slot B (A stays
+     * open, slots = 0b01), embed the source when it is ≤ 2,048 B, encode the
+     * canonical COLD code (no recorded result), and import it onto the
+     * [ CODES ] screen where preview / RUN / SAVE / SHARE all apply.
+     */
+    private fun doCodeBuild() {
+        val seed = parseSeed(buildSeed.text.toString())
+        if (seed == null) {
+            status.text = "SEED INVALID  // DECIMAL OR 0x HEX"
+            return
+        }
+        if (slots.isEmpty()) {
+            status.text = "NO OPPONENT AVAILABLE"
+            return
+        }
+        val slot = slots[buildOppIdx.coerceAtMost(slots.size - 1)]
+        val src = sourceFor(slot)
+        val asm = assemble(src)
+        if (!asm.ok) {
+            status.text = "ASSEMBLER ERROR  // LINE ${asm.errors.first().line}: ${asm.errors.first().msg}"
+            return
+        }
+        val fw = asm.code
+        if (fw.size % 3 != 0 || fw.size > ChallengeFormat.MAX_FW) {
+            status.text = "OPPONENT TOO BIG  // FW ${fw.size} B > ${ChallengeFormat.MAX_FW}"
+            return
+        }
+        val srcB: String? =
+            if (src.toByteArray(Charsets.UTF_8).size <= ChallengeFormat.MAX_SRC) src else null
+        val desc = ChallengeFormat.FightDescriptor(
+            ChallengeFormat.ENGINE_VERSION,
+            Arena.all()[buildArenaIdx].id,
+            0b01,                          // A open, B pinned — always
+            seed,
+            buildModeDial,
+            buildSpawnDial,
+            HP_OPTS[buildHpADial],
+            HP_OPTS[buildHpBDial],
+            null,                          // cold: the author never ran it
+            ByteArray(0),
+            fw,
+            null,
+            srcB,
+        )
+        val code = try {
+            ChallengeFormat.encode(desc)
+        } catch (e: IllegalArgumentException) {
+            status.text = "BUILD FAILED  // ${e.message ?: "INVALID DESCRIPTOR"}"
+            return
+        }
+        lastBuiltCode = code
+        buildOutput.text = code
+        status.text = "CODE BUILT  // ${code.length} CHARS"
+        codePaste.setText(code)
+        importCode(code)
+        setMode(AppMode.CODES)
+    }
+
+    // =========================================================================
     //  [ CODES ] screen — R2 challenge-code import / preview / run / save
     // =========================================================================
 
@@ -1448,9 +1816,11 @@ class MainActivity : Activity() {
         codePasteBtnPaste = terminalButton("PASTE")
         codePasteBtnImport = terminalButton("IMPORT", strong = true)
         codePasteBtnClear = terminalButton("CLEAR")
+        codeBtnBuild = terminalButton("BUILD")
         pasteBtns.addView(codePasteBtnPaste, weightedButton())
         pasteBtns.addView(codePasteBtnImport, weightedButton(dp(5)))
         pasteBtns.addView(codePasteBtnClear, weightedButton(dp(5)))
+        pasteBtns.addView(codeBtnBuild, weightedButton(dp(5)))
         screen.addView(pasteBtns, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = dp(6) })
@@ -1504,15 +1874,30 @@ class MainActivity : Activity() {
         codePickRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         codePreviewCard.addView(codePickRow)
 
+        // R3: local fight history for this code (app feature, outside the format).
+        codeHistory = terminalText(8f, C_DIM).apply { visibility = View.GONE }
+        codePreviewCard.addView(codeHistory)
+
         val actionRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, dp(6), 0, 0)
         }
         codeBtnRun = terminalButton("RUN", strong = true)
+        codeBtnShare = terminalButton("SHARE")
+        codeBtnCopy = terminalButton("COPY")
         codeBtnSave = terminalButton("SAVE")
         actionRow.addView(codeBtnRun, weightedButton())
+        actionRow.addView(codeBtnShare, weightedButton(dp(5)))
+        actionRow.addView(codeBtnCopy, weightedButton(dp(5)))
         actionRow.addView(codeBtnSave, weightedButton(dp(5)))
         codePreviewCard.addView(actionRow)
+
+        // R3: SEND BACK — visible only after a player win in an imported
+        // challenge (spec §8: draw/loss = no response).
+        codeBtnRespond = terminalButton("SEND BACK", strong = true).apply { visibility = View.GONE }
+        codePreviewCard.addView(codeBtnRespond, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(42)
+        ).apply { topMargin = dp(5) })
 
         screen.addView(codePreviewCard, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
@@ -1526,10 +1911,23 @@ class MainActivity : Activity() {
             importedDesc = null
             codePreviewCard.visibility = View.GONE
             codeErrorCard.visibility = View.GONE
+            codeBtnRespond.visibility = View.GONE
         }
         codeBtnRun.setOnClickListener { val d = importedDesc ?: return@setOnClickListener; doCodeRun(d) }
         codeBtnSave.setOnClickListener { doCodeSave() }
+        codeBtnBuild.setOnClickListener { showBuildMode() }
+        codeBtnShare.setOnClickListener { shareCode(importedCode) }
+        codeBtnCopy.setOnClickListener { copyCode(importedCode) }
+        codeBtnRespond.setOnClickListener { doCodeRespond() }
         return screen
+    }
+
+    /** R3: switch to the [ BUILD ] screen (keyboard away, dials as-is). */
+    private fun showBuildMode() {
+        handler.removeCallbacks(tickLoop)
+        setMode(AppMode.BUILD)
+        hideKeyboard()
+        syncBuilder()
     }
 
     /** Switch to the [ CODES ] tab and settle the keyboard. */
@@ -1537,6 +1935,47 @@ class MainActivity : Activity() {
         handler.removeCallbacks(tickLoop)
         setMode(AppMode.CODES)
         hideKeyboard()
+        refreshCodesActions()
+    }
+
+    /**
+     * R3: re-arm the context actions on the codes screen. SEND BACK shows only
+     * when (a) a code is imported and (b) the last finished fight of THAT code
+     * was a player win (spec §8 — draw/loss never unlocks a response). Also
+     * refreshes the local history line for the imported code.
+     */
+    private fun refreshCodesActions() {
+        val desc = importedDesc
+        val pair = lastCodeOutcome
+        // The win must belong to THIS code: compare canonical text (a
+        // re-import of the same code produces a fresh descriptor instance).
+        val unlock = desc != null && pair != null &&
+            lastCodeText != null && lastCodeText == importedCode &&
+            ChallengeResponse.isPlayerWin(pair.first, pair.second)
+        codeBtnRespond.visibility = if (unlock) View.VISIBLE else View.GONE
+        refreshCodeHistory()
+    }
+
+    /** R3: the per-code + per-arena history line under the pickers. */
+    private fun refreshCodeHistory() {
+        val code = importedCode
+        if (code == null) {
+            codeHistory.visibility = View.GONE
+            return
+        }
+        val h = store.codeHistory(code)
+        val parts = ArrayList<String>()
+        if (h != null) {
+            parts.add("CODE  ${h.played}P ${h.wins}W ${h.losses}L ${h.draws}D")
+        } else {
+            parts.add("CODE  NOT PLAYED YET")
+        }
+        val arenas = store.arenaHistory()
+        if (arenas.isNotEmpty()) {
+            parts.add("ARENAS " + arenas.joinToString("  ") { "${it.first} ${it.second}/${it.third}" })
+        }
+        codeHistory.text = parts.joinToString("   //   ")
+        codeHistory.visibility = View.VISIBLE
     }
 
     /** Copy the clipboard text into the paste box (no auto-import). */
@@ -1749,6 +2188,7 @@ class MainActivity : Activity() {
             if (desc.slotBOpen) RunController.BotCode(sourceFor(slots[codePickIdx[1]]), resB!!.lineOf) else null,
         )
         currentChallenge = desc
+        lastCodeText = importedCode   // R3: history key for this fight (canonical form)
         handler.removeCallbacks(tickLoop)
         controller.startDeterministic(w, codes)
         syncArenaToChallenge(desc)
@@ -1763,6 +2203,62 @@ class MainActivity : Activity() {
         hideKeyboard()
         updateStats()
         handler.postDelayed(tickLoop, 100L)
+    }
+
+    /**
+     * R3 / spec §8 — SEND BACK: the player won the imported challenge, so the
+     * counter-challenge builds straight from the fight that just finished:
+     * same dials, the WINNING firmware pinned in slot B (source embedded when
+     * it fits), slot A open, and the recorded result remapped so the pinned
+     * slot is the winner. Then straight to the share sheet.
+     */
+    private fun doCodeRespond() {
+        val (ch, outcome) = lastCodeOutcome ?: return
+        if (!ChallengeResponse.isPlayerWin(ch, outcome)) return
+        // The player's slot is the open one; its pick is the winning firmware.
+        val openSlot = if (ch.slotAOpen) 0 else 1
+        val slot = slots[codePickIdx[openSlot]]
+        val src = sourceFor(slot)
+        val asm = assemble(src)
+        if (!asm.ok) {
+            status.text = "ASSEMBLER ERROR  // ${asm.errors.first().msg}"
+            return
+        }
+        val resp = ChallengeResponse.build(ch, asm.code, src, outcome)
+        val code = ChallengeFormat.encode(resp)
+        showCodesMode()
+        importCode(code)          // preview the counter-challenge (remapped badge)
+        shareCode(code)           // straight to the share sheet (§8)
+    }
+
+    /** R3: ACTION_SEND text/plain chooser with the code string. */
+    private fun shareCode(code: String?) {
+        if (code.isNullOrBlank()) {
+            status.text = "NO CODE TO SHARE  // IMPORT OR BUILD ONE"
+            return
+        }
+        try {
+            startActivity(Intent.createChooser(
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, code)
+                },
+                "SHARE CHALLENGE CODE"
+            ))
+        } catch (e: ActivityNotFoundException) {
+            status.text = "NO SHARE TARGET  // COPY IT INSTEAD"
+        }
+    }
+
+    /** R3: clipboard copy of the code string. */
+    private fun copyCode(code: String?) {
+        if (code.isNullOrBlank()) {
+            status.text = "NO CODE TO COPY  // IMPORT OR BUILD ONE"
+            return
+        }
+        val clip = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        clip.setPrimaryClip(android.content.ClipData.newPlainText("RF1 code", code))
+        status.text = "COPIED  // PASTE IT ANYWHERE"
     }
 
     /**
@@ -1982,6 +2478,11 @@ class MainActivity : Activity() {
         private const val MON_MIN_CODE_LINES = 6
         private const val MON_MIN_LINES_BEFORE = 2
         private const val MON_CODE_GAP_DP = 6
+        // R3 builder: dial options + labels (spec §6/§6.1 named modes are UI
+        // presets over exactly these dials — codes store dials, never names).
+        val HP_OPTS = intArrayOf(50, 100, 150, 200)
+        val MODE_LABELS = arrayOf("KO", "100", "150", "200", "300")
+        val SPAWN_LABELS = arrayOf("SEPARATE", "CLASH", "SCATTER")
         private val C_BG = Color.rgb(1, 7, 3)
         private val C_BLACK = Color.rgb(0, 3, 1)
         private val C_PANEL = Color.rgb(2, 13, 6)
