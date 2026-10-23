@@ -13,6 +13,7 @@
 |------|----------|
 | Free tier | **Frozen at the 0.6-codes feature set.** No new arenas, modes, or content ships to the free app. Maintenance continues: bug fixes, performance, editor/QoL, and shared engine mechanics. |
 | Paid tier | **A separate app with its own store entry** — "Opcode Arena PRO" (working name). No in-app purchase, no Play Billing integration, no server, no accounts: the Play purchase *is* the license. |
+| Repo & branches | **Single repo, single `main` branch for both apps.** One source tree, two build variants, two store entries; each APK cut is tagged (e.g. `free-0.7`, `pro-1.0`). Branch-per-app is excluded — it *is* the update-drift risk §7 guards against. |
 | Price | **€1.99 launch price**, as a Play price step. Price follows content: step up (€3.99, then €4.99) when campaign/survival land. Buyers at any price keep all future updates (grandfathered), which doubles as the early-bird incentive. |
 | Mechanics | **Shared in both apps.** One engine, one ISA, one physics, one `eng` version. Codes interoperate between the apps. The paid app differentiates **only** through content and modes. |
 | Pro v1 scope | **Arena pack only** — procedural (seed-derived) arenas + curated arenas at `layout` ids `0x10+`. No challenge-code wire change. Traps, hazards, campaign, survival are later phases (§7). |
@@ -21,9 +22,11 @@
 
 ## 1. Two-app architecture
 
-### 1.1 One source, two builds
+### 1.1 One repo, one branch, two builds
 
-Single repo; `engine/` stays shared and dependency-free. The `app/` module
+Single repo, **single `main` branch** (locked, §0): both APKs are cut from
+the same HEAD, distinguished only by the build variant and release tags.
+`engine/` stays shared and dependency-free. The `app/` module
 builds twice from the same sources:
 
 - **Free build** (`app`, current): strips the Pro layout-generator registry
@@ -167,7 +170,7 @@ CHALLENGE-CODES §13 — nothing here forecloses them.
 
 | # | Milestone | Deliverables |
 |---|-----------|--------------|
-| **P0** | Spec amendment | CHALLENGE-CODES §9/§10 two-app gating revision + §13 seed-derived note (spec PR; v1 wire tables untouched). |
+| **P0** | Spec amendment ✅ (2026-10-23) | CHALLENGE-CODES §9/§10 two-app gating revision + §13 seed-derived note — applied as **amendment A1** (§7.1/§7.4/§9/§10/§11/§13 + amendment log; v1 wire tables untouched). |
 | **P1** | Build split | One source → free + Pro APKs; `PRO_BUILD` gate on the arena registry; CI: both variants build, engine tests green, `ENGINE_VERSION` equal across variants; store metadata + PRO listing stub. |
 | **P2** | Arena Pack 1 | `GEN-MAZE`, `GEN-ISLES` generators + curated `0x12–0x15`; invariants + matrix in CI; Pro builder menu. |
 | **P3** | Cross-app UX | Free app: PRO code preview screen (metadata + opponent source + placeholder arena + Play link); Pro app: first-run migration hint; `EXPORT` ZIP → Pro import verified. |

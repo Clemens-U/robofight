@@ -5,6 +5,11 @@
 > gating contract. The app implementation (encoder + parser + challenge screen)
 > must conform to this document; the acceptance criteria in §12 define "done".
 >
+> **Amendment A1 (2026-10-23, PLAN-PRO P0):** the gating model (§9/§10/§13)
+> is revised from a single-build soft gate to the **two-app gate** — free
+> "Opcode Arena" + paid "Opcode Arena PRO", built from one repo, one branch
+> (PLAN-PRO.md §0/§4). The v1 wire format (§2–§8) is untouched.
+>
 > A **challenge code** is a short, copy-pasteable text string that fully
 > describes a fight: arena, seed, rules, and the firmware(s). It is the
 > mechanism for three things: **replays** ("watch this fight exactly"),
@@ -235,7 +240,7 @@ The builder offers the four names plus a **CUSTOM** row exposing the dials.
 |-------|------------|
 | `0x00–0x04` | Free arenas defined in this spec (§7.2). |
 | `0x05–0x0F` | **Reserved for future free arenas.** A new free arena is a new id + generator + registry entry; no format change. |
-| `0x10–0x1F` | **Pro arena pack (future).** Gated per §9. v1 defines none of these. |
+| `0x10–0x1F` | **Pro arena pack.** Gated per §9 (two-app model, A1). The free app carries **name-only entries** here (no generators) so preview works (§9.2); v1 wire unchanged. |
 | `0x20–0xFF` | Reserved for v2 layout classes (e.g. procedural arenas with parameters). |
 
 ### 7.2 Invariants (every arena, free or Pro)
@@ -477,10 +482,10 @@ Spawns: SEPARATE `(2,2)`/`(17,17)` · CLASH `(7,9)`/`(7,10)`.
 
 Free arenas are **learnable**: the same walls every time, so players build
 per-arena strategies and a shared vocabulary ("he's untouchable in BLOCKS").
-Pro (future) adds *procedural* arenas — seed-derived, never the same twice —
-as layout ids in the `0x10` range (v2 will carry their parameter bytes,
-§13). The free/paid line is **learnable vs. unrepeatable**, which writes its
-own store copy.
+Pro adds *procedural* arenas — seed-derived (`geometry = f(layout id,
+fight seed)`, fully v1-format per §13/A1), never the same twice — as layout
+ids in the `0x10` range. The free/paid line is **learnable vs.
+unrepeatable**, which writes its own store copy.
 
 ### 7.5 Terrain rendering
 
@@ -538,32 +543,36 @@ Notes:
 
 ## 9. Free / Pro gating
 
-### 9.1 v1 gate model: **soft gate**
+### 9.1 Gate model: **the build variant is the entitlement** (A1)
 
-Both free and Pro builds ship the **full layout generator registry** (free +
-Pro). Pro arena *generators are code, not downloadable assets*, and the
-content set is small enough that shipping them in the free build is
-harmless. The entitlement then gates exactly two things:
+> Formerly "soft gate" (one build + in-app unlock). Amendment A1
+> (2026-10-23, PLAN-PRO.md §0/§4): the paid tier is a **separate Play app**
+> — "Opcode Arena" (free) and "Opcode Arena PRO" — built from one repo,
+> one branch, two build variants (PLAN-PRO §1.1). No in-app purchase, no
+> unlock flow, no billing, no server, no accounts: installing the Pro app
+> *is* the license. This is the hard gate the old migration note anticipated.
 
-1. **Playback** of a fight whose `layout` is a Pro id — the free build
-   renders the arena preview and the opponent's source, and locks RUN with
-   `ARENA NEEDS PRO — UNLOCK TO PLAY`.
-2. The **builder menu**: Pro arena entries (and, later, Pro-only knobs) are
-   hidden/locked in the free build, so a free build can never *create* a Pro
+The layout registry is shared source. The **free app** ships the free
+generators plus **name-only entries** for Pro ids `0x10–0x1F` — no Pro
+generators, so it cannot build a Pro arena but *can* name and preview one.
+The **Pro app** ships the full registry. The gate covers exactly two things:
+
+1. **Playback** of a fight whose `layout` is a Pro id: only the Pro app can
+   run it. The free app renders the metadata preview (§9.2) and locks RUN
+   with `ARENA NEEDS PRO — PLAY IN THE PRO APP`.
+2. The **builder menu**: the free builder offers only free ids; the Pro
+   builder adds a `PRO ARENAS` section. A free app can never *create* a Pro
    code.
 
-**Migration note:** if the Pro content grows beyond "a few generators"
-(e.g. a large arena pack), move to a hard gate (Pro generators stripped
-from the free build; Pro-layout codes show a placeholder preview instead of
-the rendered arena). The **format is unaffected** — `layout` is an id into a
-registry either way.
+The check is compile-time — *which app is running* — never a network call
+or unlock state.
 
 ### 9.2 Import decision table
 
-| Code contains… | Free build | Pro build |
+| Code contains… | Free app | Pro app |
 |----------------|-----------|-----------|
 | Free layout + v1 rules | Full: play, respond, re-share. | Full. |
-| Pro layout (`0x10+`) | Arena preview + opponent source; playback locked: `ARENA NEEDS PRO — UNLOCK TO PLAY`. No response possible (can't play). | Full. |
+| Pro layout (`0x10–0x1F`) | **Metadata preview only** — arena name, rule knobs, and the pinned opponent's firmware binary/source (all carried in the code) are shown; the arena itself renders as a labelled placeholder `PRO ARENA — PREVIEW UNAVAILABLE`, plus a Play link to the PRO listing. Playback locked: `ARENA NEEDS PRO — PLAY IN THE PRO APP`. No response possible (can't play). | Full: play, respond, re-share. |
 | Unknown layout id | Reject: `UNKNOWN ARENA — NEWER VERSION`. | Same (a Pro build can be older than a free one's registry). |
 | `fmt` or `eng` newer than the app | Reject (§5). | Same. |
 | `eng` older than the app | Play with warning (§5). | Same. |
@@ -575,10 +584,12 @@ only offers free arenas and v1 knobs).
 ### 9.3 What is never gated
 
 Creating, sharing (share sheet / clipboard / QR), importing, parsing,
-previewing, disassembling, and the local history of any code — free or Pro —
-always works. Entitlement checks happen **at playback and in the builder
-menu**, never at parse time; a store hiccup or offline mode can therefore
-never corrupt, lose, or block a code.
+metadata previewing, disassembling, and the local history of any code —
+free or Pro — always work, in both apps. What *is* gated is **playback** of
+`0x10+` content (Pro app only) and the builder menu (§9.1) — and both are
+properties of which app is installed: decided at compile time, never at
+parse time and never over the network. A store hiccup or offline mode can
+therefore never corrupt, lose, or block a code.
 
 ---
 
@@ -597,7 +608,7 @@ Exact strings, terminal voice. One per failure; the first failing check in
 | `eng` > app's engine version | `MADE WITH NEWER ENGINE — UPDATE APP` |
 | `eng` < app's engine version | *(warning, playable)* `OLD ENGINE — REPLAY USES CURRENT RULES` |
 | `layout` not in this build's registry | `UNKNOWN ARENA — NEWER VERSION` |
-| `layout` is a Pro id, build is free | `ARENA NEEDS PRO — UNLOCK TO PLAY` |
+| `layout` is a Pro id, app is the free build | `ARENA NEEDS PRO — PLAY IN THE PRO APP` |
 | `slots` > `0b11`, or slots/firmware-length mismatch | `CODE MALFORMED — SLOTS` |
 | Pinned `fw` length not a multiple of 3, or > 768 | `CODE MALFORMED — SIZE` |
 | `mode` > 4, or `spawn` > 2, or reserved hp bits set | `CODE MALFORMED — RULES` |
@@ -605,6 +616,9 @@ Exact strings, terminal voice. One per failure; the first failing check in
 | `result.winner` not in {0, 1, 2, 0xFF} | `CODE MALFORMED — RESULT` |
 | Embedded source length > 2048 | `CODE MALFORMED — SOURCE` |
 | Decode scan finds an unknown opcode | `NEW OPCODES — UPDATE APP` |
+
+> A1 (2026-10-23): the Pro-arena string was renamed from
+> `ARENA NEEDS PRO — UNLOCK TO PLAY` — display-only, no `eng` bump.
 
 ---
 
@@ -620,7 +634,9 @@ The importer runs, in order — first failure produces its string:
 4. **CRC:** `crc` over all preceding bytes.
 5. **`fmt`:** must be ≤ the app's format version (and = 1 for v1 builds).
 6. **`eng`:** §5 skew rules.
-7. **`layout`:** registry lookup; entitlement check for Pro ids (§9.2).
+7. **`layout`:** registry lookup. A Pro id known by name in the free app
+   switches the import to preview mode (§9.2); an id present in no registry
+   rejects. The Pro app resolves every known id normally.
 8. **`slots`:** range + the open/pinned ↔ `fw_len` consistency rule (§2).
 9. **Firmware lengths:** multiples of 3, ≤ 768, `0` only for open slots.
 10. **Rules:** `mode` ≤ 4, `spawn` ≤ 2, hp reserved bits clear.
@@ -688,8 +704,8 @@ matrix ship together.
 | Future item | How it lands |
 |-------------|--------------|
 | New **free** arena | New `layout` id `0x05+`, generator + registry entry + §12.3 matrix. No format change. |
-| **Pro arena pack** | `layout` ids `0x10+`, §9 gating. v1 codes are unaffected. |
-| **Procedural** (seed-derived) arenas | v2 layout class: `fmt = 2` carries layout parameter bytes after the fixed prefix. |
+| **Pro arena pack** | `layout` ids `0x10+`, §9 two-app gating (A1). v1 codes are unaffected. |
+| **Procedural** (seed-derived) arenas | Seed-derived arenas (`geometry = f(id, seed)`) ship as **v1-format content** — no format change (A1). The v2 layout class (`fmt = 2` + layout *parameter* bytes) stays reserved for custom-parameter arenas. |
 | **Custom round lengths** (raw tick values) | v2 `mode` encoding; the v1 table stays reserved. |
 | **Second weapon / new rule knobs** | v2 rule bytes + `eng` bump (new deterministic behavior). |
 | **4-bot / tournament codes** | v2 slot scheme (N slots, generalized mask). |
@@ -698,3 +714,11 @@ matrix ship together.
 
 The invariant behind every row: **a v1 code keeps meaning exactly what this
 document says it means, on every future free build, forever.**
+
+---
+
+### Amendment log
+
+| # | Date | Sections | Change |
+|---|------|----------|--------|
+| A1 | 2026-10-23 | §7.1, §7.4, §9, §10, §11(7), §13 | Soft gate → **two-app gate** (PLAN-PRO.md §4, P0 spec PR). Wire format §2–§8 untouched. Renamed `ARENA NEEDS PRO — PLAY IN THE PRO APP`. |
