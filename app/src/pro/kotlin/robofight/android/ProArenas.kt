@@ -20,16 +20,10 @@ object ProArenas {
     fun registerAll() {
         if (registered) return
         registered = true
-        // P2 Arena Pack 1 registers here (0x10 GEN-MAZE, 0x11 GEN-ISLES,
-        // 0x12–0x15 curated), each via Arena.registerPro(...).
-        // P1 ships the Pro app with the five free arenas only — the pack
-        // arrives in P2; the gate plumbing (this file + registerPro +
-        // RegistryGateTest) is what P1 delivers.
-    }
-
-    /** Helper for P2 packs: build a Layout in the Pro range and register it. */
-    fun register(id: Int, name: String, layout: () -> robofight.world.Layout) {
-        require(id in 0x10..0x1F) { "pro id 0x${id.toString(16)} out of range" }
-        Arena.registerPro(layout().copy(id = id, name = name))
+        // P2 Arena Pack 1 (PLAN-PRO §5): seed-derived family entries
+        // (0x10 GEN-MAZE, 0x11 GEN-ISLES — preview instances carrying their
+        // per-seed generators) + curated layouts 0x12–0x15, each registered
+        // via Arena.registerPro (hard id gate 0x10–0x1F). See ProArenaPack.
+        for (preview in ProArenaPack.previews()) Arena.registerPro(preview)
     }
 }

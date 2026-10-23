@@ -33,6 +33,7 @@ fun main() {
     testLockedWhileUnregistered()
     testPlayableAfterRegisterPro()
     testRegisterProBoundaries()
+    testGeneratorMechanics()
     println("\n== RESULT: $passed passed, $failed failed ==")
     if (failed > 0) kotlin.system.exitProcess(1)
 }
@@ -133,3 +134,68 @@ private fun testRegisterProBoundaries() {
     if (e5 != null) println("  -> 0x05: $e5")
     if (e20 != null) println("  -> 0x20: $e20")
 }
+
+// =====================================================================
+//  (d) seed-derived family entries (P2 machinery, CHALLENGE-CODES §7.4):
+//      a registered Layout carrying a generator is played as f(id, seed);
+//      fixed entries (0x10 stub above, the free five) are seed-invariant.
+//      The generator here is a test-local stand-in for the Pro pack's real
+//      generators (which live in the app's pro flavor source set).
+// =====================================================================
+
+/** Test-local seed-derived family: a point-symmetric block pair whose x-offset is seed-derived. */
+private fun genFamilyLayout(seed: Int): Layout {
+    val b = BooleanArray(GRID * GRID)
+    val k = (seed and 7)                       // 0..7
+    b[3 * GRID + (4 + k)] = true              // (4+k, 3)
+    b[16 * GRID + (15 - k)] = true            // (15-k, 16) — point mirror
+    return Layout(
+        id = 0x11, name = "GEN-STUB",
+        blocks = b,
+        vertEdge = BooleanArray((GRID - 1) * GRID),
+        horizEdge = BooleanArray(GRID * (GRID - 1)),
+        separateA = Cell(1, 1), separateB = Cell(18, 18),
+        clashA = Cell(9, 10), clashB = Cell(10, 10),
+    )
+}
+
+private fun testGeneratorMechanics() {
+    println("\n[d] generator family: played layout = f(id, seed); fixed layouts seed-invariant")
+    val preview = genFamilyLayout(0).copy(generator = { genFamilyLayout(it) })
+    Arena.registerPro(preview)
+    check("family 0x11 registered with generator", Arena.byId(0x11)?.generator != null)
+    check("registry grew to 7", Arena.all().size == 7, "got ${Arena.all().size}")
+
+    // playableLayout: generator applied per seed
+    val a1 = Arena.playableLayout(0x11, 5)!!
+    val a2 = Arena.playableLayout(0x11, 5)!!
+    val b1 = Arena.playableLayout(0x11, 6)!!
+    check("same seed -> identical geometry (pure function)",
+        a1.blocks.contentEquals(a2.blocks) && a1.clashA == a2.clashA)
+    check("different seed -> different geometry", !a1.blocks.contentEquals(b1.blocks))
+    check("seed 5 block at (9,3)", a1.isBlock(9, 3) && a1.isBlock(10, 16))
+    check("seed 6 block at (10,3)", b1.isBlock(10, 3))
+    check("family preview entry stays the registry instance", Arena.byId(0x11)!!.isBlock(4, 3))
+
+    // Fixed entries are seed-invariant — the SAME object, whatever the seed.
+    check("fixed 0x10 stub ignores seed", Arena.playableLayout(0x10, 1234) === Arena.byId(0x10))
+    check("free arenas ignore seed", Arena.playableLayout(0x04, -99) === Arena.byId(0x04))
+    check("unregistered 0x12 resolves null (locked preview unchanged)", Arena.playableLayout(0x12, 0) == null)
+
+    // End-to-end: a v1 code on the family id fights on the SEEDED geometry.
+    val hunter = assemble(Presets.HUNTER)
+    val r = ChallengeFormat.parse(gateRawCode(gatePayload(0x11, 0b10, hunter.code, ByteArray(0))))
+    check("family code parses Ok", r is ParseResult.Ok, "got ${r::class.simpleName}")
+    if (r is ParseResult.Ok) {
+        val seedA = r.desc.copy(seed = 0x0000_0005)
+        val seedB = r.desc.copy(seed = 0x0000_0006)
+        val wa = ChallengeRun.buildWorld(seedA, null, openBotStub())
+        val wb = ChallengeRun.buildWorld(seedB, null, openBotStub())
+        check("buildWorld(seed=5) plays f(id,5)", wa.layout.isBlock(9, 3) && wa.layout.isBlock(10, 16))
+        check("buildWorld(seed=6) plays f(id,6)", wb.layout.isBlock(10, 3) && wb.layout.isBlock(9, 16))
+        check("seeded layouts are distinct worlds", !wa.layout.blocks.contentEquals(wb.layout.blocks))
+    }
+}
+
+private fun openBotStub(): robofight.world.Bot =
+    robofight.world.Bot.fromBinary("B", 'B', 4, 0, 0, 0, assemble("loop: WAIT\nJMP loop\n").code)

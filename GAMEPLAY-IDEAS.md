@@ -186,6 +186,11 @@ community play with zero network.
 > Locked 2026-10-23 with PLAN-PRO §0/§6. This is the story the **paid app**
 > ("Opcode Arena: The Circuit") carries. The free app stays lore-neutral:
 > max one cross-sell line in the free *listing*, nothing in the free APK.
+>
+> **Content pillars (paid app):** the Circuit slowly moves away from a
+> battle-only focus toward **fight / collect / riddles** — fights stay the
+> core loop, but UI copy, content, and later modes serve collecting (bots,
+> arenas, codes) and firmware-solved riddles, not just combat.
 
 **The reframe.** The five free arenas are training floors of a facility that
 runs fights to test firmware it doesn't own. The bot's code *is* its mind.

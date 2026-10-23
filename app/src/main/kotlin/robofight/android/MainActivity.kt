@@ -219,10 +219,18 @@ class MainActivity : Activity() {
      * [Arena.all()] order (OPEN/BLOCKS/RING/CROSS/MAZE). [arenaIdx] is the
      * selected arena (default 0 = OPEN); the picked layout feeds
      * [RunController.start] and is rendered by [ArenaView.arenaLayout].
+     * P2 rev. B: pack-tagged arenas (pro app) do NOT add picker rows — they
+     * are reached through the compact cycle chip in the section header
+     * (see [buildPackSelector]), so the picker's vertical cost stays exactly
+     * one row in both flavors.
      */
     private val arenaButtons = ArrayList<Button>()
     private var arenaIdx = 0
     private val arenaLayout: Layout get() = Arena.all()[arenaIdx]
+
+    /** Pack-arena cycle chip (pro only; empty in the free app). */
+    private val packArenas = ArrayList<Layout>()
+    private var packChip: Button? = null
 
     private val tickLoop = object : Runnable {
         override fun run() {
@@ -279,8 +287,8 @@ class MainActivity : Activity() {
         // compiles to — src/free provides a no-op, src/pro registers the Pro
         // arena packs. No BuildConfig branch needed in shared code.
         ProArenas.registerAll()
-        window.statusBarColor = C_BG
-        window.navigationBarColor = C_BG
+        window.statusBarColor = getColor(R.color.rf_chrome)
+        window.navigationBarColor = getColor(R.color.rf_chrome)
         setContentView(buildLayout())
 
         store = BotFiles(this)
@@ -757,7 +765,7 @@ class MainActivity : Activity() {
     }
 
     private fun printBoot() {
-        printLine("OPCODE ARENA OS 0.6  // RF-8 COMBAT SYSTEM")
+        printLine(getString(R.string.rf_boot_line))
         printLine("MEM 64K  GRID 20x20  LINK READY")
         printLine("TYPE HELP FOR AVAILABLE COMMANDS")
         printLine("")
@@ -1125,7 +1133,7 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(dp(36), dp(36)).apply {
             marginEnd = dp(8)
         })
-        masthead.addView(terminalText(14f, C_BRIGHT).apply {
+        masthead.addView(terminalText(14f, getColor(R.color.rf_title)).apply {
             text = "OPCODE ARENA"
             typeface = pixelTypeface
         })
@@ -1134,7 +1142,7 @@ class MainActivity : Activity() {
             marginEnd = dp(8)
         })
         masthead.addView(terminalText(10f, C_DIM).apply {
-            text = "RF-8 / ONLINE"
+            text = getString(R.string.rf_masthead_link)
             gravity = Gravity.END
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(masthead)
@@ -1320,10 +1328,18 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(8), 0, dp(8), dp(8))
         }
-        run.addView(terminalText(11f, C_DIM).apply {
-            text = "ARENA / LIVE EXECUTION"
+        val arenaAll = Arena.all()
+        packArenas.clear()
+        packArenas.addAll(arenaAll.filter { it.pack != null })
+
+        val sectionHead = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
             setPadding(dp(4), 0, dp(4), dp(6))
-        })
+        }
+        sectionHead.addView(terminalText(11f, C_DIM).apply { text = "ARENA / LIVE EXECUTION" },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        sectionHead.addView(buildPackSelector())
+        run.addView(sectionHead)
         run.addView(buildArenaPickerRow())
 
         val arenaFrame = FrameLayout(this).apply {
@@ -1355,7 +1371,7 @@ class MainActivity : Activity() {
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f).apply {
                     topMargin = dp(top)
                 }
-            console.addView(terminalText(11f, C_DIM).apply { text = "COMBATANTS" })
+            console.addView(terminalText(11f, C_DIM).apply { text = getString(R.string.rf_combatants_label) })
             console.addView(btnA, consoleItem(5))
             console.addView(statA, LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, dp(58)
@@ -1426,18 +1442,68 @@ class MainActivity : Activity() {
     }
 
     /**
-     * The arena picker row: one terminal-style button per free arena
-     * (OPEN/BLOCKS/RING/CROSS/MAZE) in [Arena.all()] order, sharing the row
-     * width the way the A/B bot picker does. Tapping a button selects that
-     * arena; the picked layout then feeds [RunController.start] and
+     * The arena picker: one terminal-style button per UNTAGGED (core) arena in
+     * [Arena.all()] order, sharing the row width the way the A/B bot picker
+     * does. P2 rev. B: pack-tagged arenas (the pro app's ARENA PACK 1) are not
+     * listed here — they live on the cycle chip in the section header
+     * ([buildPackSelector]), so the picker occupies exactly one row in both
+     * flavors and the arena grid keeps the free version's size. Family entries
+     * (GEN-MAZE, GEN-ISLES) preview their seed-0 geometry until a challenge
+     * with that arena is loaded (see [syncArenaToChallenge]). Tapping a button
+     * selects that arena; the picked layout feeds [RunController.start] and
      * [ArenaView.arenaLayout].
      */
     private fun buildArenaPickerRow(): LinearLayout {
+        val core = Arena.all().filter { it.pack == null }
+        return pickerRow(core, 0)
+    }
+
+    /**
+     * The pack cycle chip shown in the RUN header (pro only; invisible in the
+     * free app where [packArenas] is empty). One tap cycles the next ARENA
+     * PACK arena and the chip names it, so the 6 pack arenas cost no picker
+     * rows at all. While a challenge is loaded its layout is fixed — a tap
+     * then just re-asserts the challenge arena instead of cycling.
+     */
+    private fun buildPackSelector(): View {
+        if (packArenas.isEmpty()) return View(this)
+        val chip = terminalButton("").apply {
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            setOnClickListener {
+                val ch = currentChallenge
+                if (ch != null) { syncArenaToChallenge(ch); return@setOnClickListener }
+                val cur = packArenas.indexOfFirst { it.id == Arena.all()[arenaIdx].id }
+                arenaIdx = Arena.all().indexOf(packArenas[(cur + 1) % packArenas.size])
+                updateArenaBtns()
+            }
+        }
+        packChip = chip
+        return chip
+    }
+
+    /**
+     * Keep the pack chip in sync with [arenaIdx], styled like the arena
+     * buttons: filled green when a pack arena is selected, dark otherwise.
+     * Text names the pack arena or just the pack.
+     */
+    private fun updatePackChip() {
+        val chip = packChip ?: return
+        val cur = Arena.all()[arenaIdx]
+        val pos = packArenas.indexOfFirst { it.id == cur.id }
+        chip.text = if (pos >= 0) "${packArenas[pos].pack}: ${packArenas[pos].name} >"
+        else "ARENA PACK 1 >"
+        chip.setTextColor(if (pos >= 0) C_BLACK else C_BRIGHT)
+        chip.background = panelBackground(if (pos >= 0) C_GREEN else C_BLACK, C_GREEN_DARK)
+    }
+
+    /** One weighted button row for [layouts], which start at registry index [base]. */
+    private fun pickerRow(layouts: List<Layout>, base: Int): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, dp(7), 0, 0)
         }
-        Arena.all().forEachIndexed { i, l ->
+        layouts.forEachIndexed { n, l ->
+            val i = base + n
             val b = terminalButton(l.name)
             arenaButtons.add(b)
             b.setOnClickListener {
@@ -1447,7 +1513,7 @@ class MainActivity : Activity() {
                 if (ch != null) { syncArenaToChallenge(ch); return@setOnClickListener }
                 arenaIdx = i; updateArenaBtns()
             }
-            row.addView(b, weightedButton(if (i == 0) 0 else dp(5)))
+            row.addView(b, weightedButton(if (n == 0) 0 else dp(5)))
         }
         return row
     }
@@ -1459,6 +1525,7 @@ class MainActivity : Activity() {
             b.background = panelBackground(if (i == arenaIdx) C_GREEN else C_BLACK, C_GREEN_DARK)
         }
         if (::arena.isInitialized) arena.arenaLayout = Arena.all()[arenaIdx]
+        updatePackChip()
     }
 
     /**
@@ -1468,11 +1535,16 @@ class MainActivity : Activity() {
      * showing the last-picked arena while the bots fight on a different one.
      */
     private fun syncArenaToChallenge(desc: ChallengeFormat.FightDescriptor) {
-        val layout = Arena.byId(desc.layoutId) ?: return
-        val idx = Arena.all().indexOf(layout)
+        val entry = Arena.byId(desc.layoutId) ?: return
+        val idx = Arena.all().indexOf(entry)
         if (idx >= 0) {
             arenaIdx = idx
             updateArenaBtns()
+            // Seed-derived family arenas fight on f(id, seed) (CHALLENGE-CODES
+            // §7.4): show the layout the challenge actually plays, not the
+            // seed-0 registry preview. Fixed arenas return the same instance.
+            if (::arena.isInitialized)
+                arena.arenaLayout = Arena.playableLayout(desc.layoutId, desc.seed) ?: entry
         }
     }
 
@@ -2029,7 +2101,11 @@ class MainActivity : Activity() {
         warning: String?,
         lock: String?,
     ) {
-        val layout = Arena.byId(desc.layoutId)
+        val entry = Arena.byId(desc.layoutId)
+        // Preview the geometry the code actually fights on: seed-derived family
+        // arenas preview f(id, seed) (§7.4); fixed arenas and locked (null)
+        // previews behave exactly as before.
+        val layout = if (entry != null) Arena.playableLayout(desc.layoutId, desc.seed) ?: entry else null
         previewArena.arenaLayout = layout
         previewArena.previewSpawns = emptyList()
         previewArena.idleText = if (lock != null) "ARENA LOCKED" else "SYSTEM IDLE"

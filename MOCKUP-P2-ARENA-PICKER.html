@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg:#010703; --panel:#020d06; --gdark:#145c2a; --dim:#308243; --green:#34ec5b; --bright:#b4ffbe;
+  }
+  body { background:transparent; color:var(--green); font-family:'Cascadia Mono',ui-monospace,monospace; margin:0; }
+  .cols { display:flex; gap:18px; align-items:flex-start; padding:14px 10px 6px 10px; }
+  .col { width:300px; }
+  .title { color:var(--bright); font-size:13px; letter-spacing:1px; margin:0 0 2px 0; }
+  .why { color:var(--dim); font-size:11px; line-height:1.45; margin:0 0 10px 0; min-height:58px; }
+  .phone { border:1px solid var(--gdark); background:var(--bg); padding:8px; }
+  .screenhead { color:var(--dim); font-size:10px; letter-spacing:1px; border-bottom:1px solid var(--gdark); padding:2px 2px 6px 2px; }
+  .chip { display:inline-block; border:1px solid var(--gdark); color:var(--dim); font-size:10px; padding:7px 8px; margin:0 0 0 4px; }
+  .chip:first-child { margin-left:0; }
+  .chip.sel { border-color:var(--green); color:var(--bright); }
+  .chip.pack { border-style:dashed; border-color:var(--dim); color:var(--green); }
+  .row1 { margin:8px 0 4px 0; white-space:nowrap; overflow:hidden; }
+  .scrollhint { color:var(--dim); font-size:9px; text-align:right; padding:2px 2px 0 0; }
+  .packlabel { color:var(--green); font-size:9px; padding:6px 2px 0 2px; }
+  .grid { margin-top:8px; border:1px solid var(--green); background:var(--panel); position:relative; }
+  .grid .idle { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--green); font-size:12px; letter-spacing:2px; }
+  .gain { color:var(--bright); font-size:10px; padding:5px 4px 0 4px; }
+  .cost { color:var(--dim); font-size:10px; padding:5px 4px 0 4px; }
+  .btn { display:inline-block; border:1px solid var(--green); color:var(--bright); font-size:10px; padding:7px 9px; cursor:pointer; }
+  .btn.pick { background:var(--gdark); }
+  .cyc { color:var(--bright); font-size:10px; padding:7px 8px; border:1px solid var(--green); display:inline-block; }
+  .cmd { color:var(--bright); font-size:11px; padding:8px 2px 2px 2px; white-space:nowrap; }
+  .cmd .k { color:var(--green); }
+  .tag { color:var(--dim); font-size:9px; }
+  .meas { border-top:1px solid var(--gdark); margin-top:8px; padding-top:5px; color:var(--dim); font-size:10px; line-height:1.5; }
+  .footer { padding:4px 12px 12px 12px; color:var(--dim); font-size:10px; }
+</style>
+</head>
+<body>
+<div class="cols">
+
+  <div class="col">
+    <p class="title">A · ONE SCROLLABLE STRIP</p>
+    <p class="why">All 11 arenas in the SAME single row, horizontally scrollable (HorizontalScrollView, right-side clipping — matches existing terminal-list convention). Picker height = exactly the free version's one row. Packs appear as dashed chips after the core five.</p>
+    <div class="phone">
+      <div class="screenhead">ARENA / LIVE EXECUTION</div>
+      <div class="row1">
+        <span class="chip sel">OPEN</span><span class="chip">BLOCKS</span><span class="chip">RING</span><span class="chip">CROSS</span><span class="chip">MAZE</span><span class="chip pack">GEN-MAZE</span><span class="chip pack">GEN-ISL…</span>
+      </div>
+      <div class="scrollhint">▸ scroll // PACK 1 chips dashed ▸</div>
+      <div class="grid" style="height:240px"><div class="idle">SYSTEM IDLE</div></div>
+      <div class="gain">grid = free-version height (+22 dp vs today)</div>
+    </div>
+    <div class="meas">picker: 1 row (110dp)<br>tradeoff: pack arenas need a swipe to reach</div>
+    <p><span class="btn pick" data-hermes-send="Go with variant A — one scrollable arena strip">Build A</span></p>
+  </div>
+
+  <div class="col">
+    <p class="title">B · PACK AS A CYCLE CHIP</p>
+    <p class="why">Core five row stays byte-identical to the free app. The pack collapses into ONE small cycle button on the same row as the section header: each tap cycles ARENA PACK 1 arenas and shows its name inline. Total picker cost when a pack arena is picked: +1 short line only.</p>
+    <div class="phone">
+      <div class="screenhead">ARENA / LIVE EXECUTION <span style="float:right;color:var(--green)">ARENA PACK 1 <span class="cyc">‹ GEN-MAZE ›</span></span></div>
+      <div class="row1">
+        <span class="chip sel">OPEN</span><span class="chip">BLOCKS</span><span class="chip">RING</span><span class="chip">CROSS</span><span class="chip">MAZE</span>
+      </div>
+      <div class="grid" style="height:252px"><div class="idle">SYSTEM IDLE</div></div>
+      <div class="gain">grid = free-version height (+12 dp vs today)</div>
+    </div>
+    <div class="meas">picker: 1 row + 0-1 line (110-135dp)<br>tradeoff: pack contents discoverable only by cycling</div>
+    <p><span class="btn pick" data-hermes-send="Go with variant B — pack as a cycle chip in the header">Build B</span></p>
+  </div>
+
+  <div class="col">
+    <p class="title">C · ARENA COMMAND LINE</p>
+    <p class="why">Terminal-native: one command line <span style="color:var(--bright)">ARENA &lt; NAME &gt;</span; &lt; and &gt; walk the whole registry (core + packs) like the app already walks bots. Header shows the pack tag of the current entry. Cheapest on vertical space of all options.</p>
+    <div class="phone">
+      <div class="screenhead">ARENA / LIVE EXECUTION</div>
+      <div class="cmd"><span class="k">ARENA</span> &lt; <span style="color:var(--bright)">GEN-MAZE</span> &gt; <span class="tag">// ARENA PACK 1 // 1 of 11</span></div>
+      <div class="grid" style="height:264px"><div class="idle">SYSTEM IDLE</div></div>
+      <div class="gain">grid ≈ +34 dp vs today, ≈ free + chrome of one line</div>
+    </div>
+    <div class="meas">picker: 1 thin line (~30dp)<br>tradeoff: loses at-a-glance overview of the pack</div>
+    <p><span class="btn pick" data-hermes-send="Go with variant C — arena prev/next command line">Build C</span></p>
+  </div>
+
+</div>
+<div class="footer">Heights are schematic; the measured part is the picker cost in the .meas block. Today's pack block costs 2 rows + header ≈ 150dp of grid height.</div>
+</body>
+</html>

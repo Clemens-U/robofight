@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FREE flavor chrome (P2 styling split). Every value here is deliberately the
+  exact value the app hardcoded before the split, so the free app renders
+  pixel-identical to its 0.6-codes UI. The pro twin (src/pro/res/values/flavor.xml)
+  overrides these to give "Opcode Arena: The Circuit" its warmer amber look.
+-->
+<resources>
+    <!-- Same rgb as MainActivity.C_BG (status-bar chrome). -->
+    <color name="rf_chrome">#010703</color>
+    <!-- Same rgb as MainActivity.C_BRIGHT (masthead title phosphor). -->
+    <color name="rf_title">#B4FFBE</color>
+    <string name="rf_masthead_link">RF-8 / ONLINE</string>
+    <string name="rf_boot_line">OPCODE ARENA OS 0.6  // RF-8 COMBAT SYSTEM</string>
+    <!-- Pre-split label: free UI stays pixel-identical. -->
+    <string name="rf_combatants_label">COMBATANTS</string>
+</resources>

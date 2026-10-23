@@ -24,7 +24,11 @@ import kotlin.math.abs
  * Construction order is fixed and documented because the SCATTER spawn
  * consumes the world LCG (§7.6 — the code's seed is the ONLY entropy):
  *
- *   1. `World(layout)`            — arena cells built (deterministic)
+ *   1. `World(layout)`            — layout resolved via [robofight.world.Arena.playableLayout]:
+ *                                   fixed arenas = the registry instance unchanged;
+ *                                   seed-derived family entries (0x10–0x1F packs)
+ *                                   = f(id, seed), a pure function consuming NO
+ *                                   world LCG (deterministic, v1-format content)
  *   2. `world.setSeed(seed)`      — the code's seed
  *   3. `world.timeLimit = …`      — timed modes (§6), null for KO
  *   4. spawn resolution           — SEPARATE/CLASH fixed cells; SCATTER
@@ -59,7 +63,7 @@ object ChallengeRun {
      * path already rejects malformed codes; this is a caller invariant.
      */
     fun buildWorld(desc: FightDescriptor, openA: Bot?, openB: Bot?): World {
-        val layout = Arena.byId(desc.layoutId)
+        val layout = Arena.playableLayout(desc.layoutId, desc.seed)
             ?: throw IllegalArgumentException("unknown layout id 0x${desc.layoutId.toString(16)}")
         require((openA != null) == desc.slotAOpen) { "slot A open/pinned mismatch" }
         require((openB != null) == desc.slotBOpen) { "slot B open/pinned mismatch" }

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PRO flavor chrome (P2 styling split) — "Opcode Arena: The Circuit" looks
+  like the cooler, warmer terminal: amber masthead phosphor, dark amber
+  status-bar chrome, circuit link line and boot banner. Only the four chrome
+  touchpoints (status bar, masthead title color + link text, boot line) differ;
+  the whole terminal engine palette stays the shared green so fights read the
+  same in both apps. The free twin (src/free/res/values/flavor.xml) carries
+  the pre-split values — free UI stays untouched.
+-->
+<resources>
+    <!-- Dark amber-brown status-bar chrome (the pro twin of C_BG). -->
+    <color name="rf_chrome">#16100A</color>
+    <!-- Warm amber-white masthead phosphor. -->
+    <color name="rf_title">#FFD9A6</color>
+    <string name="rf_masthead_link">RF-8 // CIRCUIT</string>
+    <!-- No "COMBAT": the Circuit targets fight + collect + riddles, not a
+         battle-only framing. -->
+    <string name="rf_boot_line">OPCODE ARENA THE CIRCUIT  // RF-8 SYSTEM</string>
+    <string name="rf_combatants_label">BOTS</string>
+</resources>

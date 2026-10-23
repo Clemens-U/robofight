@@ -48,6 +48,18 @@ data class Layout(
     val horizEdge: BooleanArray,
     val separateA: Cell, val separateB: Cell,
     val clashA: Cell,    val clashB: Cell,
+    /**
+     * Seed-derived geometry generator (CHALLENGE-CODES §7.4/§13, PLAN-PRO §5.2).
+     * A registry entry with a non-null generator is a **family** entry: the
+     * instance living in the registry is its seed-0 preview geometry, and the
+     * layout actually played for a fight is [generator] applied to the fight
+     * seed — `geometry = f(id, seed)`, a pure function with no entropy beyond
+     * the code's seed. Fixed arenas (the whole free set) carry `null`: the
+     * registry instance IS the played layout, unchanged forever.
+     */
+    val generator: ((Int) -> Layout)? = null,
+    /** Display-only arena-pack grouping label (e.g. "ARENA PACK 1"); `null` = core arena. UI only, no semantics. */
+    val pack: String? = null,
 ) {
     /** True when the cell is an obstacle block. */
     fun isBlock(x: Int, y: Int): Boolean =
@@ -164,6 +176,19 @@ object Arena {
     fun all(): List<Layout> = registry.toList()
 
     fun byId(id: Int): Layout? = registry.firstOrNull { it.id == id }
+
+    /**
+     * The layout actually played for registry id [id] given the fight [seed]:
+     * fixed arenas return their registry instance unchanged (same object);
+     * seed-derived family entries return [Layout.generator] applied to the
+     * seed (CHALLENGE-CODES §7.4). The tier gate is [byId] — an unregistered
+     * id resolves to null here exactly as it parses locked (§9/§11.7).
+     */
+    fun playableLayout(id: Int, seed: Int): Layout? {
+        val entry = byId(id) ?: return null
+        val gen = entry.generator ?: return entry
+        return gen(seed)
+    }
 
     /**
      * Register a Pro-pack arena. Hard gate: the id MUST lie in the reserved

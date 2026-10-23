@@ -237,6 +237,25 @@ drawn as **its letter + a facing arrow**:
 
 Bots are colored per the table above. When a bot dies it disappears.
 
+### The arena picker (RUN tab)
+
+```
++--------------------------------------+
+| ARENA / LIVE EXECUTION  ARENA PACK 1 >|   <- pro app only: cycle chip
++--------------------------------------+
+| [ OPEN ][ BLOCKS ][ RING ][ CROSS ][MAZE]|
++--------------------------------------+
+```
+
+- Free app: the row above — one button per arena; the picked arena feeds the
+  fight and the live view.
+- **Opcode Arena: The Circuit** adds *Arena Pack 1*. Pack arenas do not add
+  extra picker rows (the arena keeps its full size): the header carries a
+  `ARENA PACK 1 >` button that cycles the pack arenas (GEN-MAZE, GEN-ISLES,
+  COLISEUM, PINWHEEL, TWIN WALLS, LABYRINTH) and names the active one
+  (`ARENA PACK 1: GEN-MAZE >`, highlighted while selected). Seed-derived
+  arenas preview the exact geometry the loaded challenge's seed generates.
+
 ---
 
 ## 7. How a fight works (combat rules)

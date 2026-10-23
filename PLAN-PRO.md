@@ -12,7 +12,7 @@
 | Area | Decision |
 |------|----------|
 | Free tier | **Frozen at the 0.6-codes feature set.** No new arenas, modes, or content ships to the free app. Maintenance continues: bug fixes, performance, editor/QoL, and shared engine mechanics. |
-| Paid tier | **A separate app with its own store entry** — store name **"Opcode Arena: The Circuit"** (locked 2026-10-23; internal flavor/codename stays `pro`). No in-app purchase, no Play Billing integration, no server, no accounts: the Play purchase *is* the license. |
+| Paid tier | **A separate app with its own store entry** — store name **"Opcode Arena: The Circuit"** (locked 2026-10-23; internal flavor/codename stays `pro`). No in-app purchase, no Play Billing integration, no server, no accounts: the Play purchase *is* the license. Positioning (owner direction, 2026-10-23): the paid version **slowly moves away from a battle-only focus and targets fight / collect / riddles content** — reflected in UI copy (no "COMBAT" wording in pro strings) and in the §7 saga direction. |
 | Lore | The story lives **only in the paid app and its listing**. Free app: lore-neutral (max one cross-sell line in the free *listing*, nothing in the free APK). The escape saga ("The Circuit" grows into it) is **post-P4** — see GAMEPLAY-IDEAS §7. |
 | Repo & branches | **Single repo, single `main` branch for both apps.** One source tree, two build variants, two store entries; each APK cut is tagged (e.g. `free-0.7`, `pro-1.0`). Branch-per-app is excluded — it *is* the update-drift risk §7 guards against. |
 | Price | **€1.99 launch price**, as a Play price step. Price follows content: step up (€3.99, then €4.99) when campaign/survival land. Buyers at any price keep all future updates (grandfathered), which doubles as the early-bird incentive. |
@@ -174,7 +174,7 @@ CHALLENGE-CODES §13 — nothing here forecloses them.
 |---|-----------|--------------|
 | **P0** | Spec amendment ✅ (2026-10-23) | CHALLENGE-CODES §9/§10 two-app gating revision + §13 seed-derived note — applied as **amendment A1** (§7.1/§7.4/§9/§10/§11/§13 + amendment log; v1 wire tables untouched). |
 | **P1** | Build split ✅ (2026-10-23) | One source → free + Pro APKs (`app-free-debug.apk` `robofight.android` / `app-pro-debug.apk` `robofight.android.pro`); tier gate = flavor source sets (`src/free` no-op vs `src/pro` `ProArenas`) + `Arena.registerPro` (0x10–0x1F hard range); gate proof `RegistryGateTest` in `:engine:test`; CI (`.github/workflows/ci.yml`) builds both variants + `TierParityTest` asserts `ENGINE_VERSION`/`PRO_BUILD` per flavor; `STORE-LISTINGS.md` stubs. |
-| **P2** | Arena Pack 1 | `GEN-MAZE`, `GEN-ISLES` generators + curated `0x12–0x15`; invariants + matrix in CI; Pro builder menu. |
+| **P2** | Arena Pack 1 ✅ (2026-10-23) | `GEN-MAZE`, `GEN-ISLES` generators + curated `COLISEUM`/`PINWHEEL`/`TWIN WALLS`/`LABYRINTH` (`0x12–0x15`); pack suite `ProArenaPackTest` 40/40 (invariants + seed diversity ≥971/1000) via `:app:testProDebugUnitTest` + CI; Pro picker = header cycle chip `ARENA PACK 1: <name> >` (variant B — no extra rows, seed-derived previews), on-device verified; free flavor unchanged. |
 | **P3** | Cross-app UX | Free app: PRO code preview screen (metadata + opponent source + placeholder arena + Play link); Pro app: first-run migration hint; `EXPORT` ZIP → Pro import verified. |
 | **P4** | Launch | Free **0.7** (maintenance) + **The Circuit 1.0 at €1.99** on both listings. Store copy hook: *"Five arenas free. A new arena every fight — in The Circuit."* |
 
