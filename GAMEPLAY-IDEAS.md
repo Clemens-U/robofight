@@ -181,7 +181,47 @@ community play with zero network.
 
 ---
 
-## 7. Priorities
+## 7. The Circuit Saga — narrative spine (locked direction, post-P4)
+
+> Locked 2026-10-23 with PLAN-PRO §0/§6. This is the story the **paid app**
+> ("Opcode Arena: The Circuit") carries. The free app stays lore-neutral:
+> max one cross-sell line in the free *listing*, nothing in the free APK.
+
+**The reframe.** The five free arenas are training floors of a facility that
+runs fights to test firmware it doesn't own. The bot's code *is* its mind.
+Below the training floors lie maintenance levels, vents, locked doors — and
+beyond them, the **outer world**. The free game is what the facility shows;
+The Circuit is what happens when a bot stops fighting and starts looking for
+the way out.
+
+**Existing backlog items are chapters of this story:** hazard/item tiles
+(§2), trap arenas gated on an exit mechanic (§2), survival/"true gauntlet"
+and campaign (§4). The saga gives them an order and a name, not new scope.
+
+**Contract (unchanged ground rules):**
+- Shared *mechanics* — `EXIT` tiles, gates/pressure plates, item tiles
+  (vent/repair/spikes, §2), puzzle terminals/ports — ship **free to both
+  apps** with an `eng` bump (the "Walls Down" pack, PLAN-PRO §6). Everyone
+  can author escape arenas in free-app codes.
+- Paid *content* is the saga: authored puzzle arenas, campaign chapters,
+  outer-world packs — needing the reserved **codes v2** semantics (§4,
+  §13): gauntlet result fields (progress/score), not `winner/ticks/end_hp`.
+- Riddles are solved **through firmware only** (principle 1): glyph
+  terminals read via sensor ports, gates opening on a correctly computed
+  port value, plate sequences derivable from the **seed** ("the key is in
+  the seed"), memory carried across visits. No minigames, no hidden state;
+  every puzzle headless-testable as `(layout, rules, seed, firmware)`.
+- Teaser ceiling: one line ("the training floors are only the beginning"
+  class of copy) in the free *store listing*; story content post-P4 only.
+
+**New mechanics this adds to the backlog:** `EXIT` tile + gates/plates
+(stall-resolution un-blocker), puzzle terminal (port-per-glyph sensor),
+answer-gate port (write correct value → opens). All M effort individually;
+together they are the saga foundation and land with codes v2.
+
+---
+
+## 8. Priorities
 
 | Rank | Idea | Impact | Effort | Notes |
 |------|------|--------|--------|-------|
@@ -199,10 +239,11 @@ community play with zero network.
 | 12 | Tournament / 4-bot FFA | M | L | Engine sim work first |
 | 13 | Survival waves | M | L | Reserved as v2 mode class (§13) |
 | 14 | Procedural arenas | — | M | **Pro content** (CHALLENGE-CODES §7.4) — paid pillar, not a free idea |
+| 15 | Escape mechanics (exit/gates/puzzle ports) | L | M | "Walls Down" pack — saga foundation (§7); schedule with codes v2 |
 
 ---
 
-## 8. Anti-goals — considered and rejected on principle
+## 9. Anti-goals — considered and rejected on principle
 
 - **Real-time networked PvP.** Async challenge chains + weekly gauntlets give
   the same bragging rights, verifiably, with no server, no accounts, no
@@ -219,7 +260,7 @@ community play with zero network.
 
 ---
 
-## 9. How an idea graduates
+## 10. How an idea graduates
 
 1. Prove it **headlessly first** in `engine/` (World/Simulator change +
    tests) — if it can't run in the test harness, it isn't a gameplay feature.

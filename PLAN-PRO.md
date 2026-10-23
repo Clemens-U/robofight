@@ -12,7 +12,8 @@
 | Area | Decision |
 |------|----------|
 | Free tier | **Frozen at the 0.6-codes feature set.** No new arenas, modes, or content ships to the free app. Maintenance continues: bug fixes, performance, editor/QoL, and shared engine mechanics. |
-| Paid tier | **A separate app with its own store entry** — "Opcode Arena PRO" (working name). No in-app purchase, no Play Billing integration, no server, no accounts: the Play purchase *is* the license. |
+| Paid tier | **A separate app with its own store entry** — store name **"Opcode Arena: The Circuit"** (locked 2026-10-23; internal flavor/codename stays `pro`). No in-app purchase, no Play Billing integration, no server, no accounts: the Play purchase *is* the license. |
+| Lore | The story lives **only in the paid app and its listing**. Free app: lore-neutral (max one cross-sell line in the free *listing*, nothing in the free APK). The escape saga ("The Circuit" grows into it) is **post-P4** — see GAMEPLAY-IDEAS §7. |
 | Repo & branches | **Single repo, single `main` branch for both apps.** One source tree, two build variants, two store entries; each APK cut is tagged (e.g. `free-0.7`, `pro-1.0`). Branch-per-app is excluded — it *is* the update-drift risk §7 guards against. |
 | Price | **€1.99 launch price**, as a Play price step. Price follows content: step up (€3.99, then €4.99) when campaign/survival land. Buyers at any price keep all future updates (grandfathered), which doubles as the early-bird incentive. |
 | Mechanics | **Shared in both apps.** One engine, one ISA, one physics, one `eng` version. Codes interoperate between the apps. The paid app differentiates **only** through content and modes. |
@@ -49,8 +50,9 @@ project and the same offline `build-android.sh` recipe (two APK outputs).
 
 ### 1.2 Store & cross-sell
 
-- Listings: **Opcode Arena** (free) → **Opcode Arena PRO** (€1.99).
-  Distinct names, distinct icons (PRO badge), shared screenshots lineage.
+- Listings: **Opcode Arena** (free) → **Opcode Arena: The Circuit** (€1.99).
+  Distinct names, distinct icons (Circuit sigil vs plain opcode mark), shared
+  screenshots lineage. `Opcode Arena PRO` remains the internal codename.
 - Cross-sell in the free app is *tasteful and non-modal*: one permanent
   discreet entry (e.g. a `PRO` line on the CODES screen footer) plus a
   context link when a Pro-layout code is previewed (§4.3). No ads, no nag
@@ -174,12 +176,15 @@ CHALLENGE-CODES §13 — nothing here forecloses them.
 | **P1** | Build split ✅ (2026-10-23) | One source → free + Pro APKs (`app-free-debug.apk` `robofight.android` / `app-pro-debug.apk` `robofight.android.pro`); tier gate = flavor source sets (`src/free` no-op vs `src/pro` `ProArenas`) + `Arena.registerPro` (0x10–0x1F hard range); gate proof `RegistryGateTest` in `:engine:test`; CI (`.github/workflows/ci.yml`) builds both variants + `TierParityTest` asserts `ENGINE_VERSION`/`PRO_BUILD` per flavor; `STORE-LISTINGS.md` stubs. |
 | **P2** | Arena Pack 1 | `GEN-MAZE`, `GEN-ISLES` generators + curated `0x12–0x15`; invariants + matrix in CI; Pro builder menu. |
 | **P3** | Cross-app UX | Free app: PRO code preview screen (metadata + opponent source + placeholder arena + Play link); Pro app: first-run migration hint; `EXPORT` ZIP → Pro import verified. |
-| **P4** | Launch | Free **0.7** (maintenance) + **PRO 1.0 at €1.99** on both listings. Store copy hook: *"Five arenas free. A new arena every fight — PRO."* |
+| **P4** | Launch | Free **0.7** (maintenance) + **The Circuit 1.0 at €1.99** on both listings. Store copy hook: *"Five arenas free. A new arena every fight — in The Circuit."* |
 
-Post-launch roadmap (order, not scope-locked): hazards → trap arenas (needs
-the stall-resolution mechanic) → tournament mode (no format change) →
-challenge-codes **v2** (custom round lengths, slot scheme, layout params) →
-campaign + survival waves → price step €3.99 → €4.99.
+Post-launch roadmap (order, not scope-locked): the shared **"Walls Down"
+mechanics pack** (THREAT sensor + exit/gate/item/hazard tiles — free to both
+apps, `eng` bump) → challenge-codes **v2** (gauntlet/score semantics, custom
+round lengths, slot scheme, layout params) → tournament mode → trap arenas →
+the paid **saga chapters** (the escape story under The Circuit — see
+GAMEPLAY-IDEAS §7; campaign + survival waves land as its chapters) → price
+step €3.99 → €4.99. Nothing in this roadmap touches P2–P4 scope.
 
 ---
 

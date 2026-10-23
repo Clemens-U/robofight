@@ -1,4 +1,4 @@
-# Store Listings — Opcode Arena (free) / Opcode Arena PRO
+# Store Listings — Opcode Arena (free) / Opcode Arena: The Circuit (paid)
 
 Play Console listing stubs per PLAN-PRO §1.2 / §7. Two distinct listings from
 one codebase (product flavors `free` / `pro`; same HEAD, tags `free-0.7`,
@@ -29,7 +29,8 @@ Program bots in an 8-bit firmware language and fight them in a 20×20 arena.
 - 5 preset bots (HUNTER, TURTLE, …) plus your own
 - No ads. No accounts. No tracking.
 
-A new arena every fight — in Opcode Arena PRO.
+The five arenas are the training floors — just the beginning.
+A new arena every fight in Opcode Arena: The Circuit.
 ```
 
 ### Category / content rating
@@ -38,11 +39,11 @@ A new arena every fight — in Opcode Arena PRO.
 
 ---
 
-## 2. Opcode Arena PRO
+## 2. Opcode Arena: The Circuit (paid; internal codename `pro`)
 
 - **Package:** `robofight.android.pro` (flavor `pro`; `applicationIdSuffix .pro`,
   versionName suffix `-pro`)
-- **App name:** `Opcode Arena PRO`
+- **App name:** `Opcode Arena: The Circuit` (25 chars ≤ 30 cap)
 - **Release tag / version:** `pro-1.0`
 
 ### Short description (≤ 80 chars)
@@ -50,10 +51,14 @@ A new arena every fight — in Opcode Arena PRO.
 
 ### Full description (skeleton)
 ```
-Everything in Opcode Arena, plus the arenas.
+Five arenas train you. The Circuit is where training begins for real.
+
+Every challenge code carries a seed, and a seed builds a hall: Circuit
+fights run in arenas generated for the fight — no two matches share a grid.
+And the Circuit goes deeper than arenas. More is coming below them.
 
 The complete game: firmware editor, deterministic fights, challenge codes.
-Plus PRO Arena Packs:
+Plus Circuit Arena Packs:
 
 - Arena Pack 1: two procedural, seed-derived arena families (GEN-MAZE,
   GEN-ISLES — every code's seed generates the map) and four curated
@@ -63,7 +68,7 @@ Plus PRO Arena Packs:
 
 €1.99 one-time. No ads. No subscriptions. No in-app purchases. No accounts.
 
-Five arenas free. A new arena every fight — PRO.
+Five arenas free. A new arena every fight — in The Circuit.
 ```
 
 ### Pricing
