@@ -275,6 +275,10 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Two-app gate (A1): the flavor source set decides what this call
+        // compiles to — src/free provides a no-op, src/pro registers the Pro
+        // arena packs. No BuildConfig branch needed in shared code.
+        ProArenas.registerAll()
         window.statusBarColor = C_BG
         window.navigationBarColor = C_BG
         setContentView(buildLayout())

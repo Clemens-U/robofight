@@ -19,13 +19,21 @@ android {
         versionName = "0.6-codes"
     }
 
+    // CI-safe signing: the release keystore files exist only on the local
+    // signing machine (git-ignored). Without them the release buildType
+    // falls back to AGP's default signing instead of crashing at
+    // configuration time. Local behavior with the keystore present is
+    // unchanged.
+    val releaseKeystore = rootProject.file("robofight.keystore")
     signingConfigs {
-        create("release") {
-            val keystorePasswordFile = rootProject.file("keystore.pass")
-            storeFile = rootProject.file("robofight.keystore")
-            storePassword = keystorePasswordFile.readText().trim()
-            keyAlias = "robofight"
-            keyPassword = storePassword
+        if (releaseKeystore.exists()) {
+            create("release") {
+                val keystorePasswordFile = rootProject.file("keystore.pass")
+                storeFile = releaseKeystore
+                storePassword = keystorePasswordFile.readText().trim()
+                keyAlias = "robofight"
+                keyPassword = storePassword
+            }
         }
     }
 
@@ -33,8 +41,40 @@ android {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            signingConfig = signingConfigs.getByName("release")
+            if (releaseKeystore.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
+    }
+
+    // P1 build split (PLAN-PRO §6): one source tree -> free + Pro APKs.
+    // The compile-time tier gate is the flavor source sets: src/pro/kotlin
+    // (real ProArenas + Pro packs) is compiled ONLY into the pro variants;
+    // src/free/kotlin provides the no-op twin, so shared code needs no
+    // BuildConfig branch. PRO_BUILD stays available for diagnostics/UI.
+    buildFeatures {
+        buildConfig = true
+    }
+
+    flavorDimensions += "tier"
+    productFlavors {
+        create("free") {
+            dimension = "tier"
+            // applicationId stays robofight.android (unchanged listing).
+            manifestPlaceholders["appLabel"] = "Opcode Arena"
+            buildConfigField("boolean", "PRO_BUILD", "false")
+        }
+        create("pro") {
+            dimension = "tier"
+            applicationIdSuffix = ".pro"
+            versionNameSuffix = "-pro"
+            manifestPlaceholders["appLabel"] = "Opcode Arena PRO"
+            buildConfigField("boolean", "PRO_BUILD", "true")
+        }
+    }
+
+    testOptions {
+        unitTests.all { it.useJUnitPlatform() }
     }
 
     // Built-in Kotlin (AGP 9): configure the Kotlin compiler via the kotlin
@@ -50,4 +90,6 @@ kotlin {
 
 dependencies {
     implementation(project(":engine"))
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }

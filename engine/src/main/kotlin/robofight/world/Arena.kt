@@ -152,9 +152,35 @@ object Arena {
     val CROSS = cross()
     val MAZE = maze()
 
-    fun all(): List<Layout> = listOf(OPEN, BLOCKS, RING, CROSS, MAZE)
+    /**
+     * Live registry: the five free layouts plus anything added via
+     * [registerPro]. The registry is the ONLY tier gate (CHALLENGE-CODES.md
+     * A1): presence here = playable; a registered-pro id that is *absent*
+     * (0x10–0x1F) parses as importable-but-locked. The free app never
+     * registers anything; the Pro app registers its packs at startup.
+     */
+    private val registry = ArrayList<Layout>().apply { addAll(listOf(OPEN, BLOCKS, RING, CROSS, MAZE)) }
 
-    fun byId(id: Int): Layout? = all().firstOrNull { it.id == id }
+    fun all(): List<Layout> = registry.toList()
+
+    fun byId(id: Int): Layout? = registry.firstOrNull { it.id == id }
+
+    /**
+     * Register a Pro-pack arena. Hard gate: the id MUST lie in the reserved
+     * Pro range 0x10–0x1F (§7.1); duplicates (including collisions with the
+     * free ids) are rejected. No tier field — being in the registry IS the
+     * tier gate, so [ChallengeFormat], [robofight.challenge.ChallengeRun]
+     * and the app work unchanged on registered layouts.
+     */
+    fun registerPro(layout: Layout) {
+        require(layout.id in 0x10..0x1F) {
+            "pro arena id must be in 0x10..0x1F, got 0x${layout.id.toString(16)}"
+        }
+        require(byId(layout.id) == null) {
+            "duplicate arena id 0x${layout.id.toString(16)} ('${layout.name}')"
+        }
+        registry.add(layout)
+    }
 
     // ---- 0x00 OPEN — no terrain ------------------------------------------
     private fun open(): Layout = Layout(

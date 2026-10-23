@@ -171,7 +171,7 @@ CHALLENGE-CODES §13 — nothing here forecloses them.
 | # | Milestone | Deliverables |
 |---|-----------|--------------|
 | **P0** | Spec amendment ✅ (2026-10-23) | CHALLENGE-CODES §9/§10 two-app gating revision + §13 seed-derived note — applied as **amendment A1** (§7.1/§7.4/§9/§10/§11/§13 + amendment log; v1 wire tables untouched). |
-| **P1** | Build split | One source → free + Pro APKs; `PRO_BUILD` gate on the arena registry; CI: both variants build, engine tests green, `ENGINE_VERSION` equal across variants; store metadata + PRO listing stub. |
+| **P1** | Build split ✅ (2026-10-23) | One source → free + Pro APKs (`app-free-debug.apk` `robofight.android` / `app-pro-debug.apk` `robofight.android.pro`); tier gate = flavor source sets (`src/free` no-op vs `src/pro` `ProArenas`) + `Arena.registerPro` (0x10–0x1F hard range); gate proof `RegistryGateTest` in `:engine:test`; CI (`.github/workflows/ci.yml`) builds both variants + `TierParityTest` asserts `ENGINE_VERSION`/`PRO_BUILD` per flavor; `STORE-LISTINGS.md` stubs. |
 | **P2** | Arena Pack 1 | `GEN-MAZE`, `GEN-ISLES` generators + curated `0x12–0x15`; invariants + matrix in CI; Pro builder menu. |
 | **P3** | Cross-app UX | Free app: PRO code preview screen (metadata + opponent source + placeholder arena + Play link); Pro app: first-run migration hint; `EXPORT` ZIP → Pro import verified. |
 | **P4** | Launch | Free **0.7** (maintenance) + **PRO 1.0 at €1.99** on both listings. Store copy hook: *"Five arenas free. A new arena every fight — PRO."* |
