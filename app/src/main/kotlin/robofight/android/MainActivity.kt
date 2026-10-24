@@ -2223,9 +2223,10 @@ class MainActivity : Activity() {
 
         codeResult = terminalText(8f, C_CODE).apply { visibility = View.GONE }
         codePreviewCard.addView(codeResult, cardLineParams())
-        // Circuit strings on screen are AMBER in the free app (user rule
-        // 2026-10-24): the lock warning and the whole cross-sell row.
-        codeWarning = terminalText(8f, C_WARN).apply { visibility = View.GONE }
+        // Circuit strings on screen (user rules 2026-10-24): the paid product
+        // is always THE CIRCUIT and only the words "THE CIRCUIT" render AMBER
+        // via circuitText(); the surrounding copy stays the normal green.
+        codeWarning = terminalText(8f, C_GREEN).apply { visibility = View.GONE }
         codePreviewCard.addView(codeWarning, cardLineParams())
 
         // Rev C: the picker label sits INLINE in the picker row (baseline had
@@ -2273,15 +2274,17 @@ class MainActivity : Activity() {
         // locked in this app (lock != null). One dim copy line + the link
         // button; positioning is arenas/riddles/firmware, never combat.
         // Rev C: 34 dp button so the row always stays above the fold.
-        // Circuit copy is amber (C_WARN) — see codeWarning above.
-        codeCircuitNote = terminalText(8f, C_WARN).apply {
-            text = "MORE ARENAS, RIDDLES AND FIRMWARE TO COLLECT IN OPCODE ARENA: THE CIRCUIT."
+        // Only "THE CIRCUIT" is amber (circuitText); the rest stays green.
+        codeCircuitNote = terminalText(8f, C_GREEN).apply {
+            text = circuitText(
+                "MORE ARENAS, RIDDLES AND FIRMWARE TO COLLECT IN THE CIRCUIT."
+            )
             visibility = View.GONE
         }
         codeBtnCircuit = terminalButton("PLAY IN THE CIRCUIT >").apply {
             visibility = View.GONE
-            setTextColor(C_WARN)
         }
+        codeBtnCircuit.text = circuitText("PLAY IN THE CIRCUIT >")
         codeBtnCircuit.setOnClickListener { openProListing() }
         codePreviewCard.addView(codeCircuitNote, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
@@ -2523,7 +2526,7 @@ class MainActivity : Activity() {
         val notices = listOfNotNull(lock, warning)
         if (notices.isNotEmpty()) {
             codeWarning.visibility = View.VISIBLE
-            codeWarning.text = notices.joinToString("\n")
+            codeWarning.text = circuitText(notices.joinToString("\n"))
         } else {
             codeWarning.visibility = View.GONE
         }
@@ -2535,8 +2538,9 @@ class MainActivity : Activity() {
         // unlocked preview, so free↔free flows keep their exact old card.
         // Rev C: short copy for the locked card (keeps the row single-line).
         if (lock != null)
-            codeCircuitNote.text =
+            codeCircuitNote.text = circuitText(
                 "MORE ARENAS, RIDDLES AND FIRMWARE TO COLLECT IN THE CIRCUIT."
+            )
         codeCircuitNote.visibility = if (lock != null) View.VISIBLE else View.GONE
         codeBtnCircuit.visibility = if (lock != null) View.VISIBLE else View.GONE
 
@@ -3054,6 +3058,25 @@ class MainActivity : Activity() {
     private fun cardLineParams() = LinearLayout.LayoutParams(
         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
     ).apply { topMargin = dp(6) }
+
+    /**
+     * Circuit copy (user rule 2026-10-24): only the brand word CIRCUIT (e.g.
+     * "THE CIRCUIT") is amber; the surrounding copy keeps the view's own
+     * green. Returns the plain String when the word doesn't appear.
+     */
+    private fun circuitText(s: String): CharSequence {
+        if (!s.contains("CIRCUIT")) return s
+        val out = SpannableStringBuilder(s)
+        var i = s.indexOf("CIRCUIT")
+        while (i >= 0) {
+            out.setSpan(
+                ForegroundColorSpan(C_WARN), i, i + "CIRCUIT".length,
+                SpannableStringBuilder.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+            i = s.indexOf("CIRCUIT", i + 1)
+        }
+        return out
+    }
 
     private fun matchFrame() = FrameLayout.LayoutParams(
         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT

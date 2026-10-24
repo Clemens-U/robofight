@@ -357,9 +357,37 @@ class ArenaView @JvmOverloads constructor(
                     }
                 }
             } else {
-                glyphPaint.color = Color.parseColor("#34ec5b")
                 glyphPaint.textSize = cellSize * 0.75f
-                canvas.drawText(idleText, w / 2f, h / 2f, glyphPaint)
+                if (idleText.contains("CIRCUIT")) {
+                    // Circuit brand rule (2026-10-24): only the word CIRCUIT
+                    // is amber; the surrounding copy stays phosphor green.
+                    val idleGreen = Color.parseColor("#34ec5b")
+                    val idleAmber = Color.parseColor("#f8d878")
+                    val align = glyphPaint.textAlign
+                    glyphPaint.textAlign = Paint.Align.LEFT
+                    val parts = Regex("(CIRCUIT)").split(idleText)
+                    val seps = Regex("(CIRCUIT)").find(idleText)
+                    var total = 0f
+                    for (p in parts) total += glyphPaint.measureText(p)
+                    val sepsW = seps?.let { glyphPaint.measureText(it.value) } ?: 0f
+                    total += sepsW * (parts.size - 1)
+                    var x = w / 2f - total / 2f
+                    val baseline = h / 2f + glyphPaint.textSize * 0.35f
+                    parts.forEachIndexed { i, p ->
+                        glyphPaint.color = idleGreen
+                        canvas.drawText(p, x, baseline, glyphPaint)
+                        x += glyphPaint.measureText(p)
+                        if (i < parts.size - 1) {
+                            glyphPaint.color = idleAmber
+                            canvas.drawText("CIRCUIT", x, baseline, glyphPaint)
+                            x += sepsW
+                        }
+                    }
+                    glyphPaint.textAlign = align
+                } else {
+                    glyphPaint.color = Color.parseColor("#34ec5b")
+                    canvas.drawText(idleText, w / 2f, h / 2f, glyphPaint)
+                }
             }
             canvas.drawRect(1.5f, 1.5f, w - 1.5f, h - 1.5f, borderPaint)
             drawFx(canvas, w, h)
