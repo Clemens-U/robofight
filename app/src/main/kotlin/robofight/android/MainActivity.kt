@@ -2169,7 +2169,7 @@ class MainActivity : Activity() {
         val arenaRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val arenaFrame = FrameLayout(this).apply {
             background = panelBackground(C_BLACK, C_BORDER)
-            setPadding(dp(5), dp(5), dp(5), dp(5))
+            setPadding(dp(7), dp(7), dp(7), dp(7))
         }
         previewArena = ArenaView(this)
         arenaFrame.addView(previewArena, FrameLayout.LayoutParams(
@@ -2178,17 +2178,11 @@ class MainActivity : Activity() {
         arenaRow.addView(arenaFrame, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.2f))
 
         codeMode = terminalText(11f, C_BRIGHT).apply { gravity = Gravity.CENTER }
-        codePreviewCard.addView(codeMode, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(4) })
+        codePreviewCard.addView(codeMode, cardLineParams())
         codeRules = terminalText(8f, C_GREEN)
-        codePreviewCard.addView(codeRules, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(4) })
+        codePreviewCard.addView(codeRules, cardLineParams())
         codeOpponent = terminalText(8f, C_DIM)
-        codePreviewCard.addView(codeOpponent, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(4) })
+        codePreviewCard.addView(codeOpponent, cardLineParams())
 
         // P3: pinned opponent firmware as a DISASSEMBLED LISTING — shown only
         // for PRO-locked codes (the Circuit ships its opponents' listings as a
@@ -2224,15 +2218,15 @@ class MainActivity : Activity() {
         // of empty frame; unlocked = weight 1f, the arena uses all slack.
         codeArenaRowParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(4) }
+        ).apply { topMargin = dp(6) }
         codePreviewCard.addView(arenaRow, codeArenaRowParams)
 
         codeResult = terminalText(8f, C_CODE).apply { visibility = View.GONE }
-        codePreviewCard.addView(codeResult)
+        codePreviewCard.addView(codeResult, cardLineParams())
         // Circuit strings on screen are AMBER in the free app (user rule
         // 2026-10-24): the lock warning and the whole cross-sell row.
         codeWarning = terminalText(8f, C_WARN).apply { visibility = View.GONE }
-        codePreviewCard.addView(codeWarning)
+        codePreviewCard.addView(codeWarning, cardLineParams())
 
         // Rev C: the picker label sits INLINE in the picker row (baseline had
         // it as its own line); picker buttons are compact 34 dp.
@@ -2242,7 +2236,7 @@ class MainActivity : Activity() {
         codePickRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(3), 0, 0)
+            setPadding(0, dp(7), 0, dp(7))
         }
         // NOTE: the label is inserted by the picker rebuild (the function
         // that does codePickRow.removeAllViews()) — adding it here would
@@ -2251,11 +2245,11 @@ class MainActivity : Activity() {
 
         // R3: local fight history for this code (app feature, outside the format).
         codeHistory = terminalText(8f, C_DIM).apply { visibility = View.GONE }
-        codePreviewCard.addView(codeHistory)
+        codePreviewCard.addView(codeHistory, cardLineParams())
 
         val actionRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(0, dp(4), 0, 0)
+            setPadding(0, dp(5), 0, 0)
         }
         codeBtnRun = terminalButton("RUN", strong = true)
         codeBtnShare = terminalButton("SHARE")
@@ -2291,10 +2285,10 @@ class MainActivity : Activity() {
         codeBtnCircuit.setOnClickListener { openProListing() }
         codePreviewCard.addView(codeCircuitNote, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(4) })
+        ).apply { topMargin = dp(6) })
         codePreviewCard.addView(codeBtnCircuit, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, dp(34)
-        ).apply { topMargin = dp(4) })
+        ).apply { topMargin = dp(6) })
 
         screen.addView(codePreviewCard, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
@@ -2509,11 +2503,12 @@ class MainActivity : Activity() {
             else hidden.joinToString("    ")
         buildCodeFwListing(desc, lock)
 
-        // Rev C row policy: locked card = fixed row exactly hosting the
-        // listing (160 dp = 8 listing lines + padding — no weight, or the
-        // row absorbs all the card's slack as 350 dp of empty frame);
-        // unlocked card = the arena keeps all the slack via weight 1f.
-        codeArenaRowParams.height = if (codeFwFull.isNotEmpty()) dp(160) else 0
+        // Rev C row policy: locked card = fixed row hosting the listing;
+        // Rev D raised it 160 -> 178 dp (listing content ~170 dp) so the
+        // arena placeholder breathes instead of hugging the frame border.
+        // No weight, or the row absorbs all the card's slack as 350 dp of
+        // empty frame; unlocked card = the arena keeps all slack via weight 1f.
+        codeArenaRowParams.height = if (codeFwFull.isNotEmpty()) dp(178) else 0
         codeArenaRowParams.weight = if (codeFwFull.isNotEmpty()) 0f else 1f
 
         val res = desc.result
@@ -3054,6 +3049,11 @@ class MainActivity : Activity() {
     private fun pickLabelParams() = LinearLayout.LayoutParams(
         ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
     ).apply { rightMargin = dp(6) }
+
+    /** Rev D: card paragraph lines get a 6 dp top gap (was 0 for some lines). */
+    private fun cardLineParams() = LinearLayout.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+    ).apply { topMargin = dp(6) }
 
     private fun matchFrame() = FrameLayout.LayoutParams(
         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
