@@ -15,13 +15,16 @@ import java.io.PrintStream
  *  - RegistryGateTest.kt — the P1 two-app gate proof (locked preview for
  *    unregistered 0x10, playable after Arena.registerPro, hard id-range
  *    gate). Runs LAST: it mutates the Arena registry.
+ *  - ProArenaNamesTest.kt — the P3 names-only table proof (pack names
+ *    resolve while byId stays null). Runs BEFORE the gate test: the names
+ *    proof needs an untouched registry.
  *
  * All suites are kept verbatim-style (global `check()` + `main()` +
  * shared `passed`/`failed` counters). Their entry points are invoked via
- * reflection: Tests.kt, Demo.kt, ArenaTests.kt, FightMatrix.kt and
- * RegistryGateTest.kt each declare top-level `main()` in package `robofight`,
- * so a direct facade reference does not resolve cleanly under the Kotlin 2
- * K2 compiler.
+ * reflection: Tests.kt, Demo.kt, ArenaTests.kt, FightMatrix.kt,
+ * ProArenaNamesTest.kt and RegistryGateTest.kt each declare top-level
+ * `main()` in package `robofight`, so a direct facade reference does not
+ * resolve cleanly under the Kotlin 2 K2 compiler.
  *
  * On success the suites print their PASS lines and leave the global
  * `failed` counter at 0; we assert that and re-emit the captured output
@@ -35,7 +38,10 @@ class EngineTests {
         val original = System.out
         System.setOut(PrintStream(captured, true))
         try {
-            for (facadeName in listOf("robofight.TestsKt", "robofight.ArenaTestsKt", "robofight.RegistryGateTestKt")) {
+            for (facadeName in listOf(
+                "robofight.TestsKt", "robofight.ArenaTestsKt",
+                "robofight.ProArenaNamesTestKt", "robofight.RegistryGateTestKt",
+            )) {
                 val facade = Class.forName(facadeName)
                 facade.getMethod("main").invoke(null)
             }

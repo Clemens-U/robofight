@@ -23,7 +23,7 @@ class BotFiles(context: Context) {
 
     private val db = Helper(context.applicationContext).writableDatabase
 
-    private class Helper(context: Context) : SQLiteOpenHelper(context, "botfiles", null, 4) {
+    private class Helper(context: Context) : SQLiteOpenHelper(context, "botfiles", null, 5) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
                 "CREATE TABLE files(" +
@@ -38,7 +38,8 @@ class BotFiles(context: Context) {
                     " name TEXT PRIMARY KEY COLLATE NOCASE," +
                     " code TEXT NOT NULL," +
                     " created INTEGER NOT NULL," +
-                    " modified INTEGER NOT NULL)"
+                    " modified INTEGER NOT NULL," +
+                    " imported INTEGER NOT NULL DEFAULT 0)"
             )
             db.execSQL(
                 "CREATE TABLE history(" +
@@ -95,6 +96,15 @@ class BotFiles(context: Context) {
                     db.update("codes", values, "name=?", arrayOf(name))
                     used.add(migrated)
                 }
+            }
+            // v5 — P3 migration import: codes imported from the other app are
+            // read-only library entries (never re-saved or re-shared as new
+            // saves). The column is data-neutral: only the pro flavor's ZIP
+            // import ever sets it, so the free app behaves exactly as before.
+            if (oldVersion < 5) {
+                db.execSQL(
+                    "ALTER TABLE codes ADD COLUMN imported INTEGER NOT NULL DEFAULT 0"
+                )
             }
         }
     }
@@ -171,16 +181,16 @@ class BotFiles(context: Context) {
     // NOT robot firmware — so it must never be fed to refreshSlots()/the bot cycle.
     // The stored name carries the visible ".chc" extension (e.g. "MYCODE.chc").
 
-    data class CodeRec(val name: String, val bytes: Long, val modified: Long)
+    data class CodeRec(val name: String, val bytes: Long, val modified: Long, val imported: Boolean)
 
     /** All saved codes, sorted by name (case-insensitive). */
     fun listCodes(): List<CodeRec> =
-        db.query("codes", arrayOf("name", "length(code)", "modified"),
+        db.query("codes", arrayOf("name", "length(code)", "modified", "imported"),
                 null, null, null, null, "name COLLATE NOCASE ASC", null)
             .use { c ->
                 buildList {
                     while (c.moveToNext()) {
-                        add(CodeRec(c.getString(0), c.getLong(1), c.getLong(2)))
+                        add(CodeRec(c.getString(0), c.getLong(1), c.getLong(2), c.getInt(3) != 0))
                     }
                 }
             }
@@ -194,14 +204,19 @@ class BotFiles(context: Context) {
     fun countCodes(): Int =
         db.rawQuery("SELECT COUNT(*) FROM codes", null).use { c -> if (c.moveToFirst()) c.getInt(0) else 0 }
 
-    /** Insert or replace a saved code by name (case-insensitive). */
-    fun upsertCode(name: String, code: String): Boolean {
+    /**
+     * Insert or replace a saved code by name (case-insensitive).
+     * [imported] marks a code brought in by the P3 ZIP import — read-only
+     * library content, never a new save of this app (see MainActivity).
+     */
+    fun upsertCode(name: String, code: String, imported: Boolean = false): Boolean {
         val now = System.currentTimeMillis()
         val values = ContentValues().apply {
             put("name", name)
             put("code", code)
             put("created", now)
             put("modified", now)
+            put("imported", if (imported) 1 else 0)
         }
         return if (codeExists(name)) {
             db.update("codes", values, "name=?", arrayOf(name)) > 0

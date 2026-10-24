@@ -18,4 +18,9 @@
          battle-only framing. -->
     <string name="rf_boot_line">OPCODE ARENA THE CIRCUIT  // RF-8 SYSTEM</string>
     <string name="rf_combatants_label">BOTS</string>
+    <!-- P3 feature gate (NOT chrome): the pro app has the ZIP import + SHELL
+         migration hint. The free flavor deliberately carries no such resource,
+         so the shared code no-ops there via MainActivity.proMigrationEnabled
+         and free's chrome values stay pixel-identical. -->
+    <bool name="rf_pro_migration">true</bool>
 </resources>

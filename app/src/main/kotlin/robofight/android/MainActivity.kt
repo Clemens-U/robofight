@@ -53,6 +53,7 @@ import robofight.challenge.ChallengeRun
 import robofight.challenge.ChallengeFormat
 import robofight.challenge.ChallengeResponse
 import robofight.challenge.ChallengeCodeFileName
+import robofight.disasm.Disasm
 import robofight.world.SPAWN_SEPARATE
 import robofight.world.SPAWN_CLASH
 
@@ -166,6 +167,34 @@ class MainActivity : Activity() {
     private var buildArenaIdx = 0
     private var buildOppIdx = 0         // index into [slots] (5 presets + user files)
     private var lastBuiltCode: String? = null
+
+    // --- P3: locked Pro-arena preview extras (arena name, opponent listing, circuit link) --
+    private lateinit var codeFwScroll: HorizontalScrollView
+    private lateinit var codeFwListing: TextView
+    private var codeFwExpanded = false
+    private val codeFwFull = ArrayList<String>()
+    private val codeFwCompact = ArrayList<String>()
+    private lateinit var codeBtnCircuit: Button
+    private lateinit var codeCircuitNote: TextView
+
+    // --- P3: pro-only ZIP import + one-time migration hint ---------------------------------
+    private var migrationCard: LinearLayout? = null
+    private var codesImportedRow: LinearLayout? = null
+    private var importedReadOnly = false
+
+    /**
+     * Flavor resource gate (P3): the pro `flavor.xml` declares the
+     * `rf_pro_migration` bool; the free flavor deliberately carries no such
+     * resource, so the SAME shared code no-ops there and free's chrome
+     * strings stay pixel-identical. Runtime lookup (not R.bool) — shared
+     * source must compile against a flavor that has no such resource at all.
+     */
+    private val proMigrationEnabled: Boolean by lazy {
+        val id = resources.getIdentifier("rf_pro_migration", "bool", packageName)
+        id != 0 && resources.getBoolean(id)
+    }
+
+    private fun uiPrefs() = getSharedPreferences(PREF_UI, MODE_PRIVATE)
 
     private lateinit var editor: EditText
     private lateinit var btnSave: Button
@@ -440,6 +469,9 @@ class MainActivity : Activity() {
             }
             "NEW", "N" -> if (arg.isEmpty()) printLine("USAGE: NEW <NAME>") else doNew(arg)
             "EXPORT", "SAVE2", "SAVE-OUT" -> export(arg)
+            "IMPORT", "IMPORTZIP" ->
+                if (proMigrationEnabled) startImportZip()
+                else printLine("IMPORT NOT AVAILABLE IN THIS APP")
             "RUN", "FIGHT" -> showRunMode(startFight = true)
             "HELP", "?" -> printHelp()
             "CLEAR", "CLS" -> { out.removeAllViews(); outText = null }
@@ -580,7 +612,7 @@ class MainActivity : Activity() {
                 printLine("NO SUCH FILE: $name  // TRY EXPORT FOR A ZIP OF ALL")
                 return
             }
-        } else if (store.count() == 0) {
+        } else if (store.count() == 0 && store.countCodes() == 0) {
             printLine("NOTHING TO EXPORT  // NO FILES IN STORE")
             return
         }
@@ -613,6 +645,10 @@ class MainActivity : Activity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_IMPORT_ZIP) {
+            handleImportResult(resultCode, data)
+            return
+        }
         if (requestCode != REQ_EXPORT_TREE) return
         // null = the fallback already wrote the file (no documents UI), or the
         // export was never armed — a late CANCELED for the failed launch must
@@ -645,7 +681,16 @@ class MainActivity : Activity() {
                     }
             } ?: "FOLDER"
             if (name.isEmpty()) {
-                val files = store.all()
+                // P3 migration: the full-export ZIP carries the firmware AND
+                // every saved challenge code (.chc entries), so the whole
+                // library travels to the other app.
+                val files = LinkedHashMap(store.all())
+                var codeCount = 0
+                for (code in store.listCodes()) {
+                    val raw = store.readCode(code.name) ?: continue
+                    files[code.name] = raw
+                    codeCount++
+                }
                 val bytes = FirmwareExport.zipBytes(files)
                 val file = FirmwareExport.zipName()
                 if (!writeExportDoc(tree, file, FirmwareExport.MIME_ZIP, bytes)) {
@@ -654,7 +699,7 @@ class MainActivity : Activity() {
                     commitText()
                     return
                 }
-                printLine("EXPORTED ${files.size} FILE(S) AS $file")
+                printLine("EXPORTED ${files.size - codeCount} FIRMWARE + $codeCount CODE(S) AS $file")
                 printLine("  ZIP ${bytes.size} BYTES  // $dirName")
                 status.text = "EXPORTED ${files.size} FILE(S)"
             } else {
@@ -726,11 +771,17 @@ class MainActivity : Activity() {
         try {
             val root = getExternalFilesDir(null) ?: filesDir
             if (name.isEmpty()) {
-                val files = store.all()
+                val files = LinkedHashMap(store.all())
+                var codeCount = 0
+                for (code in store.listCodes()) {
+                    val raw = store.readCode(code.name) ?: continue
+                    files[code.name] = raw
+                    codeCount++
+                }
                 val bytes = FirmwareExport.zipBytes(files)
                 val target = File(root, FirmwareExport.zipName())
                 target.writeBytes(bytes)
-                printLine("EXPORTED ${files.size} FILE(S) AS ${target.name}")
+                printLine("EXPORTED ${files.size - codeCount} FIRMWARE + $codeCount CODE(S) AS ${target.name}")
                 printLine("  ZIP ${bytes.size} BYTES  // ${root.absolutePath}")
                 status.text = "EXPORTED ${files.size} FILE(S)"
             } else {
@@ -750,6 +801,154 @@ class MainActivity : Activity() {
     }
 
     private fun newOutText() = terminalText(12f, C_GREEN)
+
+    // --- P3: ZIP import (pro flavor only; free no-ops on proMigrationEnabled) -------------
+
+    /**
+     * Pick a `robofight-export-*.zip` the OTHER app wrote, via the same
+     * Documents UI the export picker uses — SAF ACTION_OPEN_DOCUMENT here
+     * (a single readable file, not a tree). Only armed when the flavor
+     * resource gate says so.
+     */
+    private fun startImportZip() {
+        showShellTerminal(clearFocus = false)
+        try {
+            startActivityForResult(
+                Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = FirmwareExport.MIME_ZIP
+                },
+                REQ_IMPORT_ZIP,
+            )
+            printLine("PICK THE robofight-export-….zip THE FREE APP WROTE ...")
+        } catch (e: ActivityNotFoundException) {
+            printLine("IMPORT FAILED  // NO DOCUMENTS UI ON THIS DEVICE")
+            commitText()
+        }
+    }
+
+    /**
+     * Read the picked ZIP through [ImportZip] (validation + caps live
+     * there) and land it in the stores: firmware via [BotFiles.upsert]
+     * (collision-safe names — never overwrites a user file), codes via
+     * [BotFiles.upsertCode] flagged imported → read-only library content
+     * (CODES tab loads them; SAVE/SHARE refuse them).
+     */
+    private fun handleImportResult(resultCode: Int, data: Intent?) {
+        showShellTerminal(clearFocus = false)
+        if (resultCode != Activity.RESULT_OK) {
+            printLine("IMPORT CANCELLED")
+            status.text = "IMPORT CANCELLED"
+            commitText()
+            return
+        }
+        val bytes = data?.data?.let { uri ->
+            try {
+                contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            } catch (e: Exception) {
+                null
+            }
+        }
+        if (bytes == null || bytes.isEmpty()) {
+            printLine("IMPORT FAILED  // CANNOT READ THE PICKED FILE")
+            status.text = "IMPORT FAILED"
+            commitText()
+            return
+        }
+        val report = ImportZip.read(bytes)
+        var firmware = 0
+        var codes = 0
+        for (e in report.entries) {
+            if (e.isCode) {
+                val name = uniqueCodeName(e.name)
+                if (store.upsertCode(name, e.source, imported = true)) {
+                    codes++
+                    printLine("  IMPORTED CODE $name  (READ-ONLY)")
+                }
+            } else {
+                val name = uniqueFileName(e.name)
+                store.upsert(name, e.source)
+                firmware++
+                printLine("  IMPORTED FIRMWARE $name")
+            }
+        }
+        for (r in report.rejected) printLine("  SKIPPED  $r")
+        refreshSlots()
+        updateShellContext()
+        status.text = "IMPORTED $firmware FIRMWARE + $codes CODES"
+        printLine(
+            if (firmware + codes > 0)
+                "IMPORT DONE  // $firmware FIRMWARE  // $codes CODES  //  CODES ARE READ-ONLY"
+            else "IMPORT FOUND NOTHING USABLE  // NEEDS FIRMWARE FILES OR .chc CODES"
+        )
+        commitText()
+    }
+
+    /** Collision-safe firmware name: MYBOT → MYBOT_2, MYBOT_3, … (never clobbers). */
+    private fun uniqueFileName(name: String): String {
+        if (!store.exists(name)) return name
+        var n = 2
+        while (store.exists("${name}_$n")) n++
+        return "${name}_$n"
+    }
+
+    /** Collision-safe .chc name (same _2/_3 rule the v4 code rename used). */
+    private fun uniqueCodeName(name: String): String {
+        if (!store.codeExists(name)) return name
+        val base = name.removeSuffix(ChallengeCodeFileName.EXT)
+        var n = 2
+        while (store.codeExists("${base}_$n${ChallengeCodeFileName.EXT}")) n++
+        return "${base}_$n${ChallengeCodeFileName.EXT}"
+    }
+
+    /**
+     * P3 first-run migration banner for the SHELL tab (pro only): explains
+     * the free app's EXPORT zip once per install, then stays dismissed
+     * (SharedPreferences flag, set on tap). Tapping arms the import picker.
+     */
+    private fun buildMigrationCard(): LinearLayout? {
+        if (!proMigrationEnabled) return null
+        if (uiPrefs().getBoolean(PREF_MIGRATION_SEEN, false)) return null
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = panelBackground(C_DARK, C_BORDER)
+            setPadding(dp(8), dp(7), dp(8), dp(7))
+        }
+        card.addView(terminalText(9f, C_BRIGHT).apply { text = "MIGRATE FROM THE FREE APP" })
+        card.addView(terminalText(8f, C_DIM).apply {
+            text = "RUN EXPORT IN THE FREE APP  //  IT ZIPS YOUR FIRMWARE AND SAVED CODES AS robofight-export-<DATE>.ZIP  //  PICK THAT ZIP HERE"
+        })
+        val migrate = terminalButton("MIGRATE FROM FREE >")
+        migrate.setOnClickListener {
+            uiPrefs().edit().putBoolean(PREF_MIGRATION_SEEN, true).apply()
+            migrationCard?.visibility = View.GONE
+            startImportZip()
+        }
+        card.addView(
+            migrate,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(42)).apply { topMargin = dp(6) },
+        )
+        return card
+    }
+
+    /**
+     * Open the Circuit's Play Store listing (pro flavor cross-sell): market:
+     * first, plain https fallback when no store app answers.
+     */
+    private fun openProListing() {
+        val pkg = "robofight.android.pro"
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$pkg")))
+        } catch (e: ActivityNotFoundException) {
+            try {
+                startActivity(
+                    Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$pkg")),
+                )
+            } catch (e2: ActivityNotFoundException) {
+                status.text = "STORE PAGE UNAVAILABLE"
+            }
+        }
+    }
 
     private fun commitText() {
         val text = outText ?: return
@@ -834,8 +1033,10 @@ class MainActivity : Activity() {
         printLine("EDIT <NAME.chc>  VIEW A SAVED CHALLENGE CODE (READ-ONLY)")
         printLine("NEW <NAME>       CREATE FIRMWARE (STARTS WITH CHEAT SHEET)")
         printLine("DEL <NAME>       DELETE FIRMWARE")
-        printLine("EXPORT           PICK A FOLDER, ZIP-EXPORT ALL FIRMWARE THERE")
+        printLine("EXPORT           PICK A FOLDER, ZIP-EXPORT ALL FIRMWARE + CODES THERE")
         printLine("EXPORT <NAME>    PICK A FOLDER, SAVE ONE FIRMWARE FILE THERE")
+        if (proMigrationEnabled)
+            printLine("IMPORT           PICK A robofight-export-… ZIP FROM THE FREE APP")
         printLine("RUN              ENTER ARENA + FIGHT")
         printLine("CLEAR            CLEAR TERMINAL")
         printLine("HELP             SHOW COMMANDS")
@@ -901,6 +1102,7 @@ class MainActivity : Activity() {
         val text = intent.getStringExtra(Intent.EXTRA_TEXT)
         if (text.isNullOrBlank()) return
         showCodesMode()
+        importedReadOnly = false        // a shared code is the player's own import
         codePaste.setText(text)
         importCode(text)
     }
@@ -1216,6 +1418,18 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(8), 0, dp(8), dp(8))
         }
+        // P3 (pro flavor only; free has no rf_pro_migration resource so this
+        // no-ops): one-time migration hint ABOVE the terminal panel — SHELL
+        // tab only, no vertical space taken from any arena grid (PLAN-PRO).
+        buildMigrationCard()?.let {
+            migrationCard = it
+            shell.addView(
+                it,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { bottomMargin = dp(6) },
+            )
+        }
         shellContext = terminalText(11f, C_DIM).apply { setPadding(dp(4), 0, dp(4), dp(6)) }
         shell.addView(shellContext)
 
@@ -1241,6 +1455,12 @@ class MainActivity : Activity() {
         actions.addView(btnDir, weightedButton())
         actions.addView(btnHelp, weightedButton(dp(5)))
         actions.addView(btnEditCurrent, weightedButton(dp(5)))
+        if (proMigrationEnabled) {
+            // P3 (pro only): same picker the terminal command IMPORT opens.
+            val btnImport = terminalButton("IMPORT")
+            btnImport.setOnClickListener { startImportZip() }
+            actions.addView(btnImport, weightedButton(dp(5)))
+        }
         panel.addView(actions)
 
         out = LinearLayout(this).apply {
@@ -1903,6 +2123,20 @@ class MainActivity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = dp(6) })
 
+        // --- P3 (pro flavor only): read-only library of codes imported from
+        // the free app. A dim list; tapping an entry loads it into the import
+        // flow below (it can be RUN/copied/viewed, never re-saved or shared
+        // as a new save). Free has no rf_pro_migration resource → no row. ---
+        if (proMigrationEnabled) {
+            codesImportedRow = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                visibility = View.GONE
+            }
+            screen.addView(codesImportedRow, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(6) })
+        }
+
         // --- error card (hidden until a failed import) ---
         codeErrorCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1942,6 +2176,29 @@ class MainActivity : Activity() {
         codePreviewCard.addView(codeRules)
         codeOpponent = terminalText(8f, C_DIM)
         codePreviewCard.addView(codeOpponent)
+
+        // P3: pinned opponent firmware as a DISASSEMBLED LISTING — shown only
+        // for PRO-locked codes (the Circuit ships its opponents' listings as a
+        // taste; free↔free codes keep the byte-count display untouched).
+        // Horizontal scroll with isFillViewport=false: long lines CLIP, never
+        // wrap. Tap the pane to toggle compact ↔ full.
+        codeFwListing = terminalText(8f, C_DIM)
+        codeFwScroll = HorizontalScrollView(this).apply {
+            isFillViewport = false
+            setHorizontalScrollBarEnabled(false)
+            visibility = View.GONE
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                codeFwExpanded = !codeFwExpanded
+                renderCodeFw()
+            }
+        }
+        codeFwScroll.addView(codeFwListing)
+        codePreviewCard.addView(codeFwScroll, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = dp(3) })
+
         codeResult = terminalText(8f, C_CODE).apply { visibility = View.GONE }
         codePreviewCard.addView(codeResult)
         codeWarning = terminalText(8f, C_WARN).apply { visibility = View.GONE }
@@ -1977,16 +2234,37 @@ class MainActivity : Activity() {
             ViewGroup.LayoutParams.MATCH_PARENT, dp(42)
         ).apply { topMargin = dp(5) })
 
+        // P3: quiet cross-sell row — appears ONLY when a Pro-arena code is
+        // locked in this app (lock != null). One dim copy line + the link
+        // button; positioning is arenas/riddles/firmware, never combat.
+        codeCircuitNote = terminalText(8f, C_DIM).apply {
+            text = "MORE ARENAS, RIDDLES AND FIRMWARE TO COLLECT IN OPCODE ARENA: THE CIRCUIT."
+            visibility = View.GONE
+        }
+        codeBtnCircuit = terminalButton("PLAY IN THE CIRCUIT >").apply { visibility = View.GONE }
+        codeBtnCircuit.setOnClickListener { openProListing() }
+        codePreviewCard.addView(codeCircuitNote, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = dp(6) })
+        codePreviewCard.addView(codeBtnCircuit, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(42)
+        ).apply { topMargin = dp(4) })
+
         screen.addView(codePreviewCard, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f
         ).apply { topMargin = dp(6) })
 
         // --- wire the buttons ---
         codePasteBtnPaste.setOnClickListener { pasteFromClipboard() }
-        codePasteBtnImport.setOnClickListener { importCode(codePaste.text.toString()) }
+        codePasteBtnImport.setOnClickListener {
+            importedReadOnly = false        // pasted text is the player's own import
+            importCode(codePaste.text.toString())
+            refreshCodesActions()
+        }
         codePasteBtnClear.setOnClickListener {
             codePaste.setText("")
             importedDesc = null
+            importedReadOnly = false
             codePreviewCard.visibility = View.GONE
             codeErrorCard.visibility = View.GONE
             codeBtnRespond.visibility = View.GONE
@@ -2014,6 +2292,7 @@ class MainActivity : Activity() {
         setMode(AppMode.CODES)
         hideKeyboard()
         refreshCodesActions()
+        refreshImportedCodes()
     }
 
     /**
@@ -2031,6 +2310,10 @@ class MainActivity : Activity() {
             lastCodeText != null && lastCodeText == importedCode &&
             ChallengeResponse.isPlayerWin(pair.first, pair.second)
         codeBtnRespond.visibility = if (unlock) View.VISIBLE else View.GONE
+        // P3: imported codes are read-only library content — no SAVE and no
+        // SHARE as a new save (RUN / COPY stay available).
+        codeBtnSave.visibility = if (importedReadOnly) View.GONE else View.VISIBLE
+        codeBtnShare.visibility = if (importedReadOnly) View.GONE else View.VISIBLE
         refreshCodeHistory()
     }
 
@@ -2054,6 +2337,40 @@ class MainActivity : Activity() {
         }
         codeHistory.text = parts.joinToString("   //   ")
         codeHistory.visibility = View.VISIBLE
+    }
+
+    /**
+     * P3 (pro flavor only): the read-only "IMPORTED FROM FREE" list on the
+     * CODES tab. Entries come straight from the store (imported flag set by
+     * the ZIP import); no import bookkeeping in the UI.
+     */
+    private fun refreshImportedCodes() {
+        val row = codesImportedRow ?: return
+        row.removeAllViews()
+        val imported = store.listCodes().filter { it.imported }
+        if (imported.isEmpty()) {
+            row.visibility = View.GONE
+            return
+        }
+        row.addView(terminalText(8f, C_DIM).apply { text = "IMPORTED FROM FREE  (READ-ONLY)" })
+        for (rec in imported) {
+            row.addView(terminalText(8f, C_CODE).apply {
+                text = "  > ${rec.name}   //  TAP TO LOAD"
+                isClickable = true
+                isFocusable = true
+                setOnClickListener { loadImportedCode(rec.name) }
+            })
+        }
+        row.visibility = View.VISIBLE
+    }
+
+    /** Load an imported (read-only) code into the preview flow below the list. */
+    private fun loadImportedCode(name: String) {
+        val raw = store.readCode(name) ?: return
+        importedReadOnly = true
+        codePaste.setText(raw)
+        importCode(raw)
+        refreshCodesActions()
     }
 
     /** Copy the clipboard text into the paste box (no auto-import). */
@@ -2108,7 +2425,7 @@ class MainActivity : Activity() {
         val layout = if (entry != null) Arena.playableLayout(desc.layoutId, desc.seed) ?: entry else null
         previewArena.arenaLayout = layout
         previewArena.previewSpawns = emptyList()
-        previewArena.idleText = if (lock != null) "ARENA LOCKED" else "SYSTEM IDLE"
+        previewArena.idleText = if (lock != null) "PRO ARENA — PREVIEW UNAVAILABLE" else "SYSTEM IDLE"
 
         if (layout != null) {
             val cells = spawnCellsFor(desc, layout)
@@ -2124,7 +2441,13 @@ class MainActivity : Activity() {
             previewArena.previewSpawns = markers
         }
 
-        codeMode.text = desc.codeMode
+        // P3: even when the arena itself is locked here, its NAME is shared
+        // engine metadata (Arena.proArenaNames — names only, no geometry):
+        // the player sees WHICH arena the code fights on, nothing playable.
+        val proArenaName = if (lock != null) Arena.proArenaNames(desc.layoutId) else null
+        codeMode.text = if (proArenaName != null)
+            "ARENA: $proArenaName  ·  ${desc.codeMode}"
+        else desc.codeMode
         val rules = StringBuilder()
         rules.append("MODE ").append(desc.modeLabel)
             .append("  ·  SPAWN ").append(desc.spawnLabel)
@@ -2138,6 +2461,7 @@ class MainActivity : Activity() {
         codeOpponent.text =
             if (hidden.isEmpty()) "NO HIDDEN SLOT   //   YOU PLAY BOTH SLOTS"
             else hidden.joinToString("    ")
+        buildCodeFwListing(desc, lock)
 
         val res = desc.result
         if (res != null && res.winner != 0xFF) {
@@ -2158,6 +2482,11 @@ class MainActivity : Activity() {
 
         codeBtnRun.isEnabled = lock == null
         codeBtnRun.text = if (lock == null) "RUN" else "LOCKED"
+
+        // P3: the cross-sell row exists only for locked codes — never on an
+        // unlocked preview, so free↔free flows keep their exact old card.
+        codeCircuitNote.visibility = if (lock != null) View.VISIBLE else View.GONE
+        codeBtnCircuit.visibility = if (lock != null) View.VISIBLE else View.GONE
 
         // One bot picker per open slot (cycles through the same slot list the
         // RUN screen uses: 5 presets + user files).
@@ -2182,6 +2511,70 @@ class MainActivity : Activity() {
             codePickRow.addView(b, weightedButton(if (i > 0) dp(5) else 0))
         }
         updateCodePickers()
+    }
+
+    /**
+     * P3: opponent firmware listing for PRO-locked codes only. Pinned images
+     * render as a mnemonic listing through the engine's own disassembler
+     * (Disasm); a malformed (not-multiple-of-3) image falls back to a compact
+     * hex dump instead. UNLOCKED codes always get an empty listing — the
+     * free↔free secrecy (byte counts only) is unchanged.
+     */
+    private fun buildCodeFwListing(
+        desc: ChallengeFormat.FightDescriptor,
+        lock: String?,
+    ) {
+        codeFwFull.clear()
+        codeFwCompact.clear()
+        codeFwExpanded = false
+        if (lock != null) {
+            for ((slot, fw) in listOf("A" to desc.fwA, "B" to desc.fwB)) {
+                if (fw.isEmpty()) continue   // open slot — nothing pinned
+                codeFwFull.add("$slot ▸ OPPONENT FIRMWARE  ·  ${fw.size} B")
+                if (fw.size % 3 == 0) {
+                    for (i in Disasm.disassemble(fw))
+                        codeFwFull.add("  ${"%04X  %s".format(i.offset, i.text)}")
+                } else {
+                    codeFwFull.add("  (NO LISTING  //  IMAGE NOT A MULTIPLE OF 3)")
+                    var off = 0
+                    while (off < fw.size) {
+                        val n = minOf(16, fw.size - off)
+                        val hex = (0 until n).joinToString(" ") { "%02X".format(fw[off + it]) }
+                        codeFwFull.add("  %04X  $hex".format(off))
+                        off += n
+                    }
+                }
+            }
+            if (codeFwFull.isNotEmpty())
+                codeOpponent.text = "${codeOpponent.text}  //  OPPONENT LISTING BELOW"
+        }
+        if (codeFwFull.isNotEmpty()) {
+            // Compact view: per-slot header + first 5 instruction lines + a
+            // note; the full view (after a tap) lists everything, clipped.
+            var i = 0
+            while (i < codeFwFull.size) {
+                codeFwCompact.add(codeFwFull[i])
+                i++
+                var shown = 0
+                while (i < codeFwFull.size && codeFwFull[i].startsWith("  ") && shown < 5) {
+                    codeFwCompact.add(codeFwFull[i])
+                    i++
+                    shown++
+                }
+                if (i < codeFwFull.size && codeFwFull[i].startsWith("  "))
+                    codeFwCompact.add("  …  TAP FOR FULL LISTING")
+            }
+        }
+        renderCodeFw()
+    }
+
+    private fun renderCodeFw() {
+        if (codeFwFull.isEmpty()) {
+            codeFwScroll.visibility = View.GONE
+            return
+        }
+        codeFwListing.text = (if (codeFwExpanded) codeFwFull else codeFwCompact).joinToString("\n")
+        codeFwScroll.visibility = View.VISIBLE
     }
 
     /**
@@ -2218,6 +2611,12 @@ class MainActivity : Activity() {
      * visibly includes `.chc`; omitting the suffix adds it automatically.
      */
     private fun doCodeSave() {
+        if (importedReadOnly) {
+            // P3: imported codes are the OTHER app's library content — they
+            // load and run, but are never re-saved as new saves here.
+            status.text = "IMPORTED CODES ARE READ-ONLY"
+            return
+        }
         importedDesc ?: return
         val code = importedCode ?: return
         val suggested = autoCodeName()
@@ -2615,6 +3014,9 @@ class MainActivity : Activity() {
         private const val STATE_DIRTY = "state.dirty"
         private const val STATE_RUN_MODE = "state.runMode"
         private const val REQ_EXPORT_TREE = 41
+        private const val REQ_IMPORT_ZIP = 42      // P3: pro-only ZIP import picker
+        private const val PREF_UI = "opcode_arena_ui"
+        private const val PREF_MIGRATION_SEEN = "migration.hint.seen"
         // The execution monitor fills its measured viewport but deliberately
         // keeps a narrow blank strip before the register row.
         private const val MON_MIN_CODE_LINES = 6

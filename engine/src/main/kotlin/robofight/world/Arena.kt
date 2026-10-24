@@ -191,6 +191,24 @@ object Arena {
     }
 
     /**
+     * Display-only NAME table for the reserved Pro arena ids 0x10–0x1F
+     * (CHALLENGE-CODES §7.1, PLAN-PRO §5). Names live in the shared engine on
+     * purpose: the free app may *name* a locked arena in a preview (P3
+     * cross-app UX), but names carry no geometry — a locked id still has no
+     * registry entry and stays unplayable. The tier gate remains
+     * [registerPro]/[byId] alone. Ids 0x16–0x1F have no names yet (null).
+     */
+    fun proArenaNames(id: Int): String? = when (id) {
+        0x10 -> "GEN-MAZE"
+        0x11 -> "GEN-ISLES"
+        0x12 -> "COLISEUM"
+        0x13 -> "PINWHEEL"
+        0x14 -> "TWIN WALLS"
+        0x15 -> "LABYRINTH"
+        else -> null
+    }
+
+    /**
      * Register a Pro-pack arena. Hard gate: the id MUST lie in the reserved
      * Pro range 0x10–0x1F (§7.1); duplicates (including collisions with the
      * free ids) are rejected. No tier field — being in the registry IS the

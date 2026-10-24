@@ -106,8 +106,9 @@ firmware for the open slot(s), then use:
 Saved codes appear in the SHELL `DIR` listing under **SAVED CHALLENGE CODES**. Tap a
 saved code to view and copy it read-only; challenge codes are never treated as robot
 firmware and never enter the A/B bot cycle. `DEL <name>` removes a saved code just as
-it removes a firmware file. Firmware `EXPORT` remains separate and does not export
-challenge codes. Older extensionless saved-code names are upgraded automatically to
+it removes a firmware file. A full `EXPORT` ZIP carries saved
+challenge codes alongside the firmware, which is how a library travels between the
+two apps (§4.1). Older extensionless saved-code names are upgraded automatically to
 visible `.chc` names; if that would collide with an existing name, `_2`, `_3`, … is
 added so no saved code is overwritten.
 
@@ -162,6 +163,40 @@ opens immediately. A loss or draw leaves the chain waiting and does not show
 History and saved codes are local to the app. A code itself remains portable and
 self-contained, so copying or sharing it is enough for another player to replay it.
 
+### 3.4 A Pro-arena code in the free app (locked preview)
+
+Arena Pack 1 arenas belong to **Opcode Arena: The Circuit**. When the free app
+imports a code whose arena is in the pack, the fight stays locked — but the
+preview is informative, not empty:
+
+```text
++--------------------------------------+
+| ARENA: COLISEUM  ·  CHALLENGE        |  <- arena NAME only, geometry never sent
+| MODE KO · SPAWN SEPARATE · HP 100/100|
+| B ▸ HIDDEN · 21 B  // OPPONENT LISTING BELOW |
+| B ▸ OPPONENT FIRMWARE  ·  21 B       |
+|   0000  SHIELD                       |
+|   0003  MOV A,#-1        … tap for  |
+| ARENA NEEDS PRO — PLAY IN THE PRO APP|
+| [  LOCKED  ][SHARE][COPY][ SAVE ]    |
+| MORE ARENAS, RIDDLES AND FIRMWARE TO |
+| COLLECT IN OPCODE ARENA: THE CIRCUIT.|
+| [      PLAY IN THE CIRCUIT  >        ]|
++--------------------------------------+
+  (the arena box reads: PRO ARENA — PREVIEW UNAVAILABLE)
+```
+
+- **The arena is named, not leaked.** The name comes from a shared engine
+  names table; a locked arena never ships its geometry to the free app, and the
+  code never becomes playable there — **RUN** stays **LOCKED**.
+- **Opponent listing.** For locked codes only, the pinned opponent firmware is
+  shown as a disassembled mnemonic listing (`0000  WAIT`, `0003  MOV A,#5`, …).
+  Tap the listing to toggle compact ↔ full; long lines clip horizontally, they
+  never wrap. Free↔free codes keep the byte-count-only display
+  (`A ▸ HIDDEN · 12 B`) exactly as before.
+- The **PLAY IN THE CIRCUIT >** button and its single dim copy line appear only
+  on a locked preview and open the Circuit's store listing.
+
 ---
 
 ## 4. The file shell
@@ -175,8 +210,9 @@ or use the quick buttons **DIR** / **HELP**.
 | `EDIT <name>` | `E`, `OPEN` | Load `MYBOT`, `BOT1`, … into the editor, or open a saved challenge code read-only. |
 | `NEW <name>`  | `N` | Create + open a new file, pre-filled with the RF-8 cheat sheet as comments. Auto-named `BOT1`, `BOT2`, … |
 | `DEL <name>`  | `RM` | Delete a firmware file or saved challenge code. |
-| `EXPORT` / `EXPORT ALL` | `FULL` | ZIP-archive **all** firmware. The standard folder picker opens; the `robofight-export-<date>.zip` is written into the folder you pick (any folder on the device — no permissions needed). On devices without a documents UI (plain AOSP emulators) it falls back to the app's own `Android/data/robofight.android/files/` folder and says so in the terminal. |
+| `EXPORT` / `EXPORT ALL` | `FULL` | ZIP-archive **all firmware and all saved challenge codes**. The standard folder picker opens; the `robofight-export-<date>.zip` is written into the folder you pick (any folder on the device — no permissions needed). On devices without a documents UI (plain AOSP emulators) it falls back to the app's own `Android/data/robofight.android/files/` folder and says so in the terminal. |
 | `EXPORT <name>` | — | Same picker, but writes **one** firmware file (e.g. `EXPORT HUNTER.asm`). |
+| `IMPORT` | `IMPORTZIP` | **Circuit only** — pick a `robofight-export-….zip` and import its firmware + codes (§4.1). In the free app the command reports that it is not available. |
 | `RUN`   | `FIGHT` | Switch to RUN mode and start a fight. |
 | `CLEAR` | `CLS` | Clear the terminal output. |
 | `HELP` | `?` | Show this command list. |
@@ -187,7 +223,8 @@ Notes:
   file first ("saved MYBOT (unsaved changes kept)") — you won't lose work.
 - Files live in the app's local SQLite store; they persist across launches.
 - Saved challenge codes occupy a separate read-only list. They cannot be saved as
-  firmware, selected as bots, or included in firmware ZIP exports.
+  firmware or selected as bots, but a full `EXPORT` ZIP includes them as `.chc`
+  entries so the whole library can move to the Circuit (§4.1).
 
 ### Editor buttons
 | Button | Effect |
@@ -196,6 +233,48 @@ Notes:
 | **`NEW`**   | Create a new auto-named file (cheat-sheet template) and open it. |
 | **`TERM`**  | Go back to the file terminal. |
 | **`FIGHT >`** | Switch to RUN mode and start the fight. |
+
+### 4.1 Migrating from the free app (Circuit only)
+
+**The Circuit** can read the free app's full export ZIP and take over its library.
+
+In the **free app**: run `EXPORT` → a `robofight-export-<date>.zip` holding every
+firmware file and every saved challenge code (`.chc` entries).
+
+In the **Circuit**: run `IMPORT` (terminal command, the **IMPORT** quick button on the
+SHELL terminal, or the first-run banner):
+
+```text
++--------------------------------------+
+| MIGRATE FROM THE FREE APP            |
+| RUN EXPORT IN THE FREE APP  //  IT   |
+| ZIPS YOUR FIRMWARE AND SAVED CODES   |
+| AS robofight-export-<DATE>.ZIP  //   |
+| PICK THAT ZIP HERE                   |
+| [      MIGRATE FROM FREE  >          ]|
++--------------------------------------+
+```
+
+- The documents picker opens; pick the ZIP. Each accepted file is listed in the
+  terminal, and bad entries are skipped with a reason line (corrupt code, oversized
+  entry, …) — nothing is imported blindly.
+- Imported firmware lands in the normal file store. A name collision gets `_2`,
+  `_3`, … — your existing files are never overwritten.
+- Imported codes appear as a dim read-only list on the **CODES** tab:
+
+```text
+IMPORTED FROM FREE  (READ-ONLY)
+  > CODE1.chc    //  TAP TO LOAD
+  > DUEL.chc     //  TAP TO LOAD
+```
+
+  Tapping one loads it into the preview below: you can **RUN** and **COPY** it, but
+  imported codes never become new saves or new shares in the Circuit — they are
+  library content from the other app, not your own challenges.
+- The banner shows once per install and stays dismissed after the first tap. It sits
+  on the SHELL tab; no arena layout loses space to it.
+- `IMPORT` exists only in the Circuit. The free app keeps its shell as before; its
+  `EXPORT` now also carries saved codes in the ZIP, ready for the move.
 
 ---
 
