@@ -170,6 +170,7 @@ class MainActivity : Activity() {
 
     // --- P3: locked Pro-arena preview extras (arena name, opponent listing, circuit link) --
     private lateinit var codeFwScroll: HorizontalScrollView
+    private lateinit var codeArenaRowParams: LinearLayout.LayoutParams
     private lateinit var codeFwListing: TextView
     private var codeFwExpanded = false
     private val codeFwFull = ArrayList<String>()
@@ -2158,6 +2159,14 @@ class MainActivity : Activity() {
             setPadding(dp(8), dp(8), dp(8), dp(8))
             visibility = View.GONE
         }
+        // P3 layout rev C (user pick, 2026-10-24): the codes-screen card was
+        // so dense that the weighted arena frame crushed to a ~17 dp sliver,
+        // text lines stacked with 0 dp gaps, and the CIRCUIT button fell below
+        // the fold. Rev C puts the pinned-firmware listing IN the arena row,
+        // as a second column beside the placeholder — the locked arena's dead
+        // horizontal space hosts the listing instead of an extra 82 dp row —
+        // and the picker/action rows become compact 34 dp buttons.
+        val arenaRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val arenaFrame = FrameLayout(this).apply {
             background = panelBackground(C_BLACK, C_BORDER)
             setPadding(dp(5), dp(5), dp(5), dp(5))
@@ -2166,16 +2175,20 @@ class MainActivity : Activity() {
         arenaFrame.addView(previewArena, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER
         ))
-        codePreviewCard.addView(arenaFrame, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.3f
-        ).apply { topMargin = dp(4) })
+        arenaRow.addView(arenaFrame, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.2f))
 
         codeMode = terminalText(11f, C_BRIGHT).apply { gravity = Gravity.CENTER }
-        codePreviewCard.addView(codeMode)
+        codePreviewCard.addView(codeMode, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = dp(4) })
         codeRules = terminalText(8f, C_GREEN)
-        codePreviewCard.addView(codeRules)
+        codePreviewCard.addView(codeRules, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = dp(4) })
         codeOpponent = terminalText(8f, C_DIM)
-        codePreviewCard.addView(codeOpponent)
+        codePreviewCard.addView(codeOpponent, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = dp(4) })
 
         // P3: pinned opponent firmware as a DISASSEMBLED LISTING — shown only
         // for PRO-locked codes (the Circuit ships its opponents' listings as a
@@ -2195,18 +2208,45 @@ class MainActivity : Activity() {
             }
         }
         codeFwScroll.addView(codeFwListing)
-        codePreviewCard.addView(codeFwScroll, LinearLayout.LayoutParams(
+        // Rev C: second column of the arena row (rev B's vertical listing row
+        // is gone; the pane only appears when a listing exists).
+        codeFwScroll.background = panelBackground(C_BLACK, C_BORDER)
+        codeFwScroll.setPadding(dp(4), dp(4), dp(4), dp(4))
+        // Column split: the RIGHT column is sized so the widest listing line
+        // (~56 chars: a 16-byte hexdump row ≈ 53.6 dp at 8f pixel font) fits;
+        // the left placeholder takes the rest.
+        arenaRow.addView(codeFwScroll, LinearLayout.LayoutParams(
+            0, ViewGroup.LayoutParams.MATCH_PARENT, 1.35f
+        ).apply { leftMargin = dp(5) })
+        // Row height policy (set per state in buildPreview): locked = fixed
+        // 160 dp, exactly the listing pane's content (8 lines + padding) —
+        // no weight, or the only-weighted-child rule inflates it to 350 dp
+        // of empty frame; unlocked = weight 1f, the arena uses all slack.
+        codeArenaRowParams = LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(3) })
+        ).apply { topMargin = dp(4) }
+        codePreviewCard.addView(arenaRow, codeArenaRowParams)
 
         codeResult = terminalText(8f, C_CODE).apply { visibility = View.GONE }
         codePreviewCard.addView(codeResult)
+        // Circuit strings on screen are AMBER in the free app (user rule
+        // 2026-10-24): the lock warning and the whole cross-sell row.
         codeWarning = terminalText(8f, C_WARN).apply { visibility = View.GONE }
         codePreviewCard.addView(codeWarning)
 
-        codePickLabel = terminalText(8f, C_DIM)
-        codePreviewCard.addView(codePickLabel)
-        codePickRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        // Rev C: the picker label sits INLINE in the picker row (baseline had
+        // it as its own line); picker buttons are compact 34 dp.
+        codePickLabel = terminalText(8f, C_DIM).apply {
+            contentDescription = "pick_bot_label"
+        }
+        codePickRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(3), 0, 0)
+        }
+        // NOTE: the label is inserted by the picker rebuild (the function
+        // that does codePickRow.removeAllViews()) — adding it here would
+        // duplicate it once that rebuild runs.
         codePreviewCard.addView(codePickRow)
 
         // R3: local fight history for this code (app feature, outside the format).
@@ -2215,16 +2255,17 @@ class MainActivity : Activity() {
 
         val actionRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(0, dp(6), 0, 0)
+            setPadding(0, dp(4), 0, 0)
         }
         codeBtnRun = terminalButton("RUN", strong = true)
         codeBtnShare = terminalButton("SHARE")
         codeBtnCopy = terminalButton("COPY")
         codeBtnSave = terminalButton("SAVE")
-        actionRow.addView(codeBtnRun, weightedButton())
-        actionRow.addView(codeBtnShare, weightedButton(dp(5)))
-        actionRow.addView(codeBtnCopy, weightedButton(dp(5)))
-        actionRow.addView(codeBtnSave, weightedButton(dp(5)))
+        // Rev C: 34 dp compact action buttons (still a usable touch target).
+        actionRow.addView(codeBtnRun, LinearLayout.LayoutParams(0, dp(34), 1f))
+        actionRow.addView(codeBtnShare, weightedButton(dp(5), 34))
+        actionRow.addView(codeBtnCopy, weightedButton(dp(5), 34))
+        actionRow.addView(codeBtnSave, weightedButton(dp(5), 34))
         codePreviewCard.addView(actionRow)
 
         // R3: SEND BACK — visible only after a player win in an imported
@@ -2237,17 +2278,22 @@ class MainActivity : Activity() {
         // P3: quiet cross-sell row — appears ONLY when a Pro-arena code is
         // locked in this app (lock != null). One dim copy line + the link
         // button; positioning is arenas/riddles/firmware, never combat.
-        codeCircuitNote = terminalText(8f, C_DIM).apply {
+        // Rev C: 34 dp button so the row always stays above the fold.
+        // Circuit copy is amber (C_WARN) — see codeWarning above.
+        codeCircuitNote = terminalText(8f, C_WARN).apply {
             text = "MORE ARENAS, RIDDLES AND FIRMWARE TO COLLECT IN OPCODE ARENA: THE CIRCUIT."
             visibility = View.GONE
         }
-        codeBtnCircuit = terminalButton("PLAY IN THE CIRCUIT >").apply { visibility = View.GONE }
+        codeBtnCircuit = terminalButton("PLAY IN THE CIRCUIT >").apply {
+            visibility = View.GONE
+            setTextColor(C_WARN)
+        }
         codeBtnCircuit.setOnClickListener { openProListing() }
         codePreviewCard.addView(codeCircuitNote, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(6) })
+        ).apply { topMargin = dp(4) })
         codePreviewCard.addView(codeBtnCircuit, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, dp(42)
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(34)
         ).apply { topMargin = dp(4) })
 
         screen.addView(codePreviewCard, LinearLayout.LayoutParams(
@@ -2425,7 +2471,7 @@ class MainActivity : Activity() {
         val layout = if (entry != null) Arena.playableLayout(desc.layoutId, desc.seed) ?: entry else null
         previewArena.arenaLayout = layout
         previewArena.previewSpawns = emptyList()
-        previewArena.idleText = if (lock != null) "PRO ARENA — PREVIEW UNAVAILABLE" else "SYSTEM IDLE"
+        previewArena.idleText = if (lock != null) "CIRCUIT ARENA — PREVIEW UNAVAILABLE" else "SYSTEM IDLE"
 
         if (layout != null) {
             val cells = spawnCellsFor(desc, layout)
@@ -2463,6 +2509,13 @@ class MainActivity : Activity() {
             else hidden.joinToString("    ")
         buildCodeFwListing(desc, lock)
 
+        // Rev C row policy: locked card = fixed row exactly hosting the
+        // listing (160 dp = 8 listing lines + padding — no weight, or the
+        // row absorbs all the card's slack as 350 dp of empty frame);
+        // unlocked card = the arena keeps all the slack via weight 1f.
+        codeArenaRowParams.height = if (codeFwFull.isNotEmpty()) dp(160) else 0
+        codeArenaRowParams.weight = if (codeFwFull.isNotEmpty()) 0f else 1f
+
         val res = desc.result
         if (res != null && res.winner != 0xFF) {
             codeResult.visibility = View.VISIBLE
@@ -2485,6 +2538,10 @@ class MainActivity : Activity() {
 
         // P3: the cross-sell row exists only for locked codes — never on an
         // unlocked preview, so free↔free flows keep their exact old card.
+        // Rev C: short copy for the locked card (keeps the row single-line).
+        if (lock != null)
+            codeCircuitNote.text =
+                "MORE ARENAS, RIDDLES AND FIRMWARE TO COLLECT IN THE CIRCUIT."
         codeCircuitNote.visibility = if (lock != null) View.VISIBLE else View.GONE
         codeBtnCircuit.visibility = if (lock != null) View.VISIBLE else View.GONE
 
@@ -2493,6 +2550,7 @@ class MainActivity : Activity() {
         codePickers.clear()
         codePickSlotOf.clear()
         codePickRow.removeAllViews()
+        codePickRow.addView(codePickLabel, pickLabelParams())
         codePickIdx[0] = 0
         codePickIdx[1] = 0
         val openSlots = ArrayList<Int>()
@@ -2508,7 +2566,8 @@ class MainActivity : Activity() {
             }
             codePickers.add(b)
             codePickSlotOf.add(slotIdx)
-            codePickRow.addView(b, weightedButton(if (i > 0) dp(5) else 0))
+            // Rev C: compact 34 dp picker buttons.
+            codePickRow.addView(b, weightedButton(if (i > 0) dp(5) else 0, 34))
         }
         updateCodePickers()
     }
@@ -2545,8 +2604,9 @@ class MainActivity : Activity() {
                     }
                 }
             }
-            if (codeFwFull.isNotEmpty())
-                codeOpponent.text = "${codeOpponent.text}  //  OPPONENT LISTING BELOW"
+            // Rev C: the listing lives in its own pane BESIDE the arena
+            // placeholder — the opponent line needs no "BELOW" pointer
+            // (the baseline appended "// OPPONENT LISTING BELOW" here).
         }
         if (codeFwFull.isNotEmpty()) {
             // Compact view: per-slot header + first 5 instruction lines + a
@@ -2985,9 +3045,15 @@ class MainActivity : Activity() {
         button.background = panelBackground(if (selected) C_GREEN else C_BLACK, C_GREEN)
     }
 
-    private fun weightedButton(startMargin: Int = 0) = LinearLayout.LayoutParams(0, dp(42), 1f).apply {
-        marginStart = startMargin
-    }
+    private fun weightedButton(startMargin: Int = 0, heightDp: Int = 42) =
+        LinearLayout.LayoutParams(0, dp(heightDp), 1f).apply {
+            marginStart = startMargin
+        }
+
+    /** Rev C: inline picker label — wrap width, no weight (buttons take the rest). */
+    private fun pickLabelParams() = LinearLayout.LayoutParams(
+        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+    ).apply { rightMargin = dp(6) }
 
     private fun matchFrame() = FrameLayout.LayoutParams(
         ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT

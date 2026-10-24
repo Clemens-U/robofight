@@ -79,7 +79,7 @@ object ChallengeFormat {
     const val E_NEWER_ENG = "MADE WITH NEWER ENGINE — UPDATE APP"
     const val W_OLD_ENG = "OLD ENGINE — REPLAY USES CURRENT RULES" // warning, playable
     const val E_UNKNOWN_ARENA = "UNKNOWN ARENA — NEWER VERSION"
-    const val E_PRO_ARENA = "ARENA NEEDS PRO — PLAY IN THE PRO APP" // A1 (2026-10-23)
+    const val E_PRO_ARENA = "ARENA NEEDS THE CIRCUIT — PLAY IT THERE" // A1 (2026-10-23); copy rev 2026-10-24: on-screen never says "pro app" — the paid product is THE CIRCUIT
     const val E_SLOTS = "CODE MALFORMED — SLOTS"
     const val E_SIZE = "CODE MALFORMED — SIZE"
     const val E_RULES = "CODE MALFORMED — RULES"
