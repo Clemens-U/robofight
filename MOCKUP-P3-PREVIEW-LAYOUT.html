@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MOCKUP — P3 locked challenge-preview layout variants</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+:root {
+  --bg:#010703; --panel:#020D06; --dark:#021208; --border:#24843D; --bdim:#145C2A;
+  --dim:#308243; --green:#34EC5B; --bright:#B4FFBE; --warn:#F8B800; --cardbg:#000502; --cell:#020C05; --grid:#0B2B14; --dot:#174525;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--bright); font-family:'Press Start 2P','Courier New',monospace; padding:10px 8px; }
+h1 { font-size:11px; color:var(--green); margin-bottom:4px; }
+.lead { font-size:8px; color:var(--dim); line-height:1.7; max-width:1240px; margin-bottom:12px; }
+.row { display:flex; gap:14px; align-items:flex-start; }
+.variant { width:290px; flex:none; }
+.framelabel { font-size:9px; color:var(--green); margin-bottom:5px; line-height:1.6; }
+.cost { font-size:7px; color:var(--dim); line-height:1.9; margin-top:7px; }
+.cost b { color:var(--bright); }
+.frame { width:290px; background:var(--bg); border:1px solid var(--border); }
+.statusbar { display:flex; justify-content:space-between; font-size:7px; color:var(--dim); padding:3px 6px; background:var(--dark); }
+.mast { display:flex; align-items:center; gap:6px; padding:5px 6px; background:var(--dark); border-bottom:1px solid var(--bdim); font-size:8px; }
+.mast .icon { width:14px; height:14px; background:var(--green); }
+.mast .cur { width:6px; height:10px; background:var(--green); }
+.mast .rf { margin-left:auto; color:var(--dim); font-size:7px; }
+.tabs { display:flex; border-bottom:1px solid var(--bdim); font-size:8px; }
+.tabs div { flex:1; text-align:center; padding:7px 2px; color:var(--bright); }
+.tabs .act { background:var(--green); color:#000301; }
+.screen { padding:5px 5px 0 5px; font-size:7px; line-height:1.55; min-height:520px; }
+.head { color:var(--bright); font-size:8px; }
+.sub { color:var(--dim); font-size:6.5px; }
+.prow { display:flex; gap:4px; margin-top:4px; }
+.btn { border:1px solid var(--border); background:#000301; color:var(--bright); font-family:inherit; font-size:6.5px; padding:6px 6px; text-align:center; }
+.btn.green { background:var(--green); color:#000301; }
+.card { border:1px solid var(--bdim); background:var(--panel); padding:6px; margin-top:5px; }
+.arena { border:2px solid var(--green); background:var(--cardbg); height:96px; position:relative; margin-top:4px; }
+.arena .dots { position:absolute; inset:3px; background-image:radial-gradient(circle, var(--dot) 1px, transparent 1px); background-size:12px 12px; }
+.arena .idle { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--dim); font-size:6px; text-align:center; padding:0 8px; }
+.t-mode { color:var(--bright); font-size:8px; margin-top:5px; text-align:center; }
+.t-rules { color:var(--green); }
+.t-opp { color:var(--dim); }
+.t-list { color:var(--dim); white-space:nowrap; overflow:hidden; }
+.t-warn { color:var(--warn); }
+.g4 { margin-top:4px; } .g6 { margin-top:6px; }
+.pick { color:var(--dim); }
+.btnrow { display:flex; gap:4px; margin-top:4px; }
+.btnrow .btn { flex:1; }
+.note { color:var(--dim); font-size:6px; line-height:1.6; }
+.fold { border-top:2px dashed var(--warn); margin-top:6px; padding-top:3px; color:var(--warn); font-size:6px; }
+.two { display:flex; gap:8px; }
+.two .l { flex:1.15; } .two .r { flex:1; border-left:1px solid var(--bdim); padding-left:7px; }
+.arenarow { display:flex; gap:7px; }
+.arenarow .arena { flex:1.35; height:120px; }
+.arenarow .rpane { flex:1; border:1px solid var(--bdim); padding:4px; }
+.chip { display:inline-block; border:1px solid var(--border); padding:3px 5px; margin:3px 3px 0 0; font-size:7px; color:var(--bright); }
+.pickbtns { margin-top:14px; }
+.pickbtns .btn { font-size:8px; padding:9px 12px; margin-right:8px; cursor:pointer; }
+.meas { font-size:7px; color:var(--dim); line-height:1.9; max-width:1240px; margin-top:12px; }
+.meas b { color:var(--bright); }
+</style>
+</head>
+<body>
+<h1>P3 — LOCKED CHALLENGE PREVIEW: LAYOUT VARIANTS</h1>
+<div class="lead">State shown: pro-arena code imported into the FREE app (COLISEUM, pinned opponent B). Baseline = shipped 4e58af0, rebuilt 1:1 from measured uiautomator bounds (1 dp ≈ 1 px here; device width 1080 px). Usable CODES screen after masthead/tabs/paste block ≈ <b>300 dp</b>. Baseline overflow ≈ 50 dp — the PLAY IN THE CIRCUIT button lands below the fold (confirmed in the live dump).</div>
+
+<div class="row">
+
+  <!-- BASELINE -->
+  <div class="variant">
+    <div class="framelabel">BASELINE — shipped<br>stack ≈ 263 dp + squeezed arena</div>
+    <div class="frame">
+      <div class="statusbar"><span>9:41</span><span>▮▮▮ᯤ</span></div>
+      <div class="mast"><span class="icon"></span>OPCODE ARENA<span class="cur"></span><span class="rf">RF-8 / ONLINE</span></div>
+      <div class="tabs"><div>[ SHELL ]</div><div>[ RUN ]</div><div class="act">[ CODES ]</div></div>
+      <div class="screen">
+        <div class="head">CHALLENGE CODES</div>
+        <div class="sub">PASTE A RF1-… CODE, TAP IMPORT</div>
+        <div class="prow"><div class="btn">PASTE</div><div class="btn">IMPORT</div><div class="btn">CLEAR</div><div class="btn">BUILD</div></div>
+        <div class="card">
+          <div class="arena" style="height:18px"><div class="idle">…</div></div>
+          <div class="t-mode">ARENA: COLISEUM · CHALLENGE</div>
+          <div class="t-rules">MODE KO · SPAWN SEPARATE · HP 100/100</div>
+          <div class="t-opp">B ▸ HIDDEN · 21 B // OPPONENT LISTING BELOW</div>
+          <div class="t-list">B ▸ OPPONENT FIRMWARE · 21 B<br>&nbsp;&nbsp;0000&nbsp;&nbsp;MOV A,#12<br>&nbsp;&nbsp;0003&nbsp;&nbsp;ADD&nbsp;&nbsp;#1<br>&nbsp;&nbsp;0006&nbsp;&nbsp;SHIELD<br>&nbsp;&nbsp;0009&nbsp;&nbsp;SHOOT<br>&nbsp;&nbsp;000C&nbsp;&nbsp;CMP&nbsp;&nbsp;#20<br>&nbsp;&nbsp;000F&nbsp;&nbsp;JZ&nbsp;&nbsp;-1$</div>
+          <div class="t-warn">ARENA NEEDS PRO — PLAY IN THE PRO APP</div>
+          <div class="pick">PICK YOUR BOT</div>
+          <div class="btnrow"><div class="btn">A&nbsp;&nbsp;HUNTER&nbsp;&nbsp;&gt;</div></div>
+          <div class="sub">CODE&nbsp;&nbsp;NOT PLAYED YET</div>
+          <div class="btnrow"><div class="btn green">LOCKED</div><div class="btn">SHARE</div><div class="btn">COPY</div><div class="btn">SAVE</div></div>
+          <div class="note g4">MORE ARENAS, RIDDLES AND FIRMWARE TO COLLECT…</div>
+          <div class="fold">▼ PLAY IN THE CIRCUIT &gt; — 42 DP BUTTON BELOW FOLD</div>
+        </div>
+      </div>
+    </div>
+    <div class="cost">0 dp gaps between text lines · picker 42 dp · actions 42 dp · circuit block 58 dp<br><b>overflow ≈ 50 dp → circuit button invisible</b></div>
+  </div>
+
+  <!-- VARIANT A -->
+  <div class="variant">
+    <div class="framelabel">VARIANT A — "BREATHE"<br>single column, gaps + compact rows ≈ 239 dp</div>
+    <div class="frame">
+      <div class="statusbar"><span>9:41</span><span>▮▮▮ᯤ</span></div>
+      <div class="mast"><span class="icon"></span>OPCODE ARENA<span class="cur"></span><span class="rf">RF-8 / ONLINE</span></div>
+      <div class="tabs"><div>[ SHELL ]</div><div>[ RUN ]</div><div class="act">[ CODES ]</div></div>
+      <div class="screen">
+        <div class="head">CHALLENGE CODES</div>
+        <div class="sub">PASTE A RF1-… CODE, TAP IMPORT</div>
+        <div class="prow"><div class="btn">PASTE</div><div class="btn">IMPORT</div><div class="btn">CLEAR</div><div class="btn">BUILD</div></div>
+        <div class="card">
+          <div class="arena"><div class="dots"></div><div class="idle">PRO ARENA — PREVIEW UNAVAILABLE</div></div>
+          <div class="t-mode">ARENA: COLISEUM · CHALLENGE</div>
+          <div class="t-rules g4">MODE KO · SPAWN SEPARATE · HP 100/100</div>
+          <div class="t-opp g4">B ▸ HIDDEN · 21 B // OPPONENT LISTING BELOW</div>
+          <div class="t-list g4">B ▸ OPPONENT FIRMWARE · 21 B<br>&nbsp;&nbsp;0000&nbsp;&nbsp;MOV A,#12<br>&nbsp;&nbsp;0003&nbsp;&nbsp;ADD&nbsp;&nbsp;#1<br>&nbsp;&nbsp;0006&nbsp;&nbsp;SHIELD<br>&nbsp;&nbsp;0009&nbsp;&nbsp;SHOOT<br>&nbsp;&nbsp;000C&nbsp;&nbsp;CMP&nbsp;&nbsp;#20</div>
+          <div class="t-warn g6">ARENA NEEDS PRO — PLAY IN THE PRO APP<br><span style="color:var(--dim)">MORE ARENAS, RIDDLES AND FIRMWARE TO COLLECT IN THE CIRCUIT</span></div>
+          <div class="btnrow g6" style="align-items:center"><div class="pick" style="flex:0 0 auto">PICK&nbsp;&gt;</div><div class="btn">A&nbsp;&nbsp;HUNTER&nbsp;&nbsp;&gt;</div></div>
+          <div class="btnrow"><div class="btn green">LOCKED</div><div class="btn">SHARE</div><div class="btn">COPY</div><div class="btn">SAVE</div></div>
+          <div class="btnrow"><div class="btn green">PLAY IN THE CIRCUIT &gt;</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="cost">gaps +4/+4/+4/+6 dp · picker label inline (−11 dp) · picker+action buttons 42→34 dp (−16 dp) · note merged into warning, circuit as 34 dp row (−18 dp)<br>listing compact view unchanged (tap = full)</div>
+  </div>
+
+  <!-- VARIANT B -->
+  <div class="variant">
+    <div class="framelabel">VARIANT B — TWO COLUMNS<br>meta left · listing right ≈ 228 dp</div>
+    <div class="frame">
+      <div class="statusbar"><span>9:41</span><span>▮▮▮ᯤ</span></div>
+      <div class="mast"><span class="icon"></span>OPCODE ARENA<span class="cur"></span><span class="rf">RF-8 / ONLINE</span></div>
+      <div class="tabs"><div>[ SHELL ]</div><div>[ RUN ]</div><div class="act">[ CODES ]</div></div>
+      <div class="screen">
+        <div class="head">CHALLENGE CODES</div>
+        <div class="sub">PASTE A RF1-… CODE, TAP IMPORT</div>
+        <div class="prow"><div class="btn">PASTE</div><div class="btn">IMPORT</div><div class="btn">CLEAR</div><div class="btn">BUILD</div></div>
+        <div class="card">
+          <div class="arena"><div class="dots"></div><div class="idle">PRO ARENA — PREVIEW UNAVAILABLE</div></div>
+          <div class="t-mode">ARENA: COLISEUM · CHALLENGE</div>
+          <div class="two g6">
+            <div class="l">
+              <div class="t-rules">MODE KO<br>SPAWN SEPARATE<br>HP 100/100</div>
+              <div class="t-opp g4">B ▸ HIDDEN · 21 B</div>
+              <div class="t-warn g4">ARENA NEEDS PRO —<br>PLAY IN THE PRO APP</div>
+              <div class="note g4">MORE ARENAS, RIDDLES, FIRMWARE TO COLLECT.</div>
+            </div>
+            <div class="r">
+              <div class="t-list">B ▸ OPPONENT FIRMWARE<br>&nbsp;&nbsp;0000&nbsp;MOV A,#12<br>&nbsp;&nbsp;0003&nbsp;ADD&nbsp;&nbsp;#1<br>&nbsp;&nbsp;0006&nbsp;SHIELD<br>&nbsp;&nbsp;0009&nbsp;SHOOT<br>&nbsp;&nbsp;000C&nbsp;CMP&nbsp;&nbsp;#20<br>&nbsp;&nbsp;000F&nbsp;JZ&nbsp;&nbsp;-1$</div>
+            </div>
+          </div>
+          <div class="btnrow g6" style="align-items:center"><div class="pick" style="flex:0 0 auto">PICK&nbsp;&gt;</div><div class="btn">A&nbsp;&nbsp;HUNTER&nbsp;&nbsp;&gt;</div></div>
+          <div class="btnrow"><div class="btn green">LOCKED</div><div class="btn">SHARE</div><div class="btn">COPY</div><div class="btn">SAVE</div></div>
+          <div class="btnrow"><div class="btn green">PLAY IN THE CIRCUIT &gt;</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="cost">listing 82 dp runs parallel with meta 40 dp (−42 dp net) · rules/warn wrap to short column lines · rows compacted as in A<br>portrait: each column ≈ 130 dp — disasm lines fit, hexdump clips (scrollable)</div>
+  </div>
+
+  <!-- VARIANT C -->
+  <div class="variant">
+    <div class="framelabel">VARIANT C — LISTING BESIDE PLACEHOLDER<br>dead arena space used ≈ 181 dp</div>
+    <div class="frame">
+      <div class="statusbar"><span>9:41</span><span>▮▮▮ᯤ</span></div>
+      <div class="mast"><span class="icon"></span>OPCODE ARENA<span class="cur"></span><span class="rf">RF-8 / ONLINE</span></div>
+      <div class="tabs"><div>[ SHELL ]</div><div>[ RUN ]</div><div class="act">[ CODES ]</div></div>
+      <div class="screen">
+        <div class="head">CHALLENGE CODES</div>
+        <div class="sub">PASTE A RF1-… CODE, TAP IMPORT</div>
+        <div class="prow"><div class="btn">PASTE</div><div class="btn">IMPORT</div><div class="btn">CLEAR</div><div class="btn">BUILD</div></div>
+        <div class="card">
+          <div class="arenarow">
+            <div class="arena"><div class="dots"></div><div class="idle">PRO ARENA —<br>PREVIEW UNAVAILABLE</div></div>
+            <div class="rpane"><div class="t-list">B ▸ OPP. FIRMWARE<br>&nbsp;&nbsp;0000&nbsp;MOV A,#12<br>&nbsp;&nbsp;0003&nbsp;ADD&nbsp;&nbsp;#1<br>&nbsp;&nbsp;0006&nbsp;SHIELD<br>&nbsp;&nbsp;0009&nbsp;SHOOT<br>&nbsp;&nbsp;000C&nbsp;CMP&nbsp;&nbsp;#20</div></div>
+          </div>
+          <div class="t-mode g4">ARENA: COLISEUM · CHALLENGE</div>
+          <div class="t-rules g4">MODE KO · SPAWN SEPARATE · HP 100/100</div>
+          <div class="t-opp">B ▸ HIDDEN · 21 B</div>
+          <div class="t-warn g4">ARENA NEEDS PRO — PLAY IN THE PRO APP</div>
+          <div class="note">MORE ARENAS, RIDDLES AND FIRMWARE TO COLLECT IN THE CIRCUIT.</div>
+          <div class="btnrow g6" style="align-items:center"><div class="pick" style="flex:0 0 auto">PICK&nbsp;&gt;</div><div class="btn">A&nbsp;&nbsp;HUNTER&nbsp;&nbsp;&gt;</div></div>
+          <div class="btnrow"><div class="btn green">LOCKED</div><div class="btn">SHARE</div><div class="btn">COPY</div><div class="btn">SAVE</div></div>
+          <div class="btnrow"><div class="btn green">PLAY IN THE CIRCUIT &gt;</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="cost">listing 82 dp vanishes into the dead locked-arena row (−82 dp) · placeholder still names the arena · rows compacted as in A<br><b>most vertical headroom → biggest arena, all rows above fold</b></div>
+  </div>
+</div>
+
+<div class="meas">
+<b>MEASUREMENTS (uiautomator, shipped build, 1080×2400, density 2.625):</b><br>
+text block zero-gap run = 811→875 px (24+17+23 px lines) · listing pane 882→1097 px = 82 dp · warning 6.5 dp · PICK YOUR BOT 6.5 dp + picker button 42 dp · history 6.5 dp · actions 42 dp · circuit note 6.5 dp + circuit button 42 dp (below fold) · arena frame squeezed to ≈ 17 dp by the overflow.<br>
+All variants also fix two baseline flaws regardless of pick: circuit button reachable, and the arena box no longer crushed. Gaps between text rows: baseline 0 dp → variants 4–6 dp. Compact rows: 42 dp → 34 dp buttons (still ≥32 dp touch target).
+</div>
+
+<div class="pickbtns">
+<button class="btn" data-hermes-send="Pick variant A for the locked preview layout">PICK VARIANT A</button>
+<button class="btn" data-hermes-send="Pick variant B (two-column meta/listing) for the locked preview layout">PICK VARIANT B</button>
+<button class="btn green" data-hermes-send="Pick variant C (listing beside placeholder arena) for the locked preview layout">PICK VARIANT C (recommended)</button>
+</div>
+</body>
+</html>
