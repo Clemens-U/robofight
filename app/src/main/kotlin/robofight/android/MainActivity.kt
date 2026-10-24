@@ -2229,19 +2229,17 @@ class MainActivity : Activity() {
         codeWarning = terminalText(8f, C_GREEN).apply { visibility = View.GONE }
         codePreviewCard.addView(codeWarning, cardLineParams())
 
-        // Rev C: the picker label sits INLINE in the picker row (baseline had
-        // it as its own line); picker buttons are compact 34 dp.
+        // Picker label as its OWN line (baseline look) — the Rev C inline
+        // variant was reverted on user request 2026-10-24. Picker buttons
+        // stay compact 34 dp.
         codePickLabel = terminalText(8f, C_DIM).apply {
             contentDescription = "pick_bot_label"
         }
+        codePreviewCard.addView(codePickLabel, cardLineParams())
         codePickRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(7), 0, dp(7))
+            setPadding(0, dp(5), 0, 0)
         }
-        // NOTE: the label is inserted by the picker rebuild (the function
-        // that does codePickRow.removeAllViews()) — adding it here would
-        // duplicate it once that rebuild runs.
         codePreviewCard.addView(codePickRow)
 
         // R3: local fight history for this code (app feature, outside the format).
@@ -2549,7 +2547,6 @@ class MainActivity : Activity() {
         codePickers.clear()
         codePickSlotOf.clear()
         codePickRow.removeAllViews()
-        codePickRow.addView(codePickLabel, pickLabelParams())
         codePickIdx[0] = 0
         codePickIdx[1] = 0
         val openSlots = ArrayList<Int>()
@@ -3048,11 +3045,6 @@ class MainActivity : Activity() {
         LinearLayout.LayoutParams(0, dp(heightDp), 1f).apply {
             marginStart = startMargin
         }
-
-    /** Rev C: inline picker label — wrap width, no weight (buttons take the rest). */
-    private fun pickLabelParams() = LinearLayout.LayoutParams(
-        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-    ).apply { rightMargin = dp(6) }
 
     /** Rev D: card paragraph lines get a 6 dp top gap (was 0 for some lines). */
     private fun cardLineParams() = LinearLayout.LayoutParams(
