@@ -1,0 +1,17 @@
+feature-graphic-1024x500.png
+An amber pixel-art robot duels a green opponent inside a neon terminal arena.
+
+opcode-arena-circuit-phone-01-shell.png
+The Circuit shell with amber branding and a migration option for free-app files.
+
+opcode-arena-circuit-phone-02-editor.png
+The Circuit RF-8 firmware editor displaying editable robot assembly code.
+
+opcode-arena-circuit-phone-03-arena-pack.png
+Arena Pack 1 selecting a procedurally generated GEN-MAZE arena.
+
+opcode-arena-circuit-phone-04-procedural-fight.png
+Two firmware robots executing a live fight inside the generated GEN-MAZE arena.
+
+opcode-arena-circuit-phone-05-challenge-builder.png
+Challenge builder for choosing rules, arena, seed, and opponent firmware.

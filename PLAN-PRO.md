@@ -16,6 +16,7 @@
 | Lore | The story lives **only in the paid app and its listing**. Free app: lore-neutral (max one cross-sell line in the free *listing*, nothing in the free APK). The escape saga ("The Circuit" grows into it) is **post-P4** — see GAMEPLAY-IDEAS §7. |
 | Repo & branches | **Single repo, single `main` branch for both apps.** One source tree, two build variants, two store entries; each APK cut is tagged (e.g. `free-0.7`, `pro-1.0`). Branch-per-app is excluded — it *is* the update-drift risk §7 guards against. |
 | Price | **€1.99 launch price**, as a Play price step. Price follows content: step up (€3.99, then €4.99) when campaign/survival land. Buyers at any price keep all future updates (grandfathered), which doubles as the early-bird incentive. |
+| Tier signal | **Amber is the general visual flag for the paid tier; phosphor green remains the shared system/game color.** The Circuit uses amber for its robot/icon, brand moments, paid-content labels/badges, and paid calls to action. Arena, editor, firmware, shared controls, and ordinary status text stay green. Free UI stays green except for a narrowly scoped `THE CIRCUIT`/paid-content marker in a cross-sell. |
 | Mechanics | **Shared in both apps.** One engine, one ISA, one physics, one `eng` version. Codes interoperate between the apps. The paid app differentiates **only** through content and modes. |
 | Pro v1 scope | **Arena pack only** — procedural (seed-derived) arenas + curated arenas at `layout` ids `0x10+`. No challenge-code wire change. Traps, hazards, campaign, survival are later phases (§7). |
 
@@ -51,8 +52,10 @@ project and the same offline `build-android.sh` recipe (two APK outputs).
 ### 1.2 Store & cross-sell
 
 - Listings: **Opcode Arena** (free) → **Opcode Arena: The Circuit** (€1.99).
-  Distinct names, distinct icons (Circuit sigil vs plain opcode mark), shared
-  screenshots lineage. `Opcode Arena PRO` remains the internal codename.
+  Distinct names and distinct tier treatment, with a shared icon composition:
+  the free icon's robot is phosphor green; The Circuit icon's robot is amber;
+  the surrounding green arena remains unchanged. Screenshots share one lineage.
+  `Opcode Arena PRO` remains the internal codename.
 - Cross-sell in the free app is *tasteful and non-modal*: one permanent
   discreet entry (e.g. a `PRO` line on the CODES screen footer) plus a
   context link when a Pro-layout code is previewed (§4.3). No ads, no nag
@@ -176,7 +179,7 @@ CHALLENGE-CODES §13 — nothing here forecloses them.
 | **P1** | Build split ✅ (2026-10-23) | One source → free + Pro APKs (`app-free-debug.apk` `robofight.android` / `app-pro-debug.apk` `robofight.android.pro`); tier gate = flavor source sets (`src/free` no-op vs `src/pro` `ProArenas`) + `Arena.registerPro` (0x10–0x1F hard range); gate proof `RegistryGateTest` in `:engine:test`; CI (`.github/workflows/ci.yml`) builds both variants + `TierParityTest` asserts `ENGINE_VERSION`/`PRO_BUILD` per flavor; `STORE-LISTINGS.md` stubs. |
 | **P2** | Arena Pack 1 ✅ (2026-10-23) | `GEN-MAZE`, `GEN-ISLES` generators + curated `COLISEUM`/`PINWHEEL`/`TWIN WALLS`/`LABYRINTH` (`0x12–0x15`); pack suite `ProArenaPackTest` 40/40 (invariants + seed diversity ≥971/1000) via `:app:testProDebugUnitTest` + CI; Pro picker = header cycle chip `ARENA PACK 1: <name> >` (variant B — no extra rows, seed-derived previews), on-device verified; free flavor unchanged. |
 | **P3** | Cross-app UX ✅ (2026-10-24) | Free app: locked pro-code preview — arena name via engine display-only `Arena.proArenaNames` (0x10–0x15), placeholder `PRO ARENA — PREVIEW UNAVAILABLE`, pinned opponent firmware as `Disasm` listing (locked codes only; free↔free secrecy unchanged), `PLAY IN THE CIRCUIT >` link (market + https fallback). Pro app: `IMPORT` ZIP via `ImportZip` (zip-slip + size caps, strict UTF-8), read-only imported-codes store (db v5 `imported` flag), one-time `MIGRATE FROM FREE` SHELL card; free `EXPORT` now carries saved `.chc` codes. Tests: `ProArenaNamesTest` (17 checks), `ImportZipTest` (5). On-device verified 2026-10-24 (both debug APKs on a real phone): db v4→v5 migration on upgrade, locked pro-code preview in free (portrait + landscape, with and without keyboard), editor `IMPORT` of a pasted `RF1-…` code, free `EXPORT` ZIP → pro `IMPORT` picker → result card → codes list `IMPORTED FROM FREE (READ-ONLY)` → load → arena run; `MIGRATE FROM FREE` card shown once, gone on relaunch; final DB pull confirms free `imported=0` / pro `imported=1` for the same codes. |
-| **P4** | Launch | Free **0.7** (maintenance) + **The Circuit 1.0 at €1.99** on both listings. Store copy hook: *"Five arenas free. A new arena every fight — in The Circuit."* |
+| **P4** | Launch package ready ✅ (2026-10-25); store entry/submission pending | Free **0.7** (maintenance) + **The Circuit 1.0 at €1.99** build as signed release APKs/AABs from the same HEAD. CI, release checklist, shared privacy policy, copy, icons, feature graphics, and five screenshots per listing are prepared. Amber marks The Circuit's icon, masthead, Arena Pack badge, and store artwork while shared gameplay stays green. Remaining external step: create/configure the paid Play entry and upload/submit both releases. Store copy hook: *"Five arenas free. A new arena every fight — in The Circuit."* |
 
 Post-launch roadmap (order, not scope-locked): the shared **"Walls Down"
 mechanics pack** (THREAT sensor + exit/gate/item/hazard tiles — free to both

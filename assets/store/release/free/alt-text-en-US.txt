@@ -1,0 +1,17 @@
+feature-graphic-1024x500.png
+Two pixel-art firmware robots exchange projectiles inside a green terminal arena.
+
+opcode-arena-phone-01-shell.png
+Opcode Arena shell showing firmware files and saved Challenge Codes.
+
+opcode-arena-phone-02-editor.png
+The RF-8 firmware editor with assembly code and quick fight controls.
+
+opcode-arena-phone-03-fight-setup.png
+Fight setup with arena picker, bot firmware monitors, and robot statistics.
+
+opcode-arena-phone-04-codes.png
+Challenge Code import and preview showing a deterministic fight configuration.
+
+opcode-arena-phone-05-save.png
+Saving a Challenge Code locally from its fight preview.

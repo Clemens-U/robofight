@@ -70,7 +70,22 @@ loop *is* the game: read sensor data, branch, fire, manage heat — all on a
 
 **Preset colors**: HUNTER `red` · TURTLE `green` · SNAKE `cyan` · CHAOS `pink` · WALKER `orange`.
 
-### 3.3 Sample arena (tick 12)
+### 3.3 Tier color language
+
+- **Phosphor green is the shared game/system color.** The arena, editor,
+  firmware, shared controls, and normal status text stay green in both apps so
+  the common engine and interaction model remain visually continuous.
+- **Amber is the general paid-tier flag.** Use it to identify
+  **Opcode Arena: The Circuit** and paid-only content: the paid app's robot/icon,
+  masthead/brand moments, Arena Pack labels or badges, and paid-content calls to
+  action. Amber should answer “this belongs to The Circuit,” not recolor the
+  whole terminal.
+- **Free stays green.** Do not use amber as ordinary decoration in the free app;
+  a free-to-paid link may use amber only for the words `THE CIRCUIT` or its paid
+  content marker. Warning/error yellow remains semantic and must not be confused
+  with the paid-tier amber.
+
+### 3.4 Sample arena (tick 12)
 
 A 20×20 board, cropped to the action (H = HUNTER at col 4, T = TURTLE at col 13;
 H fired a `*` that has traveled east; T is facing west to intercept):

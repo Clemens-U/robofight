@@ -1,8 +1,8 @@
 # Store Listings — Opcode Arena (free) / Opcode Arena: The Circuit (paid)
 
-Play Console listing stubs per PLAN-PRO §1.2 / §7. Two distinct listings from
+Play Console listing copy per PLAN-PRO §1.2 / §7. Two distinct listings from
 one codebase (product flavors `free` / `pro`; same HEAD, tags `free-0.7`,
-`pro-1.0`). Paste-ready skeleton; a human fills the final marketing polish.
+`pro-1.0`). Matching upload-ready artwork lives in `assets/store/release/`.
 
 ---
 
@@ -42,9 +42,9 @@ A new arena every fight in Opcode Arena: The Circuit.
 ## 2. Opcode Arena: The Circuit (paid; internal codename `pro`)
 
 - **Package:** `robofight.android.pro` (flavor `pro`; `applicationIdSuffix .pro`,
-  versionName suffix `-pro`)
+  independent paid-app version sequence)
 - **App name:** `Opcode Arena: The Circuit` (25 chars ≤ 30 cap)
-- **Release tag / version:** `pro-1.0`
+- **Release tag / version:** `pro-1.0` (versionCode 1, versionName `1.0`)
 
 ### Short description (≤ 80 chars)
 > Everything in Opcode Arena — plus a new arena every fight.
@@ -54,7 +54,7 @@ A new arena every fight in Opcode Arena: The Circuit.
 Five arenas train you. The Circuit is where training begins for real.
 
 Every challenge code carries a seed, and a seed builds a hall: Circuit
-fights run in arenas generated for the fight — no two matches share a grid.
+fights run in arenas generated deterministically for that fight.
 And the Circuit goes deeper than arenas. More is coming below them.
 
 The complete game: firmware editor, deterministic fights, challenge codes.
@@ -90,19 +90,24 @@ Five arenas free. A new arena every fight — in The Circuit.
 
 ## 4. Icon / screenshots lineage
 
-- Shared icon lineage: same `ic_launcher` family both flavors (store
-  distinctness comes from name + screenshots). If Play review asks, fork the
-  PRO icon in `app/src/pro/res` (flavor res overlay — no shared changes).
-- Screenshot sets: free set shows the five arenas; PRO set adds Arena Pack 1
-  shots (procedural GEN-MAZE/GEN-ISLES previews) once P2 lands.
+- Shared icon composition, distinct tier color: free uses
+  `assets/store/opcode-arena-icon-base-512.png`; The Circuit uses
+  `assets/store/opcode-arena-icon-circuit-512.png`, with only the robot changed
+  to amber and the surrounding arena kept green. Android Pro launcher assets
+  live in `app/src/pro/res` as a flavor overlay; shared/free resources remain
+  unchanged.
+- Release-ready screenshot sets are in `assets/store/release/free` and
+  `assets/store/release/circuit`. The Circuit set is captured from the Pro
+  flavor and shows its amber identity, migration path, Arena Pack 1,
+  procedural combat, and challenge builder.
 
 ## 5. Release / tagging convention
 
-- Single repo, single `main` branch; both APKs built from the same HEAD
-  (CI: `.github/workflows/ci.yml` builds engine tests + both flavor unit
-  tests + `assembleFreeDebug` + `assembleProDebug` and asserts both APKs).
+- Single repo, single `main` branch; both apps built from the same HEAD
+  (CI: `.github/workflows/ci.yml` builds engine tests, both flavor unit tests,
+  both debug APKs, and both unsigned release bundles).
 - Tags: `free-0.7`, `pro-1.0` (flavor-prefixed). Store uploads:
-  `app/build/outputs/apk/free/release/…` → free listing;
-  `app/build/outputs/apk/pro/release/…` → PRO listing.
+  `app/build/outputs/bundle/freeRelease/app-free-release.aab` → free listing;
+  `app/build/outputs/bundle/proRelease/app-pro-release.aab` → paid listing.
 - Wire format is shared and frozen: `ENGINE_VERSION = 1` in both variants
   (asserted per flavor by `TierParityTest`).

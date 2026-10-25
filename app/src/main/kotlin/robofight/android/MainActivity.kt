@@ -183,16 +183,9 @@ class MainActivity : Activity() {
     private var codesImportedRow: LinearLayout? = null
     private var importedReadOnly = false
 
-    /**
-     * Flavor resource gate (P3): the pro `flavor.xml` declares the
-     * `rf_pro_migration` bool; the free flavor deliberately carries no such
-     * resource, so the SAME shared code no-ops there and free's chrome
-     * strings stay pixel-identical. Runtime lookup (not R.bool) — shared
-     * source must compile against a flavor that has no such resource at all.
-     */
+    /** Flavor resource gate: true only in The Circuit. */
     private val proMigrationEnabled: Boolean by lazy {
-        val id = resources.getIdentifier("rf_pro_migration", "bool", packageName)
-        id != 0 && resources.getBoolean(id)
+        resources.getBoolean(R.bool.rf_pro_migration)
     }
 
     private fun uiPrefs() = getSharedPreferences(PREF_UI, MODE_PRIVATE)
@@ -274,12 +267,34 @@ class MainActivity : Activity() {
                 handler.postDelayed(this, 100L)
             } else {
                 autoRunning = false
-                status.text = controller.status
                 btnRun.isEnabled = true
-                btnRun.text = "RUN AGAIN"
-                captureCodeOutcome(world)
+                val playerWon = captureCodeOutcome(world)
+                showRunResponseAction(playerWon)
+                status.text = if (playerWon) "CHALLENGE WON." else controller.status
             }
         }
+    }
+
+    /** Replace the compact execution controls with the earned response CTA. */
+    private fun showRunResponseAction(show: Boolean) {
+        btnRun.text = if (show) "SEND BACK THE PROOF" else "RUN AGAIN"
+        btnStep.visibility = if (show) View.GONE else View.VISIBLE
+        btnReset.visibility = if (show) View.GONE else View.VISIBLE
+        btnSound.visibility = if (show) View.GONE else View.VISIBLE
+    }
+
+    private fun resetRunResponseAction() {
+        if (!::btnRun.isInitialized) return
+        btnStep.visibility = View.VISIBLE
+        btnReset.visibility = View.VISIBLE
+        btnSound.visibility = View.VISIBLE
+    }
+
+    private fun canSendBackCurrentChallenge(): Boolean {
+        if (controller.world?.finished != true) return false
+        val ch = currentChallenge ?: return false
+        val pair = lastCodeOutcome ?: return false
+        return pair.first === ch && ChallengeResponse.isPlayerWin(pair.first, pair.second)
     }
 
     /**
@@ -289,26 +304,34 @@ class MainActivity : Activity() {
      * the headless one) and write the local history row. A player win in this
      * pair is what unlocks SEND BACK (spec §8).
      */
-    private fun captureCodeOutcome(world: World) {
-        val ch = currentChallenge ?: return
+    private fun captureCodeOutcome(world: World): Boolean {
+        val ch = currentChallenge ?: return false
         val a = world.bots[0]
         val b = world.bots[1]
-        val winnerSlot: Int
-        val loserEndHp: Int
-        when (world.winner) {
-            a -> { winnerSlot = 0; loserEndHp = b.hp }
-            b -> { winnerSlot = 1; loserEndHp = a.hp }
-            else -> { winnerSlot = 2; loserEndHp = a.hp } // DRAW: slot A's HP
+        // Resolve by identity against the canonical A/B list. This avoids
+        // allowing any future Bot equality implementation to blur slot
+        // orientation, which is security-critical for response ownership.
+        val winnerSlot = when {
+            world.winner === a -> 0
+            world.winner === b -> 1
+            else -> ChallengeFormat.WIN_DRAW
+        }
+        val loserEndHp = when (winnerSlot) {
+            0 -> b.hp
+            1 -> a.hp
+            else -> a.hp // DRAW: slot A's HP
         }
         val outcome = ChallengeRun.Outcome(winnerSlot, world.tick, loserEndHp)
         lastCodeOutcome = ch to outcome
         val layoutName = Arena.byId(ch.layoutId)?.name ?: "OPEN"
+        val playerWon = ChallengeResponse.isPlayerWin(ch, outcome)
         store.recordOutcome(
             lastCodeText ?: ch.let { ChallengeFormat.encode(it) },
             layoutName,
-            ChallengeResponse.isPlayerWin(ch, outcome),
+            playerWon,
             outcome.winnerSlot == ChallengeFormat.WIN_DRAW,
         )
+        return playerWon
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -358,8 +381,12 @@ class MainActivity : Activity() {
         btnA.setOnClickListener { if (currentChallenge == null) { ai = (ai + 1) % slots.size; updateBtnTexts() } }
         btnB.setOnClickListener { if (currentChallenge == null) { bi = (bi + 1) % slots.size; updateBtnTexts() } }
         btnRun.setOnClickListener {
-            val ch = currentChallenge
-            if (ch != null) doCodeRun(ch) else doRun()
+            if (canSendBackCurrentChallenge()) {
+                doCodeRespond()
+            } else {
+                val ch = currentChallenge
+                if (ch != null) doCodeRun(ch) else doRun()
+            }
         }
         btnStep.setOnClickListener { doStep() }
         btnReset.setOnClickListener { doReset() }
@@ -1220,6 +1247,7 @@ class MainActivity : Activity() {
 
     private fun doRun() {
         handler.removeCallbacks(tickLoop)
+        resetRunResponseAction()
         currentChallenge = null   // a manual fight supersedes any loaded challenge
         updateBtnTexts()          // restore the normal A/B picker labels
         if (!controller.start(slots[ai], slots[bi], ::sourceFor, arenaLayout)) {
@@ -1257,6 +1285,7 @@ class MainActivity : Activity() {
     private fun doReset() {
         handler.removeCallbacks(tickLoop)
         autoRunning = false
+        resetRunResponseAction()
         currentChallenge = null
         controller.reset()
         updateBtnTexts()          // restore the normal A/B picker labels
@@ -1641,7 +1670,6 @@ class MainActivity : Activity() {
                 marginStart = dp(6)
             })
             run.addView(statsRow)
-
             val controls = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 setPadding(0, dp(6), 0, 0)
@@ -1712,18 +1740,20 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Keep the pack chip in sync with [arenaIdx], styled like the arena
-     * buttons: filled green when a pack arena is selected, dark otherwise.
-     * Text names the pack arena or just the pack.
+     * Keep the pack chip in sync with [arenaIdx]. The flavor tier accent marks
+     * paid content: amber in The Circuit, green in the free flavor (where this
+     * chip is absent). Text names the pack arena or just the pack.
      */
     private fun updatePackChip() {
         val chip = packChip ?: return
         val cur = Arena.all()[arenaIdx]
         val pos = packArenas.indexOfFirst { it.id == cur.id }
+        val tierAccent = getColor(R.color.rf_tier_accent)
+        val tierAccentDark = getColor(R.color.rf_tier_accent_dark)
         chip.text = if (pos >= 0) "${packArenas[pos].pack}: ${packArenas[pos].name} >"
         else "ARENA PACK 1 >"
-        chip.setTextColor(if (pos >= 0) C_BLACK else C_BRIGHT)
-        chip.background = panelBackground(if (pos >= 0) C_GREEN else C_BLACK, C_GREEN_DARK)
+        chip.setTextColor(if (pos >= 0) C_BLACK else tierAccent)
+        chip.background = panelBackground(if (pos >= 0) tierAccent else C_BLACK, tierAccentDark)
     }
 
     /** One weighted button row for [layouts], which start at registry index [base]. */
@@ -2763,6 +2793,7 @@ class MainActivity : Activity() {
      * → identical result, matching the headless codec tests.
      */
     private fun doCodeRun(desc: ChallengeFormat.FightDescriptor) {
+        resetRunResponseAction()
         if (Arena.byId(desc.layoutId) == null) {
             setMode(AppMode.CODES)
             status.text = ChallengeFormat.E_PRO_ARENA
@@ -3061,9 +3092,9 @@ class MainActivity : Activity() {
     ).apply { topMargin = dp(6) }
 
     /**
-     * Circuit copy (user rule 2026-10-24): only the brand word CIRCUIT (e.g.
-     * "THE CIRCUIT") is amber; the surrounding copy keeps the view's own
-     * green. Returns the plain String when the word doesn't appear.
+     * Free-to-paid prose keeps the terminal green and highlights only the
+     * Circuit brand word in amber. Dedicated paid surfaces use their flavor
+     * tier accent separately (masthead, icon, Arena Pack chip).
      */
     private fun circuitText(s: String): CharSequence {
         if (!s.contains("CIRCUIT")) return s

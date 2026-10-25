@@ -123,13 +123,13 @@ Dependency graph: `:app → :engine`. That's the whole app.
 Android Studio, or:
 
 ```bash
-./gradlew :engine:test        # engine self-test
-./gradlew assembleDebug       # debug APK
-./gradlew assembleRelease     # release APK (sign with your own key)
+./gradlew :engine:test :app:testFreeDebugUnitTest :app:testProDebugUnitTest
+./gradlew :app:assembleFreeDebug :app:assembleProDebug
+./gradlew :app:bundleFreeRelease :app:bundleProRelease  # signed store AABs when the local keystore is present
 ```
 
 Toolchain: **AGP 9.4.1** (with built-in Kotlin), **Kotlin 2.2.10**,
-`compileSdk 37`, `minSdk 24`, `targetSdk 34`. The engine is a plain
+`compileSdk 37`, `minSdk 24`, `targetSdk 36`. The engine is a plain
 `kotlin("jvm")` library; the app is a `com.android.application` module.
 
 **Offline / air-gapped.** `build-android.sh` builds and signs `opcode-arena.apk`

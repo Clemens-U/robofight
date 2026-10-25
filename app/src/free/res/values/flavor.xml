@@ -10,8 +10,13 @@
     <color name="rf_chrome">#010703</color>
     <!-- Same rgb as MainActivity.C_BRIGHT (masthead title phosphor). -->
     <color name="rf_title">#B4FFBE</color>
+    <!-- Shared resource contract; paid-content UI is absent in this flavor. -->
+    <color name="rf_tier_accent">#34EC5B</color>
+    <color name="rf_tier_accent_dark">#145C2A</color>
     <string name="rf_masthead_link">RF-8 / ONLINE</string>
     <string name="rf_boot_line">OPCODE ARENA OS 0.6  // RF-8 COMBAT SYSTEM</string>
     <!-- Pre-split label: free UI stays pixel-identical. -->
     <string name="rf_combatants_label">COMBATANTS</string>
+    <!-- Compile-time flavor gate twin; keeps migration UI out of free. -->
+    <bool name="rf_pro_migration">false</bool>
 </resources>

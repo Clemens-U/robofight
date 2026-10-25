@@ -1,0 +1,3 @@
+Welcome to The Circuit 1.0. Arena Pack 1 adds two procedural arena families
+and four curated arenas, plus the complete firmware editor and deterministic
+Challenge Code loop. Import your firmware and saved codes from Opcode Arena.

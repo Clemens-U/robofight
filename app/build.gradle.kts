@@ -15,8 +15,10 @@ android {
         applicationId = "robofight.android"
         minSdk = 24
         targetSdk = 36
+        // Existing free listing: seventh upload, marketed as the maintenance
+        // release that launches alongside The Circuit.
         versionCode = 7
-        versionName = "0.6-codes"
+        versionName = "0.7"
     }
 
     // CI-safe signing: the release keystore files exist only on the local
@@ -40,6 +42,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
             if (releaseKeystore.exists()) {
                 signingConfig = signingConfigs.getByName("release")
@@ -67,8 +70,10 @@ android {
         create("pro") {
             dimension = "tier"
             applicationIdSuffix = ".pro"
-            versionNameSuffix = "-pro"
-            manifestPlaceholders["appLabel"] = "Opcode Arena PRO"
+            // Separate paid listing, so its version sequence starts at 1.
+            versionCode = 1
+            versionName = "1.0"
+            manifestPlaceholders["appLabel"] = "Opcode Arena: The Circuit"
             buildConfigField("boolean", "PRO_BUILD", "true")
         }
     }
