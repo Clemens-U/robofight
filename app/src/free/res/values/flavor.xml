@@ -6,8 +6,6 @@
   overrides these to give "Opcode Arena: The Circuit" its warmer amber look.
 -->
 <resources>
-    <!-- Same rgb as MainActivity.C_BG (status-bar chrome). -->
-    <color name="rf_chrome">#010703</color>
     <!-- Same rgb as MainActivity.C_BRIGHT (masthead title phosphor). -->
     <color name="rf_title">#B4FFBE</color>
     <!-- Shared resource contract; paid-content UI is absent in this flavor. -->

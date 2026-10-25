@@ -340,8 +340,6 @@ class MainActivity : Activity() {
         // compiles to — src/free provides a no-op, src/pro registers the Pro
         // arena packs. No BuildConfig branch needed in shared code.
         ProArenas.registerAll()
-        window.statusBarColor = getColor(R.color.rf_chrome)
-        window.navigationBarColor = getColor(R.color.rf_chrome)
         setContentView(buildLayout())
 
         store = BotFiles(this)
