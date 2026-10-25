@@ -1687,7 +1687,16 @@ class MainActivity : Activity() {
      * then just re-asserts the challenge arena instead of cycling.
      */
     private fun buildPackSelector(): View {
-        if (packArenas.isEmpty()) return View(this)
+        if (packArenas.isEmpty()) {
+            // A bare View with default WRAP params measures itself at the
+            // parent's FULL size when LinearLayout hands it an AT_MOST spec
+            // (View.getDefaultSize), which inflated the header row and pushed
+            // the picker/arena/monitor/controls rows off-screen in the free
+            // app. Pin the placeholder to 0x0 instead.
+            return View(this).apply {
+                layoutParams = LinearLayout.LayoutParams(0, 0)
+            }
+        }
         val chip = terminalButton("").apply {
             setPadding(dp(12), dp(8), dp(12), dp(8))
             setOnClickListener {
