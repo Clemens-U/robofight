@@ -8,7 +8,7 @@ outside the repository workflow.
 
 | App | Package | versionCode | versionName | Tag |
 |---|---|---:|---|---|
-| Opcode Arena | `robofight.android` | 7 | `0.7` | `free-0.7` |
+| Opcode Arena | `robofight.android` | 8 | `0.7` | `free-0.7` |
 | Opcode Arena: The Circuit | `robofight.android.pro` | 1 | `1.0` | `pro-1.0` |
 
 Both artifacts must come from the same Git commit. Do not change engine/ISA

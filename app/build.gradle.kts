@@ -15,9 +15,9 @@ android {
         applicationId = "robofight.android"
         minSdk = 24
         targetSdk = 36
-        // Existing free listing: seventh upload, marketed as the maintenance
+        // Existing free listing: eighth upload, marketed as the maintenance
         // release that launches alongside The Circuit.
-        versionCode = 7
+        versionCode = 8
         versionName = "0.7"
     }
 
