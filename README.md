@@ -50,7 +50,7 @@ glyphs and gives you a green-screen terminal to write and run firmware.
     line-based editor, all kept above the Android soft keyboard.
   - **RUN** — bot selection, `RUN` / `STEP` / `RESET`, live telemetry, and an
     **execution monitor**: both bots' source code side by side, a `>` marker on the
-    opcode being executed, and a live register line (`A X Y`, `SP`, `PC`, flags).
+    next or currently running opcode, and a live register line (`A X Y`, `SP`, `PC`, flags).
 - **A 66-check self-test** of the engine, run headlessly by `:engine:test`.
 - **Offline build path** — a script that assembles, dexes, aligns, and signs the
   APK without touching the network (see *Build*).

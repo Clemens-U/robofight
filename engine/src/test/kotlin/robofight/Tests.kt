@@ -156,25 +156,38 @@ fun main() {
         check("lineOf maps each instruction to its source line",
             r.lineOf.contentEquals(intArrayOf(1, 2, 4)), "got ${r.lineOf.toList()}")
 
-        // currentInsn: one index per single-tick op, -1 before the first step.
+        // currentInsn records the decoded op; monitorInsn points to the next
+        // op between instructions so registers are shown as that op's input.
         val vm = Vm()
         val r2 = assemble("MOV A,#1\nMOV X,#2\nMOV Y,#3\n")
         vm.load(r2.code)
         check("currentInsn is -1 before the first step", vm.currentInsn == -1)
+        check("monitorInsn points to first op before the first step", vm.monitorInsn == 0,
+            "got ${vm.monitorInsn}")
         vm.step(NullEnv)
         check("currentInsn == 0 after the first op", vm.currentInsn == 0, "got ${vm.currentInsn}")
+        check("monitorInsn points past completed MOV", vm.monitorInsn == 1,
+            "got ${vm.monitorInsn}")
         vm.step(NullEnv)
         vm.step(NullEnv)
         check("currentInsn == 2 after three ops", vm.currentInsn == 2, "got ${vm.currentInsn}")
+        check("monitorInsn points past completed source", vm.monitorInsn == 3,
+            "got ${vm.monitorInsn}")
 
         // currentInsn stays pinned on the SHOOT line for all 3 ticks of the op.
         val vm2 = Vm()
         vm2.load(assemble("SHOOT\nWAIT\n").code)
         vm2.step(NullEnv)
         check("SHOOT tick 1 -> currentInsn 0", vm2.currentInsn == 0, "got ${vm2.currentInsn}")
+        check("monitorInsn stays on SHOOT tick 1", vm2.monitorInsn == 0,
+            "got ${vm2.monitorInsn}")
         vm2.step(NullEnv)
+        check("monitorInsn stays on SHOOT tick 2", vm2.monitorInsn == 0,
+            "got ${vm2.monitorInsn}")
         vm2.step(NullEnv)
         check("SHOOT ticks 2-3 hold line 0 (multi-tick)", vm2.currentInsn == 0, "got ${vm2.currentInsn}")
+        check("monitorInsn advances after SHOOT final tick", vm2.monitorInsn == 1,
+            "got ${vm2.monitorInsn}")
         vm2.step(NullEnv)   // WAIT
         check("WAIT after SHOOT -> currentInsn 1", vm2.currentInsn == 1, "got ${vm2.currentInsn}")
 
@@ -184,6 +197,8 @@ fun main() {
         vm3.load(r3.code)
         vm3.step(NullEnv)   // MOV (insn 0)
         vm3.step(NullEnv)   // JMP skip (insn 1)
+        check("monitorInsn follows JMP target before it executes", vm3.monitorInsn == 3,
+            "got ${vm3.monitorInsn}")
         vm3.step(NullEnv)   // lands on skip (insn 3)
         check("branch lands on its target instruction", vm3.currentInsn == 3, "got ${vm3.currentInsn}")
     }

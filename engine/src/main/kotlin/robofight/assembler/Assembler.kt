@@ -12,8 +12,8 @@ data class AsmResult(
     /**
      * Source-line map: `lineOf[i]` is the 0-based index of the source line that
      * produced instruction `i` (program order). Size == [instructionCount].
-     * Used by the arena's execution monitor to show the source line a robot is
-     * currently executing. Only meaningful when [ok] is true.
+     * Used by the arena's execution monitor to show the source line a robot
+     * will execute next or is still executing. Only meaningful when [ok] is true.
      */
     val lineOf: IntArray,
 )

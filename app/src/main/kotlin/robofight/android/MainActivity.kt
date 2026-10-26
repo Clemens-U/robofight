@@ -2903,7 +2903,7 @@ class MainActivity : Activity() {
     /**
      * The execution monitor: two code panes side by side, one per combatant.
      * Each pane shows the original firmware source in a scrolling window
-     * around the current line plus a one-line register readout. The number of
+     * around the next/running line plus a one-line register readout. The number of
      * source lines adapts to the viewport height while retaining a small gap
      * above the registers. Built in both the portrait and landscape branches
      * of buildRunScreen(); content is refreshed by updateMonitor().
@@ -2961,11 +2961,11 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Render both code panes for the current frame. The current line is found
-     * from the VM's currentInsn (held steady across a multi-tick op's whole
-     * duration), mapped to a source line via the assembler's line map. The
-     * window is biased so the current line sits in the lower half — 2 lines
-     * ahead are always visible.
+     * Render both code panes for the current frame. Between instructions the
+     * marker points at the next instruction, so the register row is its input
+     * state. During a multi-tick op the marker stays on that op until its final
+     * tick completes. The instruction index is mapped to a source line via the
+     * assembler's line map.
      */
     private fun updateMonitor() {
         if (!::codeA.isInitialized) return
@@ -2999,10 +2999,10 @@ class MainActivity : Activity() {
             reg.text = ""
             return
         }
-        val insn = vm.currentInsn
-        // Map the current instruction to its source line via the assembler's
-        // line map. A bot that runs off the end of its program (mem tail is
-        // 0x00 NOPs) clamps to the last line and folds an END marker onto it.
+        val insn = vm.monitorInsn
+        // Map the next/running instruction to its source line via the
+        // assembler's line map. A bot that runs off the end of its program
+        // clamps to the last line and folds an END marker onto it.
         val atEnd = insn !in 0 until bc.lineOf.size
         val lines = bc.source.split("\n")
         val curLine = if (atEnd) lines.size - 1 else bc.lineOf[insn]

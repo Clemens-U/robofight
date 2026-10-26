@@ -47,6 +47,17 @@ class Vm {
      */
     var currentInsn = -1
         private set
+    /**
+     * Instruction the execution monitor should highlight.
+     *
+     * Between instructions this is the next instruction at [pc], so the
+     * register row describes the state in which that instruction will start.
+     * While a multi-tick instruction is still running, keep its source line
+     * highlighted until its final tick has completed.
+     */
+    val monitorInsn: Int
+        get() = if (inProgress) currentInsn
+                else (pc - ISA.PROG_BASE) / ISA.INSN_BYTES
     private var pending: ((Env) -> Unit)? = null
     private var ticksLeft = 0
     private var pendingTotal = 0

@@ -40,7 +40,7 @@ class RunController {
      * same source string the bot is built with, so the line map lines up with
      * exactly the code the VM is running. Cleared to null on [reset].
      * The execution monitor (both code panes) reads these to render the source
-     * window around the instruction each bot is currently executing.
+     * window around the instruction each bot will execute next or is still executing.
      */
     var botCodes: Array<BotCode?> = arrayOf(null, null)
         private set

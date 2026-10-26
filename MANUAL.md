@@ -396,7 +396,8 @@ line above the arena reads `T+ 42  // EXECUTING`, and swaps the state for
 
 Directly under the arena, between it and the A/B slot buttons, sits the **execution
 monitor**: two side-by-side windows, one per combatant, showing the bot's *original
-firmware source* with a marker on the line being executed. It updates every tick.
+firmware source* with a marker on the next or currently running line. It updates
+every tick.
 
 ```
 +----------------------------------+----------------------------------+
@@ -411,14 +412,15 @@ firmware source* with a marker on the line being executed. It updates every tick
 +----------------------------------+----------------------------------+
 ```
 
-- **Window:** 6 source lines — 2 before the current line, the current line, and
+- **Window:** 6 source lines — 2 before the marked line, the marked line, and
   3 ahead. The window slides as the program runs; near the end it clamps at the
   last line (a bot that runs off the end of its program — the memory tail is NOPs —
   keeps the marker on the last line with an `…END` tag).
-- **Current opcode:** the executing line is bright and prefixed with `>`; lines
-  already passed are dimmed. Multi-tick ops (`SHOOT`, `MOVE`, `SHIELD`) hold the
-  marker on their line for the whole operation, and a jump/branch moves it to the
-  target's line.
+- **Next/running opcode:** between instructions, the next line is bright and
+  prefixed with `>`; the register row is the state in which that instruction
+  will start. Multi-tick ops (`SHOOT`, `MOVE`, `SHIELD`) hold the marker on the
+  running instruction for their whole operation, and a jump/branch moves it to
+  the target's line.
 - **Register line** (pinned to the pane's bottom): `A## X## Y##` (8-bit hex),
   `SP### PC###` (stack pointer / program counter, 10-bit hex), and the lit flag
   letters — `C` (carry), `Z` (zero), `N` (negative). Watch `PC` walk as you
