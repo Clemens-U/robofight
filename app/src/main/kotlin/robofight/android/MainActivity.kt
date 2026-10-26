@@ -764,7 +764,7 @@ class MainActivity : Activity() {
      */
     private fun writeExportDoc(tree: Uri, fileName: String, mimeType: String, bytes: ByteArray): Boolean {
         val rootDoc = treeDocUri(tree) ?: return false
-        val doc = DocumentsContract.createDocument(contentResolver, rootDoc, fileName, mimeType) ?: return false
+        val doc = DocumentsContract.createDocument(contentResolver, rootDoc, mimeType, fileName) ?: return false
         return try {
             val out = contentResolver.openOutputStream(doc) ?: return false
             out.use { it.write(bytes) }
@@ -842,7 +842,11 @@ class MainActivity : Activity() {
             startActivityForResult(
                 Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                     addCategory(Intent.CATEGORY_OPENABLE)
-                    type = FirmwareExport.MIME_ZIP
+                    // Providers do not agree on a ZIP MIME type: valid archives
+                    // are also commonly exposed as application/x-zip-compressed
+                    // or application/octet-stream. Let the picker show application
+                    // files and rely on ImportZip's strict content validation.
+                    type = "application/*"
                 },
                 REQ_IMPORT_ZIP,
             )

@@ -15,10 +15,9 @@ android {
         applicationId = "robofight.android"
         minSdk = 24
         targetSdk = 36
-        // Existing free listing: eighth upload, marketed as the maintenance
-        // release that launches alongside The Circuit.
-        versionCode = 8
-        versionName = "0.7"
+        // Free-app transfer hotfix: valid export filename/MIME metadata.
+        versionCode = 9
+        versionName = "0.7.1"
     }
 
     // CI-safe signing: the release keystore files exist only on the local
@@ -70,9 +69,9 @@ android {
         create("pro") {
             dimension = "tier"
             applicationIdSuffix = ".pro"
-            // Separate paid listing, so its version sequence starts at 1.
-            versionCode = 1
-            versionName = "1.0"
+            // Paid-app transfer hotfix: export metadata + tolerant ZIP picker.
+            versionCode = 2
+            versionName = "1.0.1"
             manifestPlaceholders["appLabel"] = "Opcode Arena: The Circuit"
             buildConfigField("boolean", "PRO_BUILD", "true")
         }
