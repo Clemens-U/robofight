@@ -68,7 +68,7 @@ def shell_screenshot():
     lines = [
         ("OPCODE ARENA OS 0.4", BRIGHT),
         ("RF-8 COMBAT SYSTEM", DIM),
-        ("MEM 64K  GRID 20x20  LINK READY", GREEN),
+        ("MEM 1K   GRID 20x20  LINK READY", GREEN),
         ("TYPE HELP FOR AVAILABLE COMMANDS", GREEN),
         ("", GREEN),
         ("RF:\\> DIR", BRIGHT),

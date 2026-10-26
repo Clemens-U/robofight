@@ -995,7 +995,10 @@ class MainActivity : Activity() {
 
     private fun printBoot() {
         printLine(getString(R.string.rf_boot_line))
-        printLine("MEM 64K  GRID 20x20  LINK READY")
+        // The shipped RF-8 profile has a 10-bit (1 KiB) address space.  The
+        // planned 64 KiB profile must not be advertised until the VM, assembler,
+        // and challenge format can actually address it.
+        printLine("MEM 1K   GRID 20x20  LINK READY")
         printLine("TYPE HELP FOR AVAILABLE COMMANDS")
         printLine("")
         commitText()

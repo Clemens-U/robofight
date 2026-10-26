@@ -466,6 +466,13 @@ but not yet set by the ALU, so `JC`/`JNC` read as "never / always".)
 | `$00C0–$00FF` | I/O ports (routed through the robot / world) |
 | `$0100–$03FF` | program (up to 256 instructions) |
 
+This is the capacity of the current app, so the SHELL boot line reports
+`MEM 1K`. A future RF-8/64 release is specified to add a 16-bit address space
+with up to 32 KiB RAM followed by 32 KiB ROM. Its first `$0000–$03FF` remains
+mapped exactly as above, so existing firmware stays compatible. The expanded
+profile is not available in the released assembler or VM yet; see
+`DESIGN.md` §5.2.1 and `PLAN-PRO.md` §6.
+
 Operand forms, wherever they appear:
 - `#n` — 8-bit immediate, 0–255
 - `A` `X` `Y` — registers

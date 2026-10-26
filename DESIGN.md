@@ -11,8 +11,9 @@
 You are a **combat-programmer**. You write *firmware* for a robot in a small
 assembly language, send it into the arena, and watch your code come alive to
 fight AI (or a friend). The skill is **programming**, not reflexes. The "nerdy"
-loop *is* the game: read sensor data, branch, fire, manage heat — all on a
-1 KB machine rendered in chunky 8-bit ASCII.
+loop *is* the game: read sensor data, branch, fire, manage heat — currently on
+a 1 KiB machine, with a compatibility-preserving 64 KiB address-space expansion
+on the roadmap, rendered in chunky 8-bit ASCII.
 
 ## 2. Decisions log (locked)
 
@@ -125,7 +126,9 @@ H fired a `*` that has traveled east; T is facing west to intercept):
 
 ## 5. The CPU — RF-8
 
-An 8-bit-class machine. **1 KB** of memory, 7 registers, robot state exposed as
+An 8-bit-class machine. The shipped compatibility profile has **1 KiB** of
+memory; a future RF-8/64 profile expands the address space to **64 KiB** while
+keeping the complete first 1 KiB unchanged. Robot state is exposed as
 **memory-mapped I/O ports** — like a real embedded system.
 
 ### 5.1 Registers (7)
@@ -139,7 +142,7 @@ An 8-bit-class machine. **1 KB** of memory, 7 registers, robot state exposed as
 | `PC` | 10-bit | program counter (starts `$0100`) |
 | `P`  | 8-bit  | flags `C Z V N H I` |
 
-### 5.2 Memory map (1024 bytes, `$0000–$03FF`)
+### 5.2 Shipped memory map (1 KiB, `$0000–$03FF`)
 
 | Range | What it is |
 |-------|-----------|
@@ -148,6 +151,34 @@ An 8-bit-class machine. **1 KB** of memory, 7 registers, robot state exposed as
 | `$0080–$00BF` | stack (grows down from `$00BF`) |
 | `$00C0–$00FF` | **I/O ports** — robot state & world |
 | `$0100–$03FF` | program (768 bytes) |
+
+This map is a permanent compatibility window. Existing binaries continue to
+load at `$0100`, start with `PC=$0100` and `SP=$00BF`, and observe the same
+zero-page, stack, I/O, and program addresses after the larger profile ships.
+
+### 5.2.1 Future RF-8/64 memory profile (roadmap)
+
+RF-8/64 exposes a 16-bit, 64 KiB address space: the lower half is up to
+**32 KiB RAM**, followed by **32 KiB ROM** in the upper half.
+
+| Range | What it is |
+|-------|------------|
+| `$0000–$03FF` | legacy compatibility window, exactly as specified in §5.2 |
+| `$0400–$7FFF` | expanded RAM; together with the RAM-backed parts of the compatibility window, the lower address half provides up to 32 KiB RAM (less its reserved system/I/O bytes) |
+| `$8000–$FFFF` | read-only program/storage ROM (32 KiB), executable and readable by firmware |
+
+New-profile firmware normally executes from ROM at `$8000`; legacy firmware
+continues to execute from its RAM-backed program window at `$0100`. RF-8/64
+therefore needs 16-bit `PC`/address handling and instructions that can load and
+store full 16-bit absolute addresses. Existing 3-byte opcodes retain their old
+encoding and behavior; new addressing forms/opcodes are append-only. Writes to
+ROM must fault (or be rejected) deterministically. The exact new opcode set,
+loader header, stack policy, and fault behavior require an RF-8/64 ISA spec
+before implementation.
+
+The expansion is a **shared mechanic**, released in both free and paid apps on
+the same engine version. Paid-only arenas, riddles, and campaigns may make use
+of the extra space, but the address space and ISA itself are not tier-gated.
 
 ### 5.3 I/O ports (`$00C0`+)
 

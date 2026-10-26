@@ -172,7 +172,7 @@ Key facts:
 |---|---|
 | **Registers** | `A` (accumulator), `X` (index/scratch), `Y` (scratch) |
 | **Sensors** (`IN`/`OUT`) | `HP` `DIR` `RX` `RY` `DIST` `ANGLE` `ENEMY_HP` `HEAT` `SHIELD` `RAND` `FIRE` `AHEAD` |
-| **Memory** | data RAM `$010–$7F` + **system zero-page** `$000–$00F`: the world writes a 24-bit tick counter to `$000–$002` (little-endian) every tick — read it with `MOV A,[0]`…`MOV A,[2]`, no 256-wrap |
+| **Memory (current)** | 1 KiB address space: data RAM `$010–$7F` + **system zero-page** `$000–$00F`, stack/I/O, and program `$100–$3FF`. The world writes a 24-bit tick counter to `$000–$002` (little-endian) every tick — read it with `MOV A,[0]`…`MOV A,[2]`, no 256-wrap. A shared RF-8/64 profile (up to 32 KiB RAM + 32 KiB ROM) is planned; its first 1 KiB stays unchanged. |
 | **Robot** | `MOVE` `TURN L`/`TURN R`/`TURN #n` `SHOOT` `SHIELD` `WAIT` `NOP` |
 | **Branch** | `JMP` `JZ` `JNZ` `JC` `JNC` `JN` `JNN` `JG` `JGE` `JL` `JLE` `JE` `JNE` |
 | **Subroutines** | `CALL` `RET`, with a stack (`PUSH`/`POP`) |
@@ -219,8 +219,10 @@ room.
 
 - **Good first issues:** a new preset bot (`engine/world/Presets.kt` + a `firmware/*.asm`),
   a new sensor or instruction, or a bug in the assembler's error messages.
-- **Larger, planned:** step-debugger (single-step, watch registers/memory, breakpoints),
-  campaign-vs-AI difficulty ladder, PvP hot-seat, tournaments, chiptune audio + CRT overlay.
+- **Larger, planned:** RF-8/64 (up to 32 KiB RAM followed by 32 KiB ROM, with
+  the current first 1 KiB preserved), step-debugger (single-step, watch
+  registers/memory, breakpoints), campaign-vs-AI difficulty ladder, PvP
+  hot-seat, tournaments, chiptune audio + CRT overlay.
 - **Rules of the road:**
   - Keep `engine/` dependency-free (no Android, no LibGDX). That's the whole reason
     the game brain is testable headlessly.

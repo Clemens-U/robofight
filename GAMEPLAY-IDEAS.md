@@ -156,6 +156,16 @@ it). *Impact: M · Effort: S/M.*
 and line breakpoints in the execution monitor. Closes the *step, watch, fix*
 loop the monitor started. *Impact: M · Effort: M.*
 
+**RF-8/64 memory profile.** Expand the shared machine to a 16-bit address
+space: up to 32 KiB RAM at `$0000–$7FFF`, followed by 32 KiB ROM at
+`$8000–$FFFF`. Preserve `$0000–$03FF` exactly so every current firmware keeps
+its zero-page, stack, I/O, load address, and behavior. New-profile programs
+normally execute at `$8000`; full 16-bit loads/stores, `PC`, loader metadata,
+debugger views, and challenge-code v2 payload rules must land together. This is
+a mechanic and ships in both apps; paid content can depend on it, but paid-only
+memory would split the ISA and replay ecosystem. *Impact: L · Effort: XL · New
+memory/ISA semantics ⇒ `eng` bump.*
+
 **Fault panel.** Surface runtime faults (stack underflow, bad `CALL`, writes
 to read-only ports) as a terminal-style `FAULT` readout instead of silent
 no-ops — crashing should be *legible*. *Impact: S/M · Effort: M.*
@@ -239,12 +249,13 @@ together they are the saga foundation and land with codes v2.
 | 7 | Local ladders | M | S/M | Natural extension of shipped history |
 | 8 | Slug / spread weapons | M | M | v2 rule knobs + `eng` bump — schedule with the next format work |
 | 9 | Memory peek + breakpoints, fault panel | M | M | Completes the debugging loop (M5) |
-| 10 | Campaign (as code-pack) | L | L | Biggest content play; leans on packs (§6) |
-| 11 | Replay scrubber | M | M | Needs per-tick state re-run |
-| 12 | Tournament / 4-bot FFA | M | L | Engine sim work first |
-| 13 | Survival waves | M | L | Reserved as v2 mode class (§13) |
-| 14 | Procedural arenas | — | M | **Pro content** (CHALLENGE-CODES §7.4) — paid pillar, not a free idea |
-| 15 | Escape mechanics (exit/gates/puzzle ports) | L | M | "Walls Down" pack — saga foundation (§7); schedule with codes v2 |
+| 10 | RF-8/64 memory profile | L | XL | Shared mechanic; 32 KiB RAM + 32 KiB ROM, legacy first 1 KiB unchanged; coordinate with debugger and codes v2 |
+| 11 | Campaign (as code-pack) | L | L | Biggest content play; leans on packs (§6) |
+| 12 | Replay scrubber | M | M | Needs per-tick state re-run |
+| 13 | Tournament / 4-bot FFA | M | L | Engine sim work first |
+| 14 | Survival waves | M | L | Reserved as v2 mode class (§13) |
+| 15 | Procedural arenas | — | M | **Pro content** (CHALLENGE-CODES §7.4) — paid pillar, not a free idea |
+| 16 | Escape mechanics (exit/gates/puzzle ports) | L | M | "Walls Down" pack — saga foundation (§7); schedule with codes v2 |
 
 ---
 

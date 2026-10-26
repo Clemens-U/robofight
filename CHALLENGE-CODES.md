@@ -710,6 +710,7 @@ matrix ship together.
 | **Second weapon / new rule knobs** | v2 rule bytes + `eng` bump (new deterministic behavior). |
 | **4-bot / tournament codes** | v2 slot scheme (N slots, generalized mask). |
 | **Survival ("true gauntlet")** | v2 mode class. `0b11` remains OPEN DUEL permanently — never reused. |
+| **RF-8/64 firmware** | v2 identifies the memory profile and supports larger firmware payloads. The VM exposes up to 32 KiB RAM followed by 32 KiB ROM while preserving `$0000–$03FF` exactly; v1 firmware remains capped at 768 bytes, loads at `$0100`, and keeps its present semantics. This is a shared mechanic in both app tiers and requires an `eng` bump plus new payload-size/anti-abuse limits. |
 | Audio, CRT, cosmetics | Never in a code. |
 
 The invariant behind every row: **a v1 code keeps meaning exactly what this

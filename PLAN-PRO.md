@@ -18,6 +18,7 @@
 | Price | **€1.99 launch price**, as a Play price step. Price follows content: step up (€3.99, then €4.99) when campaign/survival land. Buyers at any price keep all future updates (grandfathered), which doubles as the early-bird incentive. |
 | Tier signal | **Amber is the general visual flag for the paid tier; phosphor green remains the shared system/game color.** The Circuit uses amber for its robot/icon, brand moments, paid-content labels/badges, and paid calls to action. Arena, editor, firmware, shared controls, and ordinary status text stay green. Free UI stays green except for a narrowly scoped `THE CIRCUIT`/paid-content marker in a cross-sell. |
 | Mechanics | **Shared in both apps.** One engine, one ISA, one physics, one `eng` version. Codes interoperate between the apps. The paid app differentiates **only** through content and modes. |
+| Memory expansion | **Must not be paid-only.** RF-8/64, including its 16-bit address space, up to 32 KiB RAM, 32 KiB ROM, addressing instructions, and loader behavior, ships to the free and paid apps together as a shared mechanic. The Circuit may gate content that uses the expanded memory, never access to the memory profile itself. |
 | Pro v1 scope | **Arena pack only** — procedural (seed-derived) arenas + curated arenas at `layout` ids `0x10+`. No challenge-code wire change. Traps, hazards, campaign, survival are later phases (§7). |
 
 ---
@@ -183,11 +184,23 @@ CHALLENGE-CODES §13 — nothing here forecloses them.
 
 Post-launch roadmap (order, not scope-locked): the shared **"Walls Down"
 mechanics pack** (THREAT sensor + exit/gate/item/hazard tiles — free to both
-apps, `eng` bump) → challenge-codes **v2** (gauntlet/score semantics, custom
-round lengths, slot scheme, layout params) → tournament mode → trap arenas →
+apps, `eng` bump) → the shared **RF-8/64 memory profile** (16-bit address
+space; up to 32 KiB RAM at `$0000–$7FFF`, then 32 KiB ROM at
+`$8000–$FFFF`; `$0000–$03FF` remains the exact legacy map; append-only ISA,
+loader, debugger, and challenge-code v2 work) → challenge-codes **v2**
+(gauntlet/score semantics, custom round lengths, slot scheme, layout params)
+→ tournament mode → trap arenas →
 the paid **saga chapters** (the escape story under The Circuit — see
 GAMEPLAY-IDEAS §7; campaign + survival waves land as its chapters) → price
 step €3.99 → €4.99. Nothing in this roadmap touches P2–P4 scope.
+
+RF-8/64 is deliberately **not** a paid-tier gate. Address width, available
+memory, opcodes, and loader behavior are mechanics under §0/§3. Gating them
+would create two ISA dialects: expanded Pro firmware could not execute in the
+free app, challenge replay would lose parity, and the paid build would gain a
+competitive programming resource rather than content. Both apps therefore
+receive the same memory profile and engine version; The Circuit monetizes the
+arenas, riddles, and modes that can exercise it.
 
 ---
 
