@@ -245,6 +245,9 @@ PRs, forks, and "I built a bot and it's weird but cool" are all welcome.
 | **[CHALLENGE-CODES.md](CHALLENGE-CODES.md)** | Challenge-code spec (v1, locked) — shareable fight codes: wire format, the five free arenas, rule knobs, free/Pro gating. |
 | **[GAMEPLAY-IDEAS.md](GAMEPLAY-IDEAS.md)** | Ideas backlog — candidate sensors, terrain, weapons, modes, ranked by impact/effort, plus anti-goals. Not a spec. |
 | **[PLAN-PRO.md](PLAN-PRO.md)** | Paid-tier roadmap — free tier frozen at 0.6-codes, separate PRO app, shared mechanics, Arena Pack 1, milestones P0–P4. |
+| **[RF8-PLATFORM-SPEC.md](RF8-PLATFORM-SPEC.md)** | Shared RF-8 contract — frozen ISA v1, extensible port registry, compatibility rules, and approved shield timing. |
+| **[PLAN-RF8-MULTIAPP.md](PLAN-RF8-MULTIAPP.md)** | Implementation handoff for extracting the RF-8 core and adding FIRELINE as a separately built app and world engine. |
+| **[FIRELINE-DESIGN.md](FIRELINE-DESIGN.md)** | RF-8: FIRELINE game specification — deterministic fire model, missions, ports, UI, tests, and MVP acceptance criteria. |
 | **[MANUAL.md](MANUAL.md)** | User manual — the two modes, the shell, the RF-8 language, combat rules, troubleshooting. |
 | **[PLAN-M3-ANDROID.md](PLAN-M3-ANDROID.md)** | The plan that moved us from LibGDX to a pure native-Android app. |
 | **[IDEA.md](IDEA.md)** | The one-line seed it all started from. |
