@@ -50,7 +50,7 @@ private fun rawCode(payload: ByteArray): String =
  */
 private fun makePayload(
     fmt: Int = 1,
-    eng: Int = 1,
+    eng: Int = ChallengeFormat.ENGINE_VERSION,
     layout: Int = 0,
     slots: Int = 3,
     flags: Int = 0,
@@ -111,7 +111,7 @@ private fun desc(
     val aOpen = slots and 0x01 != 0
     val bOpen = slots and 0x02 != 0
     return FightDescriptor(
-        eng = 1, layoutId = layoutId, slots = slots, seed = seed, mode = mode,
+        eng = ChallengeFormat.ENGINE_VERSION, layoutId = layoutId, slots = slots, seed = seed, mode = mode,
         spawn = spawn, hpA = hpA, hpB = hpB, result = result,
         fwA = if (aOpen) ByteArray(0) else validFw(8),
         fwB = if (bOpen) ByteArray(0) else validFw(8),
@@ -234,10 +234,11 @@ private fun testErrorStrings() {
     // MADE WITH NEWER VERSION — UPDATE APP: fmt > 1
     check("fmt=2 -> MADE WITH NEWER VERSION — UPDATE APP",
         errOf(rawCode(makePayload(fmt = 2))) == ChallengeFormat.E_NEWER_FMT)
-    // MADE WITH NEWER ENGINE — UPDATE APP: eng > 1
-    check("eng=2 -> MADE WITH NEWER ENGINE — UPDATE APP",
-        errOf(rawCode(makePayload(eng = 2))) == ChallengeFormat.E_NEWER_ENG)
-    // eng < app -> playable with the exact warning
+    // MADE WITH NEWER ENGINE — UPDATE APP: eng > ENGINE_VERSION
+    check("eng=${ChallengeFormat.ENGINE_VERSION + 1} -> MADE WITH NEWER ENGINE — UPDATE APP",
+        errOf(rawCode(makePayload(eng = ChallengeFormat.ENGINE_VERSION + 1))) == ChallengeFormat.E_NEWER_ENG)
+    // eng < app -> playable with the exact warning (eng=1 is the pre-shield
+    // engine v1 baseline; see LegacyEng1FixtureTest for a frozen real code)
     val old = ChallengeFormat.parse(rawCode(makePayload(eng = 0)))
     check("eng=0 -> Ok with OLD ENGINE warning",
         old is ParseResult.Ok && old.warning == ChallengeFormat.W_OLD_ENG && old.lock == null)
@@ -427,7 +428,7 @@ private fun testGating() {
         check("unknown layout 0x${aid.toString(16)}: rejected",
             p is ParseResult.Err && p.message == ChallengeFormat.E_UNKNOWN_ARENA)
     }
-    val eq = ChallengeFormat.parse(rawCode(makePayload(eng = 1)))
+    val eq = ChallengeFormat.parse(rawCode(makePayload()))
     check("eng == app: play, exact (no warning)",
         eq is ParseResult.Ok && eq.warning == null)
 }

@@ -29,7 +29,7 @@ class ImportZipTest {
     private fun validCode(): String {
         val image = assemble("WAIT\nMOV A, #5\nSHOOT\n").code
         val desc = ChallengeFormat.FightDescriptor(
-            eng = 1, layoutId = 0x00, slots = 0b01, seed = 7,
+            eng = ChallengeFormat.ENGINE_VERSION, layoutId = 0x00, slots = 0b01, seed = 7,
             mode = ChallengeFormat.MODE_KO, spawn = SPAWN_SEPARATE,
             hpA = 100, hpB = 100, result = null,
             fwA = ByteArray(0), fwB = image, srcA = null, srcB = null,

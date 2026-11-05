@@ -13,6 +13,7 @@ const val HEAT_MAX = 100     // heat cap (0–100) — 5 SHOOT/SHIELD reach the 
 const val HEAT_COOL = 2      // heat dropped per cool tick; 100→0 in 50 cool ticks = 5 s at 100 ms/tick
 const val HEAT_SHOOT = 20    // heat added by SHOOT
 const val HEAT_SHIELD = 20   // heat added by SHIELD
+const val SHIELD_DURATION = 5 // protected world resolutions after SHIELD completes (spec §6.1)
 const val HEAT_DAMAGE_THRESHOLD = 80   // heat (0–100) above which the bot takes self-damage
 const val HEAT_DAMAGE_PER_SEC = 2      // HP lost per second while heat > HEAT_DAMAGE_THRESHOLD
 const val TICKS_PER_SECOND = 10        // engine time model: 100 ms per tick (see §10 DESIGN.md)
@@ -49,7 +50,15 @@ class Bot(
     var heat = 0
     var heatedThisTick = false  // set by shoot()/shield(); consumed by the cool step
     var heatOverload = 0f       // fractional HP pending from overheating (applied as whole HP)
-    var shielded = false      // resets every tick before the bot acts
+    /**
+     * Shield state is a DURATION counter, not a per-tick flag (spec §6.1):
+     * it holds the number of world resolutions still protected, armed to
+     * SHIELD_DURATION on activation completion and decremented by the World
+     * only AFTER each tick's world resolution. [shielded] stays as the
+     * derived view for renderers and callers.
+     */
+    var shieldTicksRemaining = 0
+    val shielded: Boolean get() = shieldTicksRemaining > 0
     var alive = true
     var shots = 0
     var hits = 0
@@ -84,7 +93,7 @@ class Bot(
     fun reset(x: Int, y: Int, dir: Int, configuredHp: Int = startHp) {
         px = x; py = y; facing = dir
         startHp = configuredHp
-        hp = configuredHp; heat = 0; heatedThisTick = false; heatOverload = 0f; shielded = false; alive = true
+        hp = configuredHp; heat = 0; heatedThisTick = false; heatOverload = 0f; shieldTicksRemaining = 0; alive = true
         shots = 0; hits = 0; dmgDealt = 0; dmgTaken = 0
         val binary = fwBinary
         if (binary != null) vm.load(binary) else load(fw)
@@ -101,7 +110,7 @@ class Bot(
             4 -> w.nearestEnemyDist(this)
             5 -> w.neededTurn(this)
             6 -> 0
-            7 -> if (shielded) 1 else 0
+            7 -> if (shieldTicksRemaining > 0) 1 else 0
             8 -> heat
             9 -> w.nearestEnemyHp(this)
             10 -> w.nextRand()
@@ -154,10 +163,14 @@ class Bot(
         // Shielding strains the system too (+HEAT_SHIELD). When shielding
         // would push heat past the max, the shield collapses — no protection
         // — until the heat has cooled back to 80.
+        // A successful completion arms a fresh SHIELD_DURATION window
+        // (spec §6.1): it protects five world resolutions, is NOT consumed by
+        // the first hit, and a re-activation refreshes it to SHIELD_DURATION
+        // instead of stacking.
         if (heat + HEAT_SHIELD > HEAT_MAX) return
-        shielded = true
         heat += HEAT_SHIELD
         heatedThisTick = true
+        shieldTicksRemaining = SHIELD_DURATION
     }
 
     /**
@@ -352,7 +365,8 @@ class World(val layout: Layout = Arena.OPEN) {
         val log = ArrayList<String>()
         for (b in bots) {
             if (!b.alive) continue
-            b.shielded = false
+            // Shield duration is NOT cleared here: it is a window that spans
+            // ticks (spec §6.1); only the post-resolution step below decrements it.
             b.heatedThisTick = false
             b.vm.step(b)
             if (b.vm.fault) { b.alive = false; b.hp = 0 }
@@ -383,6 +397,10 @@ class World(val layout: Layout = Arena.OPEN) {
             log.add("${b.name}[${b.vm.lastOp}]")
         }
         resolveProjectiles()
+        // Shield windows decrement only AFTER this tick's world resolution:
+        // the SHIELD completion tick plus the four following ticks are the
+        // five protected resolutions (spec §6.1 timeline).
+        for (b in bots) if (b.shieldTicksRemaining > 0) b.shieldTicksRemaining--
         lastLine = log.joinToString("  ·  ")
         checkFinish()
         if (tick >= MAX_TICKS) { finished = true; checkWinner() }

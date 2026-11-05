@@ -1,6 +1,7 @@
 package robofight.android
 
 import robofight.challenge.ChallengeRun
+import robofight.challenge.ChallengeFormat
 import robofight.challenge.ChallengeFormat.FightDescriptor
 import robofight.world.Arena
 import robofight.world.Bot
@@ -175,7 +176,7 @@ fun runArenaPackSuite(): Pair<Int, Int> {
     val hunter = Presets.all().first { it.name == "HUNTER" }
     val snake = Presets.all().first { it.name == "SNAKE" }
     fun descAt(seed: Int) = FightDescriptor(
-        eng = 1, layoutId = 0x10, slots = 0b11, seed = seed, mode = 0, spawn = SPAWN_SEPARATE,
+        eng = ChallengeFormat.ENGINE_VERSION, layoutId = 0x10, slots = 0b11, seed = seed, mode = 0, spawn = SPAWN_SEPARATE,
         hpA = 10, hpB = 10, result = null, fwA = ByteArray(0), fwB = ByteArray(0), srcA = null, srcB = null,
     )
     fun bots() = listOf(

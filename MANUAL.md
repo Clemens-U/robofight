@@ -344,14 +344,14 @@ Bots are colored per the table above. When a bot dies it disappears.
 - **Instruction cost (ticks):** the engine advances in *ticks*. Each tick, every
   *alive* bot steps its program, but an instruction is not always one tick — the
   robot's physical actions are slower than bookkeeping: `SHOOT` **3 ticks**, `SHIELD`
-  **3 ticks**, `MOVE` **2 ticks**, and **every other instruction 1 tick**. While a
+  **2 ticks**, `MOVE` **2 ticks**, and **every other instruction 1 tick**. While a
   multi-tick op is in flight the bot executes nothing else — it *holds* on that line
   for the whole duration (no decode, no faults, no further steps), and its world
   effect (the projectile, the step, the shield) fires on the op's **final tick**.
   After every bot has stepped, the world resolves — projectiles advance one cell,
-  hit, or die on terrain (a block or an edge wall). (A `SHIELD` still covers exactly
-  one world-resolve; a
-  `SHOOT`'s projectile spawns on the shot's final tick.)
+  hit, or die on terrain (a block or an edge wall). (A `SHOOT`'s projectile spawns
+  on the shot's final tick; a completed `SHIELD` guards the **five** following
+  world-resolves — see *Shield* below.)
 - **Health:** every bot starts at **100 HP**. A hit does **10 damage** → 10 clean
   hits to KO.
 - **Heat (anti-spam):** heat is **cumulative**, measured 0–100. `SHOOT` and
@@ -365,11 +365,17 @@ Bots are colored per the table above. When a bot dies it disappears.
   and is applied as whole HP. Safe ticks stop adding damage without erasing
   earlier fractional exposure, so repeated short spikes cannot bypass the
   penalty. Staying hot is lethal — shut down, idle, and let heat cool below 80.
-- **Shield:** `SHIELD` protects a bot from one hit *that tick* and **adds heat
-  too**. It resets every tick, so it only matters the instant you raise it.
-  When heat is too high to shield, the shield **collapses** — no protection —
+- **Shield:** `SHIELD` takes **2 ticks** to raise. On its completion tick it
+  adds **heat** and arms a **five-tick window**: the completion tick plus the
+  four following ticks are protected against *every* hit resolved in them. The
+  window is **not consumed** by the first hit, and re-raising `SHIELD` simply
+  refreshes it to five (it never stacks beyond five). `IN SHIELD` reads `1`
+  for the whole window. Heat keeps cooling normally during the window; only
+  the two activation ticks suppress cooling. When heat is too high to shield,
+  the activation **collapses** to a one-tick no-op — no protection, no heat —
   and `SHOOT` is locked out in the same way: the robot simply waits until the
-  heat has dropped and it can act again.
+  heat has dropped and it can act again. (Shared contract:
+  `RF8-PLATFORM-SPEC.md` §6.1.)
 - **Winning:** first bot to KO the other (HP → 0) wins. Fights run to a KO —
   there is no round-length tiebreak. The engine has a 1,000,000-tick safety cap
   (a runaway-loop guard, not a game rule); if it is ever reached, the higher-HP
@@ -440,7 +446,7 @@ place — the address of instruction *i* is `$0100 + i·3`.
 
 A source line is `[label:]  MNEMONIC  [operand]`; `;` starts a comment. Numbers are
 0–255 unless noted. The machine clock is the *tick*: an instruction occupies as many
-ticks as its **cost** (most are 1; `SHOOT`/`SHIELD` are 3, `MOVE` is 2 — see §7).
+ticks as its **cost** (most are 1; `SHOOT` is 3, `SHIELD` and `MOVE` are 2 — see §7).
 
 ### 8.1 Registers & flags
 | Reg | Size | Role |
@@ -502,7 +508,7 @@ Read with `IN <port>` (result → `A`), write with `OUT <port>, A` (writes `A`).
 | `DIST` | 4 | R | distance to the nearest enemy in line of sight (**0 = none visible**) |
 | `ANGLE` | 5 | R | **clockwise steps** to face nearest enemy (`0` = already facing, `255` = none) |
 | `FIRE` | 6 | — | reads back 0; use `SHOOT` instead |
-| `SHIELD` | 7 | R | 1 if you shielded this tick, else 0 |
+| `SHIELD` | 7 | R | 1 while your five-tick shield window is active, else 0 |
 | `HEAT` | 8 | R | your current heat (0–100; +20 per SHOOT/SHIELD, −2 per idle tick, **above 80 = 2 HP/sec self-damage**) |
 | `ENEMY_HP` | 9 | R | nearest enemy's HP (255 if none in line of sight) |
 | `RAND` | 10 | R | random byte 0–255 (per-fight seeded) |
@@ -525,7 +531,7 @@ These drive the robot and carry the real tick costs (§7). A heat op that is
 | `TURN L` | 1 | rotate 90° counter-clockwise |
 | `TURN R` | 1 | rotate 90° clockwise |
 | `TURN #n` | 1 | rotate `n` steps clockwise, mod 4 — e.g. `TURN #2` = 180° |
-| `SHIELD` | 3 | raise your shield for the next world-resolve (absorbs one hit). +20 heat. Collapses (no protection) when locked out. |
+| `SHIELD` | 2 | two-tick activation; on completion arms a five-tick window that absorbs **every** hit resolved in it (not consumed by the first hit; re-raising refreshes it to five, never stacks). +20 heat on completion. Collapses (1-tick no-op, no protection) when locked out. |
 | `WAIT` | 1 | do nothing this tick (idle; heat cools) |
 | `NOP` | 1 | do nothing — same as `WAIT`, for padding / timing |
 

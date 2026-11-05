@@ -128,6 +128,12 @@ phase to the files listed in its scope plus necessary build imports.
 
 ## 4. Phase 0 — establish a green baseline
 
+> ✅ Implemented 2026-11-05 on `codex/shield-duration`. Baseline matrix all
+> green (Java 25.0.3 / Gradle 9.6.0 / AGP 9.4.1 / Kotlin 2.2.10). Fixtures:
+> `FirmwareFixturesTest` (preset + MYBOT byte pins) and `LegacyEng1FixtureTest`
+> (frozen `eng=1` code). Pre-existing firmware-vs-Presets source divergence
+> documented there.
+
 ### Work
 
 1. Record the current Java/Gradle/Android toolchain versions.
@@ -155,6 +161,14 @@ phase to the files listed in its scope plus necessary build imports.
 ---
 
 ## 5. Phase 1 — implement the approved shield
+
+> ✅ Implemented 2026-11-05 on `codex/shield-duration`: two-tick `SHIELD`,
+> `shieldTicksRemaining` window decremented after world resolution,
+> `ENGINE_VERSION` 1→2, `ShieldTimingTest` suite, docs updated. Approved
+> expectation changes: `Tests.kt` cost table + SHIELD heat block,
+> `CodecTests` eng probes, `TierParityTest` version assert,
+> `LegacyEng1FixtureTest` warning flip. No opcode numbers or firmware byte
+> fixtures changed.
 
 This phase changes Arena behavior before extraction so failures are easy to
 localize in the familiar module.

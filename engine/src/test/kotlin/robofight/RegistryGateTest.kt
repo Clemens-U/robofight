@@ -46,7 +46,7 @@ private fun gateRawCode(payload: ByteArray): String =
 /** Structurally complete v1 payload (CRC included) with the given layout/slots/fw. */
 private fun gatePayload(layout: Int, slots: Int, fwA: ByteArray, fwB: ByteArray): ByteArray {
     val out = ArrayList<Byte>()
-    out.add(1); out.add(1); out.add(layout.toByte())
+    out.add(1); out.add(ChallengeFormat.ENGINE_VERSION.toByte()); out.add(layout.toByte())
     out.add(slots.toByte()); out.add(0)                       // fmt, eng, layout, slots, flags
     out.add(0x78); out.add(0x56); out.add(0x34); out.add(0x12) // seed 0x12345678 LE
     out.add(3); out.add(0); out.add(0)                        // mode TIMED-200, spawn SEPARATE, hp 100/100

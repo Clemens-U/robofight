@@ -33,8 +33,8 @@ fun main() {
     if (r is ChallengeFormat.ParseResult.Ok) {
         check("fixture carries eng=1", r.desc.eng == 1, "eng=${r.desc.eng}")
         check("fixture playable (no lock)", r.lock == null, "lock=${r.lock}")
-        check("fixture warning is pre-bump baseline",
-            r.warning == null, "warning=${r.warning}")
+        check("fixture imports with the old-engine warning (eng=2 bump)",
+            r.warning == ChallengeFormat.W_OLD_ENG, "warning=${r.warning}")
         val re = ChallengeFormat.parse(ChallengeFormat.encode(r.desc))
         check("fixture round-trips through encode",
             re is ChallengeFormat.ParseResult.Ok && normalize(ChallengeFormat.encode(r.desc)) == normalize(LEGACY_ENG1_CODE),

@@ -1,6 +1,7 @@
 package robofight
 
 import org.junit.jupiter.api.Test
+import robofight.challenge.ChallengeFormat
 import robofight.challenge.ChallengeFormat.FightDescriptor
 import robofight.challenge.ChallengeRun
 import robofight.world.Arena
@@ -11,7 +12,7 @@ class ChallengeRunTest {
     @Test
     fun openSlotsUseDescriptorHpAndKeepItOnReset() {
         val desc = FightDescriptor(
-            eng = 1,
+            eng = ChallengeFormat.ENGINE_VERSION,
             layoutId = Arena.OPEN.id,
             slots = 0b11,
             seed = 2,

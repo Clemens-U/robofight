@@ -41,6 +41,7 @@ class EngineTests {
             for (facadeName in listOf(
                 "robofight.TestsKt", "robofight.ArenaTestsKt",
                 "robofight.FirmwareFixturesTestKt", "robofight.LegacyEng1FixtureTestKt",
+                "robofight.ShieldTimingTestKt",
                 "robofight.ProArenaNamesTestKt", "robofight.RegistryGateTestKt",
             )) {
                 val facade = Class.forName(facadeName)

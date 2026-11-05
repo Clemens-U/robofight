@@ -40,8 +40,12 @@ object ChallengeFormat {
      * Engine version (§5): bumped if and only if a given
      * (layout, rules, seed, firmware) tuple could produce a different fight.
      * NOT the app's version number.
+     * v2 (2026-11-05): approved shield rework — two-tick SHIELD activation
+     * with a five-tick protected window (RF8-PLATFORM-SPEC.md §6.1). Codes
+     * produced by engine v1 import playable with the §10 old-engine warning
+     * and replay under the current rules.
      */
-    const val ENGINE_VERSION = 1
+    const val ENGINE_VERSION = 2
 
     const val PREFIX = "RF1-"
     /** Normalized (non-alphabet stripped) input limit (§3). */
@@ -110,7 +114,8 @@ object ChallengeFormat {
     /**
      * A complete fight as described by a code (§4 fields). Value semantics:
      * firmware blocks compare by content. `eng` is the engine version of the
-     * build that PRODUCED the code (1 for this build); `layoutId` indexes the
+     * build that PRODUCED the code (today: `ChallengeFormat.ENGINE_VERSION`);
+     * `layoutId` indexes the
      * §7 registry. Open slots carry an empty firmware block.
      */
     class FightDescriptor(

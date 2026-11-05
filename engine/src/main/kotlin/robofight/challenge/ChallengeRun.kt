@@ -14,7 +14,8 @@ import robofight.world.scatterSpawn
 import kotlin.math.abs
 
 /**
- * Deterministic execution of a parsed [FightDescriptor] (eng=1 path).
+ * Deterministic execution of a parsed [FightDescriptor] (challenge-code path;
+ * this build's engine version is [ChallengeFormat.ENGINE_VERSION]).
  *
  * THE single descriptor→World construction path: the headless codec tests
  * (HARD GATE A) and the app's `RunController.startDeterministic` (R2) both

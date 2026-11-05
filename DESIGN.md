@@ -54,7 +54,7 @@ on the roadmap, rendered in chunky 8-bit ASCII.
 | Edge wall | line (`|`/`-`) | on the border between two cells; blocks `MOVE`, shots, `AHEAD` |
 | Boundary | (implicit) | arena edges; movement clamped to the grid |
 | Hit flash | `!` | one-tick flash on a struck cell |
-| Shield up | `O` | one-tick ring on a bot that raised shield |
+| Shield up | `O` | ring on a bot whose five-tick shield window is active |
 
 ### 3.2 NES 16-color palette
 
@@ -191,7 +191,7 @@ of the extra space, but the address space and ISA itself are not tier-gated.
 | `$00C4` | `DIST` | R | nearest enemy distance (0 = none) |
 | `$00C5` | `ANGLE` | R | facing to nearest enemy (0–3, 255 = none) |
 | `$00C6` | `FIRE` | W | write 1 → shoot (SHOOT alias) |
-| `$00C7` | `SHIELD` | R/W | shield active this tick |
+| `$00C7` | `SHIELD` | R/W | shield window active (1 = protected, see §combat) |
 | `$00C8` | `HEAT` | R | heat level |
 | `$00C9` | `ENEMY_HP` | R | nearest enemy HP (255 = none) |
 | `$00CA` | `ENEMY_X` | R | nearest enemy column |
@@ -238,11 +238,13 @@ idle:   WAIT
   (bot-index order, deterministic); (2) **world resolves** — projectiles advance
   1 cell, collisions, off-grid vanish, damage applied.
 - **Instruction cost (ticks)**: physical actions take longer than bookkeeping —
-  `SHOOT` **3**, `SHIELD` **3**, `MOVE` **2**, everything else **1**. A
+  `SHOOT` **3**, `SHIELD` **2**, `MOVE` **2**, everything else **1**. A
   multi-tick op occupies that many world ticks: no decode, no fault, no further
   instructions until it finishes. Its env side effect fires on the op's
   **final tick** (a `SHOOT`'s projectile spawns one tick later than the
-  1-tick model assumed; `SHIELD` still covers exactly one world-resolve).
+  1-tick model assumed; a completed `SHIELD` arms a **five-tick protected
+  window**, decremented only after each world-resolve — shared contract in
+  `RF8-PLATFORM-SPEC.md` §6.1).
 - `SHOOT` spawns a **projectile** moving 1 cell/tick along the bot's `DIR`.
 - **Projectile hit**: reaching an enemy bot cell deals **10 HP**, projectile
   vanishes. Off-grid → vanishes.
@@ -262,8 +264,11 @@ idle:   WAIT
   not erase prior fractional exposure. Sustained overheating is lethal — a bot
   pinned at max heat burns 1 HP every 5 ticks (10 HP in 5 s). Shutting down and
   letting heat cool below 80 stops additional damage from accumulating.
-|- **SHIELD** absorbs one hit that tick (no damage). When heat is too high to
-  shield, the shield **collapses** (no protection) and `SHOOT` is locked out
+|- **SHIELD** arms a **five-tick window** (two-tick activation, spec §6.1): every
+  hit resolved in the window is absorbed, the window is not consumed by the first
+  hit, and re-raising refreshes it to five without stacking. When heat is too high to
+  shield, the activation **collapses** to a one-tick no-op (no protection, no heat)
+  and `SHOOT` is locked out
   the same way — the bot must wait until the heat comes down before it can act.
 - **Win**: KO (HP ≤ 0) first, or **highest HP after N ticks** (default 200).
   Tie → draw.
@@ -370,7 +375,8 @@ rnd:    MOV   A, #1
 | Heat cap / decay | 100 / 2 per tick | anti-spam; 5 SHOOT/SHIELD reach cap; cooldown on idle ticks only |
 | Heat damage | 2 HP/sec over 80 | above 80 heat, fractional accumulation; lethal if sustained |
 | Tick rate | 10 ticks/sec | 100 ms/tick — engine model **and** app loop rate (heat/damage calibrated to it) |
-| Instruction cost | SHOOT 3 / SHIELD 3 / MOVE 2 / rest 1 | ticks per op; side effect on the final tick; cooling gated for the op's whole span |
+| Instruction cost | SHOOT 3 / SHIELD 2 / MOVE 2 / rest 1 | ticks per op; side effect on the final tick; cooling gated for the op's whole span |
+| Shield window | 5 protected world-resolves | armed on SHIELD's completion tick (2-tick activation); decremented only after each resolution; refresh, no stacking (spec §6.1) |
 | Start HP | 100 | per bot |
 | Max bots in arena | 4 | 2 in v1, 4 possible |
 | Projectile speed | 1 cell/tick | fixed |

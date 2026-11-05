@@ -7,7 +7,8 @@ import robofight.challenge.ChallengeFormat
 /**
  * Variant parity gate (PLAN-PRO §6 CI matrix): runs under BOTH
  * testFreeDebugUnitTest and testProDebugUnitTest from the same source,
- * asserting (1) the wire-format ENGINE_VERSION is identical (== 1) in every
+ * asserting (1) the wire-format ENGINE_VERSION is identical (== 2, shield
+ * timing rework) in every
  * variant, and (2) the compile-time tier gate: BuildConfig.PRO_BUILD is true
  * exactly for the pro flavor, false for free. The FLAVOR constant is
  * generated per variant by the product-flavor setup itself.
@@ -15,8 +16,8 @@ import robofight.challenge.ChallengeFormat
 class TierParityTest {
 
     @Test
-    fun engineVersionIsOneInEveryVariant() {
-        assertEquals(1, ChallengeFormat.ENGINE_VERSION)
+    fun engineVersionIsTwoInEveryVariant() {
+        assertEquals(2, ChallengeFormat.ENGINE_VERSION)
     }
 
     @Test

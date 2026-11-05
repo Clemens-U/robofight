@@ -285,26 +285,30 @@ fun main() {
         check("heat decays 100→0 in 50 idle ticks", a5b.heat == 0 && coolTicks == 50,
             "heat=${a5b.heat} ticks=$coolTicks")
 
-        // SHIELD piles heat the same way: 5 shields reach the cap, it
-        // collapses on the ticks it would overflow, and works again at 80
+        // SHIELD piles heat the same way: 5 shields reach the cap; a locked
+        // SHIELD is a no-op that adds no heat and never refreshes the window;
+        // the window alone does not suppress cooling (spec §6.1); and it
+        // works again at exactly 80.
         val w6 = World()
         val s = Bot("S", 'S', 4, 0, 0, DIR_S, "WAIT\n")
         val d6 = Bot("D", 'D', 4, 19, 0, DIR_W, "WAIT\n")
         w6.add(s); w6.add(d6)
         repeat(5) { s.shield() }
         check("5 SHIELDs reach maximum heat", s.heat == HEAT_MAX, "heat=${s.heat}")
-        var collapses = 0
+        check("SHIELD arms the five-tick window", s.shieldTicksRemaining == SHIELD_DURATION,
+            "dur=${s.shieldTicksRemaining}")
         repeat(9) {
-            w6.tickOnce()   // idle tick cools 2
-            s.shield()      // still > 80 → collapsed, no protection
-            if (!s.shielded && s.heat > 80) collapses++
+            w6.tickOnce()   // idle tick cools 2 (window alone does not gate cooling)
+            s.shield()      // heat 100..82 → locked: no heat added, no refresh
         }
-        check("SHIELD collapses while heat > 80", collapses == 9,
-            "collapses=$collapses heat=${s.heat}")
+        check("SHIELD collapses while heat > 80 (no heat, no refresh)",
+            s.heat == 82 && s.shieldTicksRemaining == 0,
+            "heat=${s.heat} dur=${s.shieldTicksRemaining}")
         w6.tickOnce()       // 82 → 80
         s.shield()          // 80+20 = 100 → works again
-        check("SHIELD works again at exactly 80 heat", s.shielded && s.heat == HEAT_MAX,
-            "shielded=${s.shielded} heat=${s.heat}")
+        check("SHIELD works again at exactly 80 heat",
+            s.shielded && s.heat == HEAT_MAX && s.shieldTicksRemaining == SHIELD_DURATION,
+            "shielded=${s.shielded} heat=${s.heat} dur=${s.shieldTicksRemaining}")
 
         // A real firmware loop that fires 5 SHOOTs in a row reaches the
         // max (as the spec says), and the gun is locked out until the heat
@@ -444,9 +448,10 @@ fun main() {
     // ---- multi-tick ops (per-opcode tick cost) ----
     run {
         println("\n[multitick]")
-        // Cost table: SHOOT/SHIELD = 3 ticks, MOVE = 2, everything else 1.
-        check("ISA costs (SHOOT=3, SHIELD=3, MOVE=2, WAIT=1, IN=1)",
-            robofight.isa.ISA.cost(0xB0) == 3 && robofight.isa.ISA.cost(0xB5) == 3 &&
+        // Cost table: SHOOT = 3 ticks, SHIELD = 2 (spec §6.1), MOVE = 2,
+        // everything else 1.
+        check("ISA costs (SHOOT=3, SHIELD=2, MOVE=2, WAIT=1, IN=1)",
+            robofight.isa.ISA.cost(0xB0) == 3 && robofight.isa.ISA.cost(0xB5) == 2 &&
                 robofight.isa.ISA.cost(0xB4) == 2 && robofight.isa.ISA.cost(0xB6) == 1 &&
                 robofight.isa.ISA.cost(0xB7) == 1)
 

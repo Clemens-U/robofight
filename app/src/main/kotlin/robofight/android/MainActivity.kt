@@ -98,7 +98,7 @@ class MainActivity : Activity() {
 
     // --- [ CODES ] screen (R2): import a challenge code, preview its arena +
     // rules (opponent firmware hard-hidden), pick a bot for each open slot,
-    // then RUN (deterministic eng=1) or SAVE the canonical code to the store.
+    // then RUN (deterministic, current engine version) or SAVE the canonical code to the store.
     private lateinit var codesScreen: LinearLayout
     private lateinit var codesTab: Button
     private lateinit var codePaste: EditText
@@ -2112,7 +2112,7 @@ class MainActivity : Activity() {
      * The [ CODES ] screen (R2). Paste or receive a challenge code (`RF1-…`),
      * preview its arena + rules — the pinned opponent's firmware is hard-hidden
      * in v1 (LOCKED DECISION, no reveal) — pick a bot for each open slot, then
-     * RUN the deterministic fight (eng=1, via [ChallengeRun.buildWorld]) or SAVE
+     * RUN the deterministic fight (current engine version, via [ChallengeRun.buildWorld]) or SAVE
      * the canonical code to the store. See CHALLENGE-CODES.md.
      */
     private fun buildCodesScreen(): LinearLayout {
@@ -2791,7 +2791,7 @@ class MainActivity : Activity() {
     }
 
     /**
-     * RUN a parsed challenge deterministically (eng=1): assemble the picked
+     * RUN a parsed challenge deterministically (current engine version): assemble the picked
      * firmware for each OPEN slot, build the exact fight via
      * [ChallengeRun.buildWorld] (pinned slots load the code's binary opcodes),
      * adopt it on the RUN screen and tick it. Identical code + identical picks

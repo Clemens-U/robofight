@@ -35,14 +35,16 @@ object ISA {
      * nets +18 heat per shot, and a locked-out SHOOT collapses to a 1-tick
      * no-op that cools normally — recovery stays ~10 ticks as before.
      *
-     * Env side effects fire on the op's FINAL tick, so a SHIELD covers
-     * exactly one tick of world resolution (same as before), just later in
-     * real time.
+     * Env side effects fire on the op's FINAL tick. Per
+     * RF8-PLATFORM-SPEC.md §6.1, `SHIELD` is a TWO-tick activation: on its
+     * final tick it arms a five-tick protected window (see World's
+     * SHIELD_DURATION); the window covers five world resolutions and is
+     * decremented only after each resolution.
      */
     private val COST = IntArray(256) { 1 }
     init {
         COST[0xB0] = 3   // SHOOT
-        COST[0xB5] = 3   // SHIELD
+        COST[0xB5] = 2   // SHIELD (two-tick activation; five-tick duration; spec §6.1)
         COST[0xB4] = 2   // MOVE
     }
     fun cost(opcode: Int): Int = COST[opcode and 0xFF]

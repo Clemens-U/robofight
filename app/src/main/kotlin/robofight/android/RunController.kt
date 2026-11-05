@@ -129,7 +129,7 @@ class RunController {
 
     /**
      * Start a fight from a fully-built deterministic [World] (challenge codes,
-     * eng=1). Unlike [start], the World is constructed by
+     * current engine version). Unlike [start], the World is constructed by
      * [robofight.challenge.ChallengeRun.buildWorld] (fixed seed, fixed spawns,
      * fixed mode / timeLimit / HP) — this method only adopts it and wires the
      * front-end hooks, so "identical code → identical result" holds on the very

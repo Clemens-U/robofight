@@ -168,7 +168,10 @@ outcome (winner may be A, B, or DRAW).
 ## 5. Determinism & the `eng` (engine version) contract
 
 `eng` is an integer constant in the app source (`ChallengeFormat.ENGINE_VERSION`),
-starting at `1`. It is **not** the app's version number.
+starting at `1`; it is **2** since the approved shield timing rework of 2026-11-05
+(two-tick activation, five-tick window — `RF8-PLATFORM-SPEC.md` §6.1). Codes made
+with `eng=1` stay importable and playable through the §10 old-engine warning path
+below. It is **not** the app's version number.
 
 **Bump `eng` if and only if** a given `(layout, rules, seed, firmware)`
 tuple could produce a different fight result:
