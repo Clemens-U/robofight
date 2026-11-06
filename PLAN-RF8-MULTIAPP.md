@@ -339,6 +339,29 @@ reflection, callbacks keyed by strings, or Android dependencies.
 - `rf8-core` contains no import from `robofight.world`, `robofight.challenge`,
   or Android packages.
 
+> ✅ DONE 2026-11-06 on `codex/rf8-core`: `:rf8-core` extracted as a pure
+> Kotlin/JVM module (Kotlin 2.2.10, jvmTarget/Java 11, junit-jupiter-only test
+> deps). Moved byte-identical via `git mv` (100 % rename similarity): `ISA.kt`,
+> `Ports.kt`, `Assembler.kt`, `Disasm.kt`, `Vm.kt` — packages unchanged.
+> `PortConformanceTest` split: machine-layer half →
+> `rf8-core/src/test/.../Rf8CoreConformanceTest.kt` (15 plain JUnit 5 tests,
+> local `NullEnv`; no engine-test-class dependency, no `exitProcess` facade);
+> Arena half (World IN/OUT/RNG/heat purity, PROFILE reads, decode-scan
+> payloads, MANUAL §8.3 parity, undefined-opcode VM fault) stays in
+> `engine/.../PortConformanceTest.kt` (12 checks); `EngineTests.kt` facade
+> unchanged. Deviation from §7.2's literal snippet: `:engine` declares
+> `api(project(":rf8-core"))`, not `implementation` — `Bot : Env` and
+> World/Bot surface core types, and `implementation` broke `:app` compiles
+> (`ArenaView.kt` 'Cannot access Env', `MainActivity.kt` unresolved `robofight.vm`).
+> `:app` still declares only `:engine`. Gates: `--rerun-tasks` matrix
+> `:rf8-core:test :engine:test :app:testFreeDebugUnitTest :app:testProDebugUnitTest
+> :app:assembleFreeDebug :app:assembleProDebug` all green (rf8-core 15/15);
+> firmware byte fixtures green (preset + MYBOT pins untouched); headless
+> 250-fight matrix identical before/after — KO=181, timed-out=69, output md5
+> `e310bc90beaf58d4063cf5da41b5819f` both runs; purity grep
+> `robofight.world|robofight.challenge|android` over `rf8-core/src/` finds
+> nothing. No ISA numbers/kinds/costs changed.
+
 ---
 
 ## 8. Phase 4 — create `:fireline-engine`
