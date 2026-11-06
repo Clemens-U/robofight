@@ -15,9 +15,9 @@ android {
         applicationId = "robofight.android"
         minSdk = 24
         targetSdk = 36
-        // Free-app transfer hotfix: valid export filename/MIME metadata.
-        versionCode = 9
-        versionName = "0.7.1"
+        // Shield timing release: same engine version in both app flavors.
+        versionCode = 10
+        versionName = "0.8"
     }
 
     // CI-safe signing: the release keystore files exist only on the local
@@ -69,9 +69,8 @@ android {
         create("pro") {
             dimension = "tier"
             applicationIdSuffix = ".pro"
-            // Paid-app transfer hotfix: export metadata + tolerant ZIP picker.
-            versionCode = 2
-            versionName = "1.0.1"
+            versionCode = 3
+            versionName = "1.1"
             manifestPlaceholders["appLabel"] = "Opcode Arena: The Circuit"
             buildConfigField("boolean", "PRO_BUILD", "true")
         }

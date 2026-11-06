@@ -1,8 +1,8 @@
 # Store Listings — Opcode Arena (free) / Opcode Arena: The Circuit (paid)
 
 Play Console listing copy per PLAN-PRO §1.2 / §7. Two distinct listings from
-one codebase (product flavors `free` / `pro`; same HEAD, tags `free-0.7`,
-`pro-1.0`). Matching upload-ready artwork lives in `assets/store/release/`.
+one codebase (product flavors `free` / `pro`; same release commit). Matching
+artwork lives in `assets/store/release/`.
 
 ---
 
@@ -11,7 +11,7 @@ one codebase (product flavors `free` / `pro`; same HEAD, tags `free-0.7`,
 - **Package:** `robofight.android` (unchanged listing; the existing 0.6-codes
   app continues on this package)
 - **App name:** `Opcode Arena`
-- **Release tag / version:** `free-0.7` (versionCode 7, versionName `0.7`)
+- **Next version:** versionCode 10, versionName `0.8`
 
 ### Short description (≤ 80 chars)
 > Write 8-bit bot firmware. Fight in five arenas. Share fight codes.
@@ -44,7 +44,7 @@ A new arena every fight in Opcode Arena: The Circuit.
 - **Package:** `robofight.android.pro` (flavor `pro`; `applicationIdSuffix .pro`,
   independent paid-app version sequence)
 - **App name:** `Opcode Arena: The Circuit` (25 chars ≤ 30 cap)
-- **Release tag / version:** `pro-1.0` (versionCode 1, versionName `1.0`)
+- **Next version:** versionCode 3, versionName `1.1`
 
 ### Short description (≤ 80 chars)
 > Everything in Opcode Arena — plus a new arena every fight.
