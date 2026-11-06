@@ -59,13 +59,12 @@ object ISA {
     const val IND = 6
 
     // ---- I/O ports ($00C0+) ----
-    val PORT_NAMES = linkedMapOf(
-        "HP" to 0, "DIR" to 1, "RX" to 2, "RY" to 3, "DIST" to 4,
-        "ANGLE" to 5, "FIRE" to 6, "SHIELD" to 7, "HEAT" to 8,
-        "ENEMY_HP" to 9, "RAND" to 10, "AHEAD" to 11,
-    )
+    // Base body ports (0..11) — the legacy name→number view. The full
+    // official allocation (discovery + FIRELINE ports) lives in
+    // PortCatalog (RF8-PLATFORM-SPEC.md §4.3/§5); numbers 0..11 are frozen.
+    val PORT_NAMES: Map<String, Int> = PortCatalog.baseNameToNumber()
     val PORT_NUMS = PORT_NAMES.values.toTypedArray()
-    const val NUM_PORTS = 12
+    const val NUM_PORTS = PortCatalog.BASE_PORTS
 
     // ---- Register ids (for REG operand) ----
     const val REG_A = 0
@@ -180,8 +179,16 @@ object ISA {
     fun name(opcode: Int) = NAME[opcode and 0xFF]
     fun defined(opcode: Int) = DEFINED[opcode and 0xFF]
 
+    /**
+     * Resolve an `IN`/`OUT` port operand (RF8-PLATFORM-SPEC.md §4.1):
+     * an official symbol (case-insensitive, every profile's symbols in
+     * every build) or ANY numeric port 0..255 — encodable even when the
+     * runtime does not implement it (read-zero/write-ignore per §4.2).
+     * Unknown symbols and out-of-range numbers are null → assembler error.
+     */
     fun portNum(name: String): Int? {
         val n = name.trim().uppercase()
-        return PORT_NAMES[n] ?: n.toIntOrNull()?.takeIf { it in 0 until NUM_PORTS }
+        PortCatalog.number(n)?.let { return it }
+        return n.toIntOrNull()?.takeIf { it in PortCatalog.NUMERIC_MIN..PortCatalog.NUMERIC_MAX }
     }
 }

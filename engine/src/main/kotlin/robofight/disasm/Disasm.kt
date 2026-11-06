@@ -1,6 +1,7 @@
 package robofight.disasm
 
 import robofight.isa.ISA
+import robofight.isa.PortCatalog
 
 /**
  * Display-only disassembler (R2 Phase 1): firmware image bytes → instruction
@@ -114,7 +115,11 @@ object Disasm {
         else -> ""
     }
 
-    /** Port display name by number (PORT_NAMES is name → number). */
+    /**
+     * Port display name by number (official catalog first, §4.3). An
+     * unnamed number renders as the plain numeric value — which keeps the
+     * listing re-assemblable (`IN 200` re-encodes to the same bytes).
+     */
     private fun portName(num: Int): String =
-        ISA.PORT_NAMES.entries.firstOrNull { it.value == num }?.key ?: "PORT$num"
+        PortCatalog.displayName(num) ?: num.toString()
 }

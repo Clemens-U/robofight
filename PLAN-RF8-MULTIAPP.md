@@ -221,6 +221,21 @@ localize in the familiar module.
 
 ## 6. Phase 2 — make ports the extension mechanism
 
+> ✅ Implemented 2026-11-06 on `codex/port-catalog`: shared `PortCatalog`
+> (`isa/Ports.kt`: 30 official symbols — base 0..11 frozen, discovery
+> `PROFILE`/`PROFILE_REV`/`CAPS`, FIRELINE 16..30; reserved 15/31 numeric-only),
+> assembler accepts numeric ports 0..255 (unknown symbols still errors),
+> disassembly prefers catalog names and falls back to the re-assemblable
+> numeric form, Arena `portIn` states PROFILE/PROFILE_REV/CAPS = 0 explicitly,
+> unknown ports read-zero/write-ignore with no RNG/heat side effects.
+> `PortConformanceTest` covers the §9 conformance list incl. a pinned ISA v1
+> opcode snapshot and MANUAL.md §8.3 ↔ catalog parity. Gate: full matrix green;
+> firmware byte fixtures and base-port tests unchanged.
+> Side finding: the VM dispatch routed only 0x00..0x0F to `mov()`, so defined
+> opcode `NOP` (0x10) falsely faulted ("undefined opcode"); fixed in the same
+> commit and now locked by a per-opcode VM-dispatch conformance check. No
+> shipped firmware used NOP, so no byte fixtures or replay goldens changed.
+
 ### Required code changes
 
 1. Add a shared, data-driven port catalog matching

@@ -519,6 +519,42 @@ Read with `IN <port>` (result → `A`), write with `OUT <port>, A` (writes `A`).
 > to face it, `255` = no enemy. That's how HUNTER aims: `IN ANGLE` → `JZ` to skip
 > if already facing → else `TURN R` / `DEC` / loop until it reads `0`.
 
+You can also write ports **as numbers** (`IN 200`, `OUT 31,A`): any number
+`0..255` assembles; out-of-range numbers and unknown *names* are assembler
+errors. Reading or writing a port the machine doesn't implement never faults:
+reads return 0, writes are ignored, and nothing else (heat, RNG) is touched.
+
+Beyond the 12 body ports, the official RF-8 allocation continues below. Your
+Arena bot implements `PROFILE`, `PROFILE_REV` and `CAPS`: the Arena *is*
+compatibility profile `0`, so all three read `0` here. `16..30` belong to the
+FIRELINE machine profile; in the Arena they read `0` (your firmware stays
+valid, it just gets no data). Numbers `15` and `31`, and everything `32..255`,
+are reserved: legal numbers, no names, read zero.
+
+| Port | # | R/W | Meaning |
+|------|---|-----|---------|
+| `PROFILE` | 12 | R | machine profile id: **0 = Arena** (this app), 1 = FIRELINE |
+| `PROFILE_REV` | 13 | R | profile revision (Arena 0; FIRELINE v1 = 1) |
+| `CAPS` | 14 | R | profile capability bits (Arena 0; FIRELINE v1 `$7F`) |
+| `FIRE_DIST` | 16 | R | FIRELINE: distance to the selected burning cell (0 in Arena) |
+| `FIRE_ANGLE` | 17 | R | FIRELINE: clockwise turn delta to that fire (255 = none) |
+| `FIRE_LEVEL` | 18 | R | FIRELINE: selected fire intensity 1–100 |
+| `CIV_DIST` | 19 | R | FIRELINE: distance to the selected unrescued civilian |
+| `CIV_ANGLE` | 20 | R | FIRELINE: clockwise turn delta to that civilian |
+| `CIV_COUNT` | 21 | R | FIRELINE: civilians still awaiting rescue |
+| `WATER` | 22 | R | FIRELINE: suppressant remaining 0–100 |
+| `LOCAL_FIRE` | 23 | R | FIRELINE: fire intensity on your current cell 0–100 |
+| `SMOKE` | 24 | R | FIRELINE: local smoke density 0–255 |
+| `WIND_DIR` | 25 | R | FIRELINE: wind direction (0=W 1=N 2=E 3=S) |
+| `WIND_FORCE` | 26 | R | FIRELINE: wind force 0–3 |
+| `EXIT_DIST` | 27 | R | FIRELINE: distance to the mission exit (0 = none/on it) |
+| `EXIT_ANGLE` | 28 | R | FIRELINE: clockwise turn delta to the exit |
+| `TILE` | 29 | R | FIRELINE: current terrain id |
+| `MISSION` | 30 | R | FIRELINE: mission-state bit field |
+
+Portable firmware can branch on `PROFILE` to behave differently per machine,
+but it must treat `0` as a valid legacy answer.
+
 ### 8.4 Robot ops (what the body does)
 These drive the robot and carry the real tick costs (§7). A heat op that is
 **locked out** (heat too high) collapses to a **1-tick no-op** instead of animating

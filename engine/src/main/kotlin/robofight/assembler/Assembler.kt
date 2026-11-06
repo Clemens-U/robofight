@@ -33,7 +33,9 @@ data class AsmResult(
  *   A X Y      registers
  *   (X)        indirect via X  (memory[X])
  *   label|nnnn absolute address, also `[label]`/`[nnnn]` (jumps/ALU: 10-bit 0..1023; MOV data: 0..255)
- *   port name  HP DIR RX RY DIST ANGLE FIRE SHIELD HEAT ENEMY_HP RAND AHEAD
+ *   port name  official symbols (HP..AHEAD, PROFILE, PROFILE_REV, CAPS,
+ *              FIRELINE 16..30) or a numeric port 0..255
+ *              (unknown symbols are errors; unknown numbers assemble)
  *
  * Every instruction is exactly 3 bytes and lives in program space
  * ($100+), so the address of instruction i is ISA.PROG_BASE + i * 3.

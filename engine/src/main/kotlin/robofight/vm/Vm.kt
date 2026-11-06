@@ -123,7 +123,10 @@ class Vm {
         if (pc > ISA.PROG_END) pc = ISA.PROG_END
 
         when {
-            op in 0x00..0x0F -> mov(op, opnd)
+            // MOV family AND NOP (0x10) — NOP was defined in the ISA table and
+            // encodable but fell through to the fault branch (the 0x10 arm in
+            // mov() was dead code). 0x00..0x10 per ISA v1.
+            op in 0x00..0x10 -> mov(op, opnd)
             aluFamily(op) != -1 -> alu(op, opnd, opndHi)
             op in 0x60..0x6A -> misc(op)
             op == 0x90 -> { pc = ((opndHi and 0x0F) shl 8) or (opnd and 0xFF); lastOp = "JMP $pc" }
