@@ -209,9 +209,34 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
         if (rover.water > before) addEvent("REFILL +${rover.water - before}")
     }
 
-    // ---- step 10: fire exposure (filled by §8.3 step 3) ----
+    // ---- step 10: fire exposure damage (§8.3 step 3) ----
     private fun applyExposureDamage() {
-        // inert: fire exposure damage arrives with §8.3 step 3
+        // §4.5: after rover/water actions, before the five-tick spread step.
+        // Uses the fire state AFTER water resolution, so a packet that
+        // extinguishes a cell this tick prevents exposure damage on it.
+        val roverFire = fireAt(rover.x, rover.y)
+        if (roverFire > 0 && rover.alive) {
+            if (rover.shielded) {
+                addEvent("SHIELD BLOCKS FIRE ${roverFire} AT ${rover.x},${rover.y}")
+            } else {
+                val dmg = fireExposureDamage(roverFire)
+                rover.applyDamage(dmg)
+                addEvent("ROVER FIRE DAMAGE -$dmg (fire $roverFire)")
+            }
+        }
+        // §3.4: civilians have no shield and always take exposure damage.
+        for (c in civilians) {
+            if (!c.onGrid) continue
+            val f = fireAt(c.x, c.y)
+            if (f <= 0) continue
+            val dmg = fireExposureDamage(f)
+            c.damage(dmg)
+            if (c.status == CivilianStatus.LOST) {
+                addEvent("CIVILIAN #${c.id} LOST BY FIRE")
+            } else {
+                addEvent("CIVILIAN #${c.id} FIRE DAMAGE -$dmg (hp ${c.hp})")
+            }
+        }
     }
 
     // ---- step 11: heat cooling + overload (§8.3 step 2) ----
@@ -264,6 +289,11 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
     fun roverOnExit(): Boolean = terrainAt(rover.x, rover.y) == TERRAIN_EXIT
     fun fireCellsBurning(): Int = fire.count { it > 0 }
     fun fireIntensitySum(): Int = fire.sum()
+
+    // ---- civilian statistics (§3.4/§6.3) ----
+    fun civiliansWaiting(): Int = civilians.count { it.status == CivilianStatus.WAITING }
+    fun civiliansRescued(): Int = civilians.count { it.status == CivilianStatus.RESCUED }
+    fun civiliansLost(): Int = civilians.count { it.status == CivilianStatus.LOST }
     fun requiredWaiting(): Int = civilians.count { it.required && it.status == CivilianStatus.WAITING }
     fun requiredLost(): Int = civilians.count { it.required && it.status == CivilianStatus.LOST }
     fun requiredRescued(): Int = civilians.count { it.required && it.status == CivilianStatus.RESCUED }

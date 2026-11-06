@@ -81,6 +81,13 @@ const val IGNITION_INTENSITY = 25       // a newly ignited cell starts here
 /** Preferred authored starting intensities (§3.3); the engine accepts every integer 0..100. */
 val FIRE_LEVELS = intArrayOf(25, 50, 75, 100)
 
+/**
+ * §4.5 exposure damage: `ceil(fireIntensity / 25)`, i.e. 1-4 HP per world tick.
+ * Zero intensity means no damage.
+ */
+fun fireExposureDamage(intensity: Int): Int =
+    if (intensity <= 0) 0 else (intensity.coerceAtMost(FIRE_MAX) + 24) / 25
+
 // ---- Mission limits (§13.4) ----
 /** Hard run cap; reaching it reports TIME_EXPIRED as a safety termination. */
 const val MAX_TICKS = 1_000_000
