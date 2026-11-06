@@ -276,21 +276,43 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
         // inert: growth + deterministic spread arrive with §8.3 step 7
     }
 
-    // ---- step 13: protected assets (filled by §8.3 step 7) ----
+    // ---- step 13: protected assets (§8.3 step 6 semantics, §3.2) ----
     private fun resolveProtectedAssets() {
-        // inert: protected-asset failure arrives with §8.3 step 7
+        // §3.2: a protected asset fails when its fire intensity reaches 100.
+        // Failure is recorded regardless of objectives; only a configured
+        // PROTECT_ASSETS objective turns it into a mission failure (§7.4).
+        for ((x, y) in layout.protectedCells()) {
+            val i = cellIndex(x, y)
+            if (fire[i] >= FIRE_MAX && failedAssets.add(i)) {
+                addEvent("PROTECTED ASSET FAILED $x,$y")
+            }
+        }
     }
 
-    // ---- step 14: end conditions + precedence (filled by §8.3 step 6) ----
+    // ---- step 14: end conditions + §7.4 precedence (§8.3 step 6) ----
     private fun evaluateEndConditions() {
-        // inert: objectives + failure precedence arrive with §8.3 step 6
+        if (finished) return
+        val m = descriptor.objectives
+        when {
+            vmFaultThisTick -> finishWith(RunStatus.FAILURE, FailureReason.FIRMWARE_FAULT)
+            rover.hp <= 0 -> finishWith(RunStatus.FAILURE, FailureReason.ROVER_DESTROYED)
+            Objectives.has(m, Objectives.RESCUE_ALL) && requiredLost() > 0 ->
+                finishWith(RunStatus.FAILURE, FailureReason.CIVILIAN_LOST)
+            Objectives.has(m, Objectives.PROTECT_ASSETS) && assetsLost() > 0 ->
+                finishWith(RunStatus.FAILURE, FailureReason.ASSET_LOST)
+            objectivesSatisfied() -> finishWith(RunStatus.SUCCESS, null)
+            // Hard timeLimit, or the §13.4 safety cap when a mission sets none.
+            tick >= (descriptor.timeLimit ?: MAX_TICKS) ->
+                finishWith(RunStatus.FAILURE, FailureReason.TIME_EXPIRED)
+        }
     }
 
-    /** §7.3 objective conjunction (filled by §8.3 step 6). */
-    fun objectivesSatisfied(): Boolean = false
-
-    /** §6.3 mission-state bit field read by `IN MISSION` (filled by §8.3 step 6). */
-    fun missionBits(): Int = 0
+    private fun finishWith(outcome: RunStatus, reason: FailureReason?) {
+        finished = true
+        status = outcome
+        failureReason = reason
+        addEvent(if (outcome == RunStatus.SUCCESS) "MISSION SUCCESS" else "MISSION FAILURE $reason")
+    }
 
     /** §3.3 derived smoke (filled by §8.3 step 8). */
     fun smokeAt(x: Int, y: Int): Int = 0
@@ -311,6 +333,42 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
     fun waitingCount(): Int = civilians.count { it.status == CivilianStatus.WAITING }
     fun lostCount(): Int = civilians.count { it.status == CivilianStatus.LOST }
     fun assetsIntact(): Int = layout.protectedCells().size - failedAssets.size
+    fun requiredTotal(): Int = civilians.count { it.required }
+
+    // ---- objective state (§7.3) ----
+    fun fireAllOut(): Boolean = fireCellsBurning() == 0
+    fun allRequiredRescued(): Boolean = requiredWaiting() == 0 && requiredLost() == 0
+    fun assetsIntactObjective(): Boolean = assetsLost() == 0
+
+    /**
+     * §7.3: every configured objective must hold at the same tick. REACH_EXIT
+     * combined with other objectives therefore completes only when the rover is
+     * on the exit while everything else is also true.
+     */
+    fun objectivesSatisfied(): Boolean {
+        val m = descriptor.objectives
+        if (Objectives.has(m, Objectives.EXTINGUISH_ALL) && !fireAllOut()) return false
+        if (Objectives.has(m, Objectives.RESCUE_ALL) && !allRequiredRescued()) return false
+        if (Objectives.has(m, Objectives.REACH_EXIT) && !roverOnExit()) return false
+        if (Objectives.has(m, Objectives.SURVIVE_UNTIL) && !(survivalElapsed() && rover.alive && assetsIntactObjective())) return false
+        if (Objectives.has(m, Objectives.PROTECT_ASSETS) && !assetsIntactObjective()) return false
+        return true
+    }
+
+    /** §6.3 MISSION port bit field. */
+    fun missionBits(): Int {
+        var bits = 0
+        if (allRequiredRescued()) bits = bits or MISSION_BIT_CIVILIANS_RESCUED
+        if (fireAllOut()) bits = bits or MISSION_BIT_FIRE_OUT
+        if (roverOnExit()) bits = bits or MISSION_BIT_ON_EXIT
+        if (descriptor.surviveUntil != null && survivalElapsed()) bits = bits or MISSION_BIT_SURVIVED
+        if (requiredLost() > 0) bits = bits or MISSION_BIT_CIVILIAN_LOST
+        if (assetsLost() > 0) bits = bits or MISSION_BIT_ASSET_LOST
+        if (objectivesSatisfied()) bits = bits or MISSION_BIT_OBJECTIVES_MET
+        if (finished) bits = bits or MISSION_BIT_FINISHED
+        return bits
+    }
+
     fun assetsLost(): Int = failedAssets.size
     fun survivalElapsed(): Boolean = descriptor.surviveUntil != null && tick >= descriptor.surviveUntil
 
@@ -400,10 +458,11 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
         FirelinePorts.SMOKE -> 0                                      // filled by §8.3 step 8
         FirelinePorts.WIND_DIR -> descriptor.windDir
         FirelinePorts.WIND_FORCE -> descriptor.windForce
-        FirelinePorts.EXIT_DIST -> NO_TARGET_DIST                     // filled by §8.3 step 6
-        FirelinePorts.EXIT_ANGLE -> NO_TARGET_ANGLE                   // filled by §8.3 step 6
+        FirelinePorts.EXIT_DIST -> selectedExit()?.let { manhattan(rover.x, rover.y, it.first, it.second) }
+            ?: NO_TARGET_DIST
+        FirelinePorts.EXIT_ANGLE -> selectedExit()?.let { angleTo(it.first, it.second) } ?: NO_TARGET_ANGLE
         FirelinePorts.TILE -> terrainAt(rover.x, rover.y)
-        FirelinePorts.MISSION -> 0                                    // filled by §8.3 step 6
+        FirelinePorts.MISSION -> missionBits()
         else -> 0                                                     // 15, 31 and any unknown port
     }
 

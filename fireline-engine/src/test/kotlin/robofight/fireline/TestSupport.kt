@@ -42,13 +42,20 @@ internal fun layoutOf(
     civilians: List<CivilianSpec> = emptyList(),
 ): Layout = Layout.decode(terrain, fire, dir, civilians)
 
+/**
+ * Mechanics unit tests need a world that does not end on the first tick, so the
+ * default mission is a SURVIVE_UNTIL whose deadline is far beyond any unit test
+ * instead of an objective that a fire-less test layout trivially satisfies.
+ */
+internal const val MECHANICS_OBJECTIVES = Objectives.SURVIVE_UNTIL
+
 internal fun descriptorOf(
     layout: Layout,
     firmwareSource: String = IDLE_FIRMWARE,
     seed: Int = 1234,
-    objectives: Int = Objectives.EXTINGUISH_ALL,
+    objectives: Int = MECHANICS_OBJECTIVES,
     timeLimit: Int? = null,
-    surviveUntil: Int? = null,
+    surviveUntil: Int? = if (objectives and Objectives.SURVIVE_UNTIL != 0) MAX_TICKS else null,
     water: Int = DEFAULT_STARTING_WATER,
     windDir: Int = DIR_W,
     windForce: Int = 0,
@@ -76,9 +83,9 @@ internal fun worldOf(
     dir: Int = DIR_E,
     firmwareSource: String = IDLE_FIRMWARE,
     seed: Int = 1234,
-    objectives: Int = Objectives.EXTINGUISH_ALL,
+    objectives: Int = MECHANICS_OBJECTIVES,
     timeLimit: Int? = null,
-    surviveUntil: Int? = null,
+    surviveUntil: Int? = if (objectives and Objectives.SURVIVE_UNTIL != 0) MAX_TICKS else null,
     water: Int = DEFAULT_STARTING_WATER,
     windDir: Int = DIR_W,
     windForce: Int = 0,

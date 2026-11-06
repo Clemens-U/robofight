@@ -145,7 +145,11 @@ class Layout(
             for ((x, y) in exitCells())
                 if (!reached[cellIndex(x, y)]) problems.add("exit ($x,$y) unreachable from spawn")
             for (i in 0 until CELLS)
-                if (fire[i] > 0 && !reached[i]) problems.add("starting fire at ${indexX(i)},${indexY(i)} unreachable from spawn")
+                // Fires the rover can never stand on (protected assets are
+                // impassable) are protected by surviving, not by reaching them,
+                // so they are exempt from the reachability requirement.
+                if (fire[i] > 0 && !reached[i] && terrainPassable(terrain[i]))
+                    problems.add("starting fire at ${indexX(i)},${indexY(i)} unreachable from spawn")
         }
         return problems
     }
