@@ -57,25 +57,37 @@ class Step3FireIntensityExposureTest {
     }
 
     @Test
-    fun aCellNeedsFourPacketsToExtinguishAFullyBurnedCell() {
+    fun repeatedContactsClearAFullyBurnedCell() {
+        // Target at (4,2) ringed by non-burnable cells: growth still offsets the
+        // contacts, spread cannot, so every contact delta is checkable exactly.
         val w = worldOf(
-            terrain = openTerrainRows(2, 2),
+            terrain = editRows(
+                openTerrainRows(2, 2),
+                listOf(Triple(3, 2, GLYPH_REFILL), Triple(5, 2, GLYPH_WALL),
+                    Triple(4, 1, GLYPH_WALL), Triple(4, 3, GLYPH_WALL)),
+            ),
             fire = fireRows(listOf(Triple(4, 2, '4'))),      // intensity 100 at (4,2)
             firmwareSource = "loop:  SHOOT\n       NOP\n       JMP    loop",
         )
-        // Firmware cycle: SHOOT(3 ticks), NOP(1), JMP(1) -> discharges complete at
-        // ticks 3, 8, 13, 18; each packet reaches (4,2) one tick after creation.
-        repeat(4) { w.tickOnce() }                            // packet A hits at tick 4
-        assertEquals(75, w.fireAt(4, 2), "first contact removes 25")
-        repeat(5) { w.tickOnce() }                            // packet B created t8, hits t9
-        assertEquals(50, w.fireAt(4, 2))
-        assertEquals(0, w.packetCount(), "contact consumes the packet")
-        repeat(5) { w.tickOnce() }                            // packet C created t13, hits t14
-        assertEquals(25, w.fireAt(4, 2))
-        repeat(5) { w.tickOnce() }                            // packet D created t18, hits t19
-        assertEquals(0, w.fireAt(4, 2), "four contacts x 25 clear a 100-intensity cell")
+        // Firmware cycle: SHOOT(3 ticks), NOP(1), JMP(1) -> packets are created at
+        // ticks 3, 8, 13 ... and reach (4,2) one tick after creation.
+        var contacts = 0
+        var clearedAt = -1
+        repeat(60) {
+            val before = w.fireAt(4, 2)
+            w.tickOnce()
+            if (w.lastEvents.any { it.startsWith("FIRE -") }) {
+                contacts++
+                assertEquals((before - PACKET_FIRE_REDUCE).coerceAtLeast(0), w.fireAt(4, 2),
+                    "contact #$contacts at tick ${w.tick} removes exactly $PACKET_FIRE_REDUCE, floored at 0")
+                if (w.fireAt(4, 2) == 0 && clearedAt < 0) clearedAt = w.tick
+            }
+        }
+        assertTrue(contacts >= 4, "expected at least four contacts, got $contacts")
+        assertTrue(clearedAt > 0, "the contacts (every 5 ticks) outrun the +10-per-5-ticks growth")
+        assertEquals(0, w.fireAt(4, 2))
         assertEquals(0, w.fireCellsBurning())
-        assertEquals(0, w.fireIntensitySum())
+        assertEquals(0, w.fireIntensitySum(), "nothing burns left in this walled-off layout")
     }
 
     @Test

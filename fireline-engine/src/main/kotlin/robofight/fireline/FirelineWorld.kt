@@ -271,9 +271,46 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
         }
     }
 
-    // ---- step 12: growth + spread (filled by §8.3 step 7) ----
+    // ---- step 12: growth + spread (§4.1-§4.4, §8.3 step 7) ----
     private fun runFireSpread() {
-        // inert: growth + deterministic spread arrive with §8.3 step 7
+        // §4.1: the snapshot is the set of burning cells at the START of this
+        // step, traversed row-major. A cell ignited by this step does not grow
+        // or spread until a later step.
+        val snapshot = ArrayList<Int>()
+        for (i in 0 until CELLS) if (fire[i] > 0) snapshot.add(i)
+
+        val bag = spreadDirectionBag(descriptor.windDir, descriptor.windForce)
+        for (i in snapshot) {
+            val x = indexX(i)
+            val y = indexY(i)
+
+            // §4.2 growth before attempting spread, clamped to 100.
+            val grown = fire[i] + fireGrowthFor(terrainAt(x, y))
+            setFire(x, y, grown)
+
+            // §4.4: exactly two spread bytes per snapshot cell, even when every
+            // neighbour is blocked, so geometry cannot shift the RNG stream.
+            val directionByte = spreadRng.nextByte()
+            val chanceByte = spreadRng.nextByte()
+
+            val chosen = bag[directionByte % bag.size]
+            val nx = x + dirDx(chosen)
+            val ny = y + dirDy(chosen)
+            if (!inBounds(nx, ny)) continue
+            val target = terrainAt(nx, ny)
+            val threshold = spreadThresholdFor(target, chosen, descriptor.windDir, descriptor.windForce)
+            if (threshold <= 0) continue                    // wall / refill / off-grid
+            if (!terrainBurnable(target)) continue
+            val j = cellIndex(nx, ny)
+            if (fire[j] > 0) continue                       // already burning: unchanged
+            if (chanceByte < threshold) {
+                fire[j] = IGNITION_INTENSITY
+                addEvent(
+                    "FIRE IGNITES $nx,$ny ${terrainName(target)} from $x,$y " +
+                        "dir=${TextGrid.dirName(chosen)} chance=$chanceByte<$threshold",
+                )
+            }
+        }
     }
 
     // ---- step 13: protected assets (§8.3 step 6 semantics, §3.2) ----

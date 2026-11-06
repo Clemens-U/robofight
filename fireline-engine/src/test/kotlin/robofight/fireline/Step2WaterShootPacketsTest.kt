@@ -55,23 +55,29 @@ class Step2WaterShootPacketsTest {
 
     @Test
     fun packetReducesTheFirstBurningCellItContactsAndIsConsumed() {
+        // Target at (4,2) ringed by non-burnable cells so growth/spread cannot
+        // interfere with the contact accounting.
         val w = worldOf(
-            terrain = openTerrainRows(2, 2),
-            fire = fireRows(listOf(Triple(6, 2, '2'))),      // intensity 50 at (6,2)
+            terrain = editRows(
+                openTerrainRows(2, 2),
+                listOf(Triple(3, 2, GLYPH_REFILL), Triple(5, 2, GLYPH_WALL),
+                    Triple(4, 1, GLYPH_WALL), Triple(4, 3, GLYPH_WALL)),
+            ),
+            fire = fireRows(listOf(Triple(4, 2, '2'))),      // intensity 50 at (4,2)
             firmwareSource = shootLoop,
         )
-        repeat(3) { w.tickOnce() }                            // packet spawns at (3,2)
-        assertEquals(50, w.fireAt(6, 2))
-        // (3,2) -> (4,2) -> (5,2) -> (6,2)
-        repeat(3) { w.tickOnce() }
-        assertEquals(25, w.fireAt(6, 2), "the contacted cell loses 25 intensity")
+        repeat(3) { w.tickOnce() }                            // packet spawns on the refill cell
+        assertEquals(50, w.fireAt(4, 2), "a refill cell does not stop the packet")
+        w.tickOnce()                                          // tick 4: contact
+        assertEquals(25, w.fireAt(4, 2), "the contacted cell loses 25 intensity")
         assertEquals(0, w.packetCount(), "and the packet is consumed")
 
-        // a second packet finishes the cell; intensity floors at zero
-        repeat(3) { w.tickOnce() }                            // SHOOT again (tick 7..9 -> spawn)
-        repeat(4) { w.tickOnce() }
-        assertEquals(0, w.fireAt(6, 2))
-        assertEquals(0, w.fireCellsBurning())
+        repeat(3) { w.tickOnce() }                            // ticks 5-7: spread tick + new SHOOT
+        val before = w.fireAt(4, 2)
+        assertEquals(30, before, "the surviving fire grew +5 on the tick-5 spread step")
+        w.tickOnce()                                          // tick 8: second contact
+        assertEquals(before - PACKET_FIRE_REDUCE, w.fireAt(4, 2), "each contact removes exactly 25")
+        assertEquals(0, w.packetCount())
     }
 
     @Test
@@ -146,8 +152,11 @@ class Step2WaterShootPacketsTest {
             fire = fireRows(listOf(Triple(6, 2, '1'))),
             firmwareSource = shootLoop,
         )
-        repeat(6) { w.tickOnce() }        // spawn at tick 3, advances 4,5,6 -> hits (6,2) at tick 6
-        assertEquals(0, w.fireAt(6, 2))
+        repeat(5) { w.tickOnce() }        // ticks 1-5: packet travels, spread tick grows the fire
+        val before = w.fireAt(6, 2)
+        assertEquals(30, before, "25 authored + 5 growth on the tick-5 spread step")
+        w.tickOnce()                        // tick 6: the packet reaches (6,2)
+        assertEquals(before - PACKET_FIRE_REDUCE, w.fireAt(6, 2))
         assertEquals(0, w.packetCount())
         assertEquals(1, w.civilians.count { it.status == CivilianStatus.WAITING }, "a civilian does not block water")
     }

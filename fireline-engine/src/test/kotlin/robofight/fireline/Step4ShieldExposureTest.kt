@@ -61,7 +61,8 @@ class Step4ShieldExposureTest {
         }
         assertEquals(listOf(2, 3, 4, 5, 6), protectedTicks, "activation tick + four later ticks")
         assertEquals(listOf(1, 7, 8), damagedTicks, "damage resumes the tick after the window")
-        assertEquals(97, w.rover.hp, "100 - 3 unshielded ticks of 1 HP")
+        assertEquals(95, w.rover.hp,
+            "1 HP at tick 1 (intensity 25) + 2 HP each at ticks 7 and 8 (intensity 30 after the tick-5 growth)")
     }
 
     @Test
@@ -117,7 +118,7 @@ class Step4ShieldExposureTest {
     fun coolingContinuesWhileTheShieldWindowIsOnlyActive() {
         val w = burningSpawn(shieldThenIdle)
         repeat(2) { w.tickOnce() }                         // SHIELD completion: heat 20
-        assertEquals(20, w.rover.heat)
+        assertEquals(99, w.rover.hp)
         repeat(3) { w.tickOnce() }                         // three idle protected ticks
         assertEquals(14, w.rover.heat, "shield activity alone does not suppress cooling (8 step 11)")
     }

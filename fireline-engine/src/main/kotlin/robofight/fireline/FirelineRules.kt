@@ -81,6 +81,48 @@ const val IGNITION_INTENSITY = 25       // a newly ignited cell starts here
 /** Preferred authored starting intensities (§3.3); the engine accepts every integer 0..100. */
 val FIRE_LEVELS = intArrayOf(25, 50, 75, 100)
 
+// ---- §4.2/§4.4 growth + spread table (fixed; changing these bumps the engine version) ----
+const val GROWTH_FLOOR_EXIT = 5           // floor / exit grow +5 per spread step
+const val GROWTH_FUEL_PROTECTED = 10      // fuel / protected asset grow +10
+const val IGNITE_THRESHOLD_FLOOR_EXIT = 64
+const val IGNITE_THRESHOLD_FUEL_PROTECTED = 160
+const val IGNITE_THRESHOLD_NONE = 0       // wall / refill / off-grid never ignite
+const val WIND_THRESHOLD_BONUS = 16       // +16 * WIND_FORCE on the wind axis
+const val WIND_THRESHOLD_CAP = 255        // threshold cap out of 256
+
+/** §4.2: growth applied to a snapshot burning cell per spread step. */
+fun fireGrowthFor(terrain: Int): Int = when (terrain) {
+    TERRAIN_FLOOR, TERRAIN_EXIT -> GROWTH_FLOOR_EXIT
+    TERRAIN_FUEL, TERRAIN_PROTECTED -> GROWTH_FUEL_PROTECTED
+    else -> 0                             // wall and refill never burn
+}
+
+/**
+ * §4.4 step 1: the direction bag for one burning cell, built in order:
+ * `[W, N, E, S] + WIND_DIR repeated WIND_FORCE times`.
+ */
+fun spreadDirectionBag(windDir: Int, windForce: Int): IntArray {
+    val bag = IntArray(4 + windForce)
+    bag[0] = DIR_W; bag[1] = DIR_N; bag[2] = DIR_E; bag[3] = DIR_S
+    for (i in 0 until windForce) bag[4 + i] = windDir and 3
+    return bag
+}
+
+/**
+ * §4.4 steps 4-5: ignition threshold out of 256 for the selected target terrain,
+ * including the wind bonus when the selected direction is the wind direction.
+ */
+fun spreadThresholdFor(targetTerrain: Int, chosenDir: Int, windDir: Int, windForce: Int): Int {
+    val base = when (targetTerrain) {
+        TERRAIN_FLOOR, TERRAIN_EXIT -> IGNITE_THRESHOLD_FLOOR_EXIT
+        TERRAIN_FUEL, TERRAIN_PROTECTED -> IGNITE_THRESHOLD_FUEL_PROTECTED
+        else -> IGNITE_THRESHOLD_NONE     // wall / refill / off-grid
+    }
+    if (base == IGNITE_THRESHOLD_NONE) return IGNITE_THRESHOLD_NONE
+    val withWind = if (chosenDir == (windDir and 3)) base + WIND_THRESHOLD_BONUS * windForce else base
+    return withWind.coerceAtMost(WIND_THRESHOLD_CAP)
+}
+
 /**
  * §4.5 exposure damage: `ceil(fireIntensity / 25)`, i.e. 1-4 HP per world tick.
  * Zero intensity means no damage.
