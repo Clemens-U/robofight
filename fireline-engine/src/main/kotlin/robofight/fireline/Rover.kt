@@ -89,8 +89,20 @@ class Rover(private val world: FirelineWorld, startingWater: Int) : Env {
     }
 
     override fun shoot() {
-        // inert until §8.3 step 2: the suppressant nozzle (water cost, heat,
-        // packet creation, dry-shot rule) is the water-model milestone.
+        if (destroyed) return
+        // §3.6: below 10 water nothing happens — no packet, no water removed,
+        // no heat added — but the instruction still occupied its three ticks.
+        if (water < WATER_PER_SHOT) {
+            shotsDry++
+            world.noteDryShot()
+            return
+        }
+        water -= WATER_PER_SHOT
+        waterUsed += WATER_PER_SHOT
+        heat = (heat + HEAT_SHOOT).coerceAtMost(HEAT_MAX)
+        heatedThisTick = true
+        shots++
+        world.spawnWaterPacket(this)
     }
 
     override fun shield() {

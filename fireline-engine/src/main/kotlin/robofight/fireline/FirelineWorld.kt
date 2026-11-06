@@ -67,6 +67,9 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
 
     val rover: Rover = Rover(this, descriptor.startingWater)
 
+    /** Suppressant packets in flight (§3.6); bounded list, max life [PACKET_LIFE]. */
+    private val packets: MutableList<WaterPacket> = ArrayList()
+
     /** Separate RNG streams (§4.3): sensor draws vs environmental spread. */
     val sensorRng: LcgStream = LcgStream.forSensor(descriptor.seed)
     val spreadRng: LcgStream = LcgStream.forSpread(descriptor.seed)
@@ -112,6 +115,7 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
     fun fireRowMajor(): IntArray = fire.copyOf()
 
     internal fun addEvent(text: String) { events.add(text) }
+    internal fun noteDryShot() { addEvent("WATER EMPTY") }
 
     // ================= authority: one world tick =================
     fun tickOnce() {
@@ -150,17 +154,59 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
 
     internal fun noteRoverMoved() { roverMovedThisTick = true }
 
-    // ---- step 8: water packets (filled by §8.3 step 2) ----
+    // ---- step 8: water packets (§8.3 step 2) ----
     private fun resolveWaterPackets() {
-        // inert: the suppressant model arrives with §8.3 step 2
+        val kept = ArrayList<WaterPacket>()
+        for (p in packets) {
+            if (p.process(tick, this)) kept.add(p)
+        }
+        packets.clear()
+        packets.addAll(kept)
     }
 
-    /** Render/test view of packet occupancy (filled by §8.3 step 2). */
-    fun hasWaterPacketAt(x: Int, y: Int): Boolean = false
+    /** §3.6: created on the SHOOT completion tick in the cell in front of the
+     *  rover, when that cell is in bounds and not blocked by a wall. Walls and
+     *  the boundary consume a packet; civilians, exits, refills and the rover
+     *  do not. */
+    internal fun spawnWaterPacket(shooter: Rover) {
+        val x = shooter.x + dirDx(shooter.facing)
+        val y = shooter.y + dirDy(shooter.facing)
+        if (!inBounds(x, y)) {
+            addEvent("PACKET BLOCKED BOUNDARY")
+            return
+        }
+        if (terrainAt(x, y) == TERRAIN_WALL) {
+            addEvent("PACKET BLOCKED WALL $x,$y")
+            return
+        }
+        packets.add(WaterPacket(x, y, shooter.facing, PACKET_LIFE, spawnTick = tick))
+        addEvent("PACKET -> $x,$y")
+    }
 
-    // ---- step 9: refill (filled by §8.3 step 2) ----
+    /** Test/diagnostic injection so packet life can be exercised directly. */
+    internal fun injectPacket(packet: WaterPacket) { packets.add(packet) }
+
+    /** A packet hitting this cell removes [PACKET_FIRE_REDUCE] and is consumed. */
+    internal fun hitFireWithPacket(x: Int, y: Int, packet: WaterPacket): Boolean {
+        val intensity = fireAt(x, y)
+        if (intensity <= 0) return false
+        setFire(x, y, intensity - PACKET_FIRE_REDUCE)
+        addEvent("FIRE -${PACKET_FIRE_REDUCE} at $x,$y -> ${fireAt(x, y)}")
+        return true
+    }
+
+    fun packetCount(): Int = packets.size
+    fun packetsSnapshot(): List<WaterPacket> = packets.toList()
+    fun hasWaterPacketAt(x: Int, y: Int): Boolean = packets.any { it.x == x && it.y == y }
+
+    // ---- step 9: refill (§8.3 step 2) ----
     private fun applyRefill() {
-        // inert: the water tank arrives with §8.3 step 2
+        // §3.2: a refill cell restores 10 water after each resolution tick
+        // occupied, capped at 100.
+        if (terrainAt(rover.x, rover.y) != TERRAIN_REFILL) return
+        val before = rover.water
+        rover.water = (rover.water + WATER_REFILL).coerceAtMost(WATER_MAX)
+        if (rover.water > before) addEvent("REFILL +${rover.water - before}")
     }
 
     // ---- step 10: fire exposure (filled by §8.3 step 3) ----
@@ -168,9 +214,26 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
         // inert: fire exposure damage arrives with §8.3 step 3
     }
 
-    // ---- step 11: heat cooling + overload (filled by §8.3 step 2) ----
+    // ---- step 11: heat cooling + overload (§8.3 step 2) ----
     private fun applyHeatRules() {
-        // inert: SHOOT/SHIELD heat arrives with §8.3 step 2
+        if (!rover.alive) return
+        // Shared cooling gate (RF8-PLATFORM-SPEC.md §6): cool by 2 only when no
+        // heat action completed this tick AND no multi-tick physical op is still
+        // in flight. A final MOVE tick or a dry SHOOT completion may cool.
+        if (!rover.heatedThisTick && !rover.vm.inProgress) {
+            rover.heat = (rover.heat - HEAT_COOL).coerceAtLeast(0)
+        }
+        // Overload burns 2 HP/sec at 10 ticks/sec, accumulated fractionally in
+        // exact milli-HP and applied in whole HP. The shield does NOT block it.
+        if (rover.heat > HEAT_DAMAGE_THRESHOLD) {
+            rover.heatOverloadMilli += HEAT_OVERLOAD_PER_TICK_MILLI
+            val whole = rover.heatOverloadMilli / 1000
+            if (whole > 0) {
+                rover.heatOverloadMilli -= whole * 1000
+                rover.applyDamage(whole)
+                addEvent("ROVER OVERLOAD -$whole")
+            }
+        }
     }
 
     // ---- step 12: growth + spread (filled by §8.3 step 7) ----
