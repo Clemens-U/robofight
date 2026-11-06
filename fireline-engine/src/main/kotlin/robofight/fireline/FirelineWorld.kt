@@ -147,9 +147,19 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
         onTick?.invoke(this)
     }
 
-    // ---- step 7: contact interactions (filled by §8.3 step 5) ----
+    // ---- step 7: contact interactions (§8.3 step 5) ----
     private fun resolveContactInteractions() {
-        // inert: civilian rescue by contact arrives with §8.3 step 5
+        // §3.4: when the rover finishes a successful MOVE on a WAITING
+        // civilian's cell, rescue happens automatically in this phase; the
+        // civilian becomes RESCUED and leaves the grid. Exit/refill occupancy
+        // is resolved from the rover's current cell by later steps.
+        if (!roverMovedThisTick) return
+        for (c in civilians) {
+            if (c.status != CivilianStatus.WAITING) continue
+            if (c.x != rover.x || c.y != rover.y) continue
+            c.rescue()
+            addEvent("CIVILIAN #${c.id} RESCUED at ${c.x},${c.y}")
+        }
     }
 
     internal fun noteRoverMoved() { roverMovedThisTick = true }
@@ -381,9 +391,10 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
         FirelinePorts.FIRE_DIST -> selectedFire()?.dist ?: NO_TARGET_DIST
         FirelinePorts.FIRE_ANGLE -> selectedFire()?.let { angleTo(it.x, it.y) } ?: NO_TARGET_ANGLE
         FirelinePorts.FIRE_LEVEL -> selectedFire()?.intensity ?: NO_TARGET_LEVEL
-        FirelinePorts.CIV_DIST -> NO_TARGET_DIST                      // filled by §8.3 step 5
-        FirelinePorts.CIV_ANGLE -> NO_TARGET_ANGLE                    // filled by §8.3 step 5
-        FirelinePorts.CIV_COUNT -> 0                                  // filled by §8.3 step 5
+        FirelinePorts.CIV_DIST -> selectedCivilian()?.let { manhattan(rover.x, rover.y, it.x, it.y) }
+            ?: NO_TARGET_DIST
+        FirelinePorts.CIV_ANGLE -> selectedCivilian()?.let { angleTo(it.x, it.y) } ?: NO_TARGET_ANGLE
+        FirelinePorts.CIV_COUNT -> requiredWaiting()
         FirelinePorts.WATER -> rover.water
         FirelinePorts.LOCAL_FIRE -> fireAt(rover.x, rover.y)
         FirelinePorts.SMOKE -> 0                                      // filled by §8.3 step 8
