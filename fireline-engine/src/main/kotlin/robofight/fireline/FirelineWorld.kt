@@ -517,6 +517,88 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
         else -> 0                                                     // 15, 31 and any unknown port
     }
 
+    // ================= result + canonical final-state hash (§7.5, §13.2) =================
+    /** Civilians ordered by their stable mission-local ID (§13.2 canonical order). */
+    fun civiliansOrdered(): List<Civilian> = civilians.sortedBy { it.id }
+
+    /** Packets in spawn order (the list order water resolution maintains). */
+    fun packetsOrdered(): List<WaterPacket> = packets.toList()
+
+    /**
+     * Canonical, ordered final-state text (§13.2): engine version, tick, rover
+     * state, row-major terrain + fire arrays, ordered civilians, ordered water
+     * packets, objective state and BOTH RNG stream states — built from explicit
+     * fields only, never from JVM object hash codes.
+     */
+    fun canonicalState(): String = buildString {
+        append("engine=").append(FIRELINE_ENGINE_VERSION).append('\n')
+        append("tick=").append(tick).append('\n')
+        append("rover=").append(rover.x).append(',').append(rover.y).append(',').append(rover.facing)
+            .append(',').append(rover.hp).append(',').append(rover.heat).append(',').append(rover.water)
+            .append(',').append(rover.shieldTicksRemaining).append(',').append(rover.heatOverloadMilli)
+            .append(',').append(rover.shots).append(',').append(rover.shotsDry).append(',').append(rover.waterUsed)
+            .append(',').append(rover.shieldsRaised).append(',').append(if (rover.destroyed) 1 else 0)
+            .append('\n')
+        append("terrain=").append(terrain.joinToString(",")).append('\n')
+        append("fire=").append(fire.joinToString(",")).append('\n')
+        append("civilians=")
+        append(civiliansOrdered().joinToString(";") {
+            "${it.id}:${it.x},${it.y},${it.hp},${it.status},${if (it.required) 1 else 0}"
+        }).append('\n')
+        append("packets=")
+        append(packetsOrdered().joinToString(";") {
+            "${it.spawnTick}:${it.x},${it.y},${it.dir},${it.ticksLeft}"
+        }).append('\n')
+        append("objective=").append(descriptor.objectives)
+            .append(',').append(descriptor.timeLimit ?: -1)
+            .append(',').append(descriptor.surviveUntil ?: -1)
+            .append(',').append(missionBits())
+            .append(',').append(if (finished) 1 else 0)
+            .append(',').append(status?.name ?: "UNFINISHED")
+            .append(',').append(failureReason?.name ?: "-")
+            .append(',').append(failedAssets.sorted().joinToString("_")).append('\n')
+        append("rng=").append(sensorRng.state).append(',').append(spreadRng.state).append('\n')
+    }
+
+    /**
+     * FNV-1a 64-bit over [canonicalState] — a fixed, documented fingerprint that
+     * is identical on every JVM (§13.2 forbids JVM object hash codes).
+     */
+    fun finalStateHash(): String {
+        var h = FNV_OFFSET_BASIS
+        for (c in canonicalState()) h = (h xor c.code.toLong()) * FNV_PRIME
+        return h.toULong().toString(16).padStart(16, '0')
+    }
+
+    /**
+     * §7.5 result of the current state. Called after the run ends it carries the
+     * §7.4 status; called mid-run it reports FAILURE with no reason, which is a
+     * diagnostic of an unfinished world, not an outcome.
+     */
+    fun snapshot(): FirelineResult = FirelineResult(
+        status = status ?: RunStatus.FAILURE,
+        failureReason = failureReason,
+        engineVersion = FIRELINE_ENGINE_VERSION,
+        missionId = descriptor.missionId,
+        seed = descriptor.seed,
+        tick = tick,
+        roverHp = rover.hp,
+        roverHeat = rover.heat,
+        waterRemaining = rover.water,
+        waterUsed = rover.waterUsed,
+        civiliansRescued = civiliansRescued(),
+        civiliansWaiting = civiliansWaiting(),
+        civiliansLost = civiliansLost(),
+        burningCells = fireCellsBurning(),
+        fireIntensitySum = fireIntensitySum(),
+        protectedAssetsIntact = assetsIntact(),
+        protectedAssetsLost = assetsLost(),
+        firmwareBytes = descriptor.firmware.size,
+        firmwareInstructions = descriptor.firmware.size / robofight.isa.ISA.INSN_BYTES,
+        finalStateHash = finalStateHash(),
+        lastEvents = lastEvents,
+    )
+
     // ================= headless helpers =================
     /** Advance until finished or the tick guard is reached (result lands at §8.3 step 9). */
     fun runUntilFinished(maxTicks: Int = MAX_TICKS) {

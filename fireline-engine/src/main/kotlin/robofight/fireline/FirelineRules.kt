@@ -81,6 +81,11 @@ const val IGNITION_INTENSITY = 25       // a newly ignited cell starts here
 /** Preferred authored starting intensities (§3.3); the engine accepts every integer 0..100. */
 val FIRE_LEVELS = intArrayOf(25, 50, 75, 100)
 
+// ---- §13.2 final-state fingerprint ----
+/** FNV-1a 64-bit parameters (offset basis 0xCBF29CE484222325 as a signed Long). */
+const val FNV_OFFSET_BASIS: Long = -3750763034362895579
+const val FNV_PRIME: Long = 1099511628211
+
 // ---- §3.3 derived smoke ----
 const val SMOKE_MAX = 255
 
