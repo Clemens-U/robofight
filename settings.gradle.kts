@@ -18,3 +18,4 @@ rootProject.name = "opcode-arena"
 include(":app")
 include(":engine")
 include(":rf8-core")
+include(":fireline-engine")

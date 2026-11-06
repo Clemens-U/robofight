@@ -1,0 +1,317 @@
+package robofight.fireline
+
+/**
+ * The authoritative FIRELINE world: state + the fixed tick order
+ * (FIRELINE-DESIGN.md §8). One [tickOnce] call is one world tick — the same
+ * unit the app's `STEP` control advances (§11.5), and the same path the headless
+ * runner uses (§7.1: the headless construction path is the authority).
+ *
+ * The 16-step order is normative: changing it is a [FIRELINE_ENGINE_VERSION]
+ * bump. It is written out in full from the start so the ordering itself is
+ * reviewable from day one; a model that a later PLAN §8.3 step owns stays inert
+ * and its stub names the step that fills it:
+ * ```text
+ *  1 if finished return        9 refill           13 protected asset check
+ *  2 tick++                   10 exposure         14 end conditions (§7.4)
+ *  3 publish tick zero page   11 heat rules       15 shield duration--
+ *  4 clear events/heated      12 spread (tick%5)  16 publish log/snapshot
+ *  5 VM step
+ *  6 physical completion      (the VM fires the deferred side effect on the op's
+ *  7 contact interactions      final tick, so 5 and 6 share the same call)
+ *  8 water packets
+ * ```
+ *
+ * No Arena dependency: the CPU is reached only through `robofight.vm.Vm` /
+ * `robofight.vm.Env` from `:rf8-core`.
+ */
+
+enum class CivilianStatus { WAITING, RESCUED, LOST }
+
+/** A civilian in the world (§3.4): stable mission-local ID, HP, status. */
+class Civilian(val id: Int, val x: Int, val y: Int, val startHp: Int, val required: Boolean) {
+    var hp: Int = startHp
+        private set
+    var status: CivilianStatus = CivilianStatus.WAITING
+        private set
+
+    val onGrid: Boolean get() = status == CivilianStatus.WAITING
+
+    fun damage(d: Int) {
+        if (!onGrid) return
+        hp = (hp - d).coerceAtLeast(0)
+        if (hp == 0) status = CivilianStatus.LOST
+    }
+
+    fun rescue() {
+        if (status == CivilianStatus.WAITING) status = CivilianStatus.RESCUED
+    }
+
+    override fun toString(): String =
+        "civ#$id($x,$y,hp=$hp,$status${if (required) ",required" else ""})"
+}
+
+/** Selected burning cell + its sensor view (§6.1). */
+data class FireTarget(val x: Int, val y: Int, val intensity: Int, val dist: Int)
+
+class FirelineWorld(val descriptor: MissionDescriptor) {
+    val layout: Layout = descriptor.layout
+
+    /** Terrain is never mutated in v1 (no destructible terrain, §2 non-goals). */
+    private val terrain: IntArray = layout.terrain.copyOf()
+
+    /** Dynamic per-cell fire intensity 0..100 (§3.3) — world state, not terrain. */
+    private val fire: IntArray = layout.fire.copyOf()
+
+    val civilians: MutableList<Civilian> =
+        layout.civilians.map { Civilian(it.id, it.x, it.y, it.hp, it.required) }.toMutableList()
+
+    val rover: Rover = Rover(this, descriptor.startingWater)
+
+    /** Separate RNG streams (§4.3): sensor draws vs environmental spread. */
+    val sensorRng: LcgStream = LcgStream.forSensor(descriptor.seed)
+    val spreadRng: LcgStream = LcgStream.forSpread(descriptor.seed)
+
+    var tick: Int = 0
+        private set
+    var finished: Boolean = false
+        private set
+    var status: RunStatus? = null
+        private set
+    var failureReason: FailureReason? = null
+        private set
+    var lastOp: String = "(loaded)"
+        private set
+    var lastEvents: List<String> = emptyList()
+        private set
+
+    /** Observer hook for the app's live monitor (§8 step 16). */
+    var onTick: ((FirelineWorld) -> Unit)? = null
+
+    private val events: MutableList<String> = ArrayList()
+    private var roverMovedThisTick = false
+    private var vmFaultThisTick = false
+
+    /** Cells whose fire reached intensity 100 (§3.2 protected-asset rule). */
+    private val failedAssets: MutableSet<Int> = HashSet()
+
+    init {
+        descriptor.requireValid()
+        rover.place(layout.roverX, layout.roverY, layout.roverDir)
+        rover.vm.load(descriptor.firmware)
+    }
+
+    // ---- cell access ----
+    fun terrainAt(x: Int, y: Int): Int = terrain[cellIndex(x, y)]
+    fun fireAt(x: Int, y: Int): Int = fire[cellIndex(x, y)]
+    internal fun setFire(x: Int, y: Int, value: Int) {
+        fire[cellIndex(x, y)] = value.coerceIn(0, FIRE_MAX)
+    }
+
+    /** Row-major raw state (canonical hash input, §13.2). */
+    fun terrainRowMajor(): IntArray = terrain.copyOf()
+    fun fireRowMajor(): IntArray = fire.copyOf()
+
+    internal fun addEvent(text: String) { events.add(text) }
+
+    // ================= authority: one world tick =================
+    fun tickOnce() {
+        if (finished) return                                                 // 1
+
+        tick++                                                               // 2
+        rover.syncSysPage(tick)                                              // 3
+        events.clear()                                                       // 4
+        rover.heatedThisTick = false
+        roverMovedThisTick = false
+        vmFaultThisTick = false
+
+        rover.vm.step(rover)                                                 // 5 (+ 6)
+        lastOp = rover.vm.lastOp
+        if (rover.vm.fault) vmFaultThisTick = true
+
+        resolveContactInteractions()                                         // 7
+        resolveWaterPackets()                                                // 8
+        applyRefill()                                                        // 9
+        applyExposureDamage()                                                // 10
+        applyHeatRules()                                                     // 11
+        if (tick % FIRE_SPREAD_PERIOD == 0) runFireSpread()                  // 12
+        resolveProtectedAssets()                                             // 13
+        evaluateEndConditions()                                              // 14
+
+        if (rover.shieldTicksRemaining > 0) rover.shieldTicksRemaining--     // 15
+
+        lastEvents = events.toList()                                         // 16
+        onTick?.invoke(this)
+    }
+
+    // ---- step 7: contact interactions (filled by §8.3 step 5) ----
+    private fun resolveContactInteractions() {
+        // inert: civilian rescue by contact arrives with §8.3 step 5
+    }
+
+    internal fun noteRoverMoved() { roverMovedThisTick = true }
+
+    // ---- step 8: water packets (filled by §8.3 step 2) ----
+    private fun resolveWaterPackets() {
+        // inert: the suppressant model arrives with §8.3 step 2
+    }
+
+    /** Render/test view of packet occupancy (filled by §8.3 step 2). */
+    fun hasWaterPacketAt(x: Int, y: Int): Boolean = false
+
+    // ---- step 9: refill (filled by §8.3 step 2) ----
+    private fun applyRefill() {
+        // inert: the water tank arrives with §8.3 step 2
+    }
+
+    // ---- step 10: fire exposure (filled by §8.3 step 3) ----
+    private fun applyExposureDamage() {
+        // inert: fire exposure damage arrives with §8.3 step 3
+    }
+
+    // ---- step 11: heat cooling + overload (filled by §8.3 step 2) ----
+    private fun applyHeatRules() {
+        // inert: SHOOT/SHIELD heat arrives with §8.3 step 2
+    }
+
+    // ---- step 12: growth + spread (filled by §8.3 step 7) ----
+    private fun runFireSpread() {
+        // inert: growth + deterministic spread arrive with §8.3 step 7
+    }
+
+    // ---- step 13: protected assets (filled by §8.3 step 7) ----
+    private fun resolveProtectedAssets() {
+        // inert: protected-asset failure arrives with §8.3 step 7
+    }
+
+    // ---- step 14: end conditions + precedence (filled by §8.3 step 6) ----
+    private fun evaluateEndConditions() {
+        // inert: objectives + failure precedence arrive with §8.3 step 6
+    }
+
+    /** §7.3 objective conjunction (filled by §8.3 step 6). */
+    fun objectivesSatisfied(): Boolean = false
+
+    /** §6.3 mission-state bit field read by `IN MISSION` (filled by §8.3 step 6). */
+    fun missionBits(): Int = 0
+
+    /** §3.3 derived smoke (filled by §8.3 step 8). */
+    fun smokeAt(x: Int, y: Int): Int = 0
+
+    // ---- statistics ----
+    fun roverOnExit(): Boolean = terrainAt(rover.x, rover.y) == TERRAIN_EXIT
+    fun fireCellsBurning(): Int = fire.count { it > 0 }
+    fun fireIntensitySum(): Int = fire.sum()
+    fun requiredWaiting(): Int = civilians.count { it.required && it.status == CivilianStatus.WAITING }
+    fun requiredLost(): Int = civilians.count { it.required && it.status == CivilianStatus.LOST }
+    fun requiredRescued(): Int = civilians.count { it.required && it.status == CivilianStatus.RESCUED }
+    fun rescuedCount(): Int = civilians.count { it.status == CivilianStatus.RESCUED }
+    fun waitingCount(): Int = civilians.count { it.status == CivilianStatus.WAITING }
+    fun lostCount(): Int = civilians.count { it.status == CivilianStatus.LOST }
+    fun assetsIntact(): Int = layout.protectedCells().size - failedAssets.size
+    fun assetsLost(): Int = failedAssets.size
+    fun survivalElapsed(): Boolean = descriptor.surviveUntil != null && tick >= descriptor.surviveUntil
+
+    // ================= target selection (§6.1) =================
+    /** Selected fire: smallest Manhattan distance, then highest intensity, then row-major. */
+    fun selectedFire(): FireTarget? {
+        var best: FireTarget? = null
+        for (y in 0 until GRID) for (x in 0 until GRID) {
+            val i = fire[cellIndex(x, y)]
+            if (i <= 0) continue
+            val t = FireTarget(x, y, i, manhattan(rover.x, rover.y, x, y))
+            val b = best
+            if (b == null ||
+                t.dist < b.dist ||
+                (t.dist == b.dist && t.intensity > b.intensity) ||
+                (t.dist == b.dist && t.intensity == b.intensity && (t.y < b.y || (t.y == b.y && t.x < b.x)))
+            ) best = t
+        }
+        return best
+    }
+
+    /** Selected civilian: nearest required WAITING, then lowest HP, then row-major, then stable id. */
+    fun selectedCivilian(): Civilian? =
+        civilians.filter { it.required && it.status == CivilianStatus.WAITING }
+            .sortedWith(compareBy(
+                { manhattan(rover.x, rover.y, it.x, it.y) },
+                { it.hp },
+                { it.y },
+                { it.x },
+                { it.id },
+            ))
+            .firstOrNull()
+
+    /** Selected exit: nearest exit cell, row-major tie-break. */
+    fun selectedExit(): Pair<Int, Int>? {
+        val exits = layout.exitCells()
+        if (exits.isEmpty()) return null
+        return exits.minWith(compareBy(
+            { manhattan(rover.x, rover.y, it.first, it.second) },
+            { it.second },
+            { it.first },
+        ))
+    }
+
+    internal fun angleTo(x: Int, y: Int): Int = turnDeltaTo(rover.facing, rover.x, rover.y, x, y)
+
+    /** §6.2 `AHEAD`: 1 for boundary/wall/protected asset ahead; civilians and fire do not block. */
+    fun aheadBlocked(): Int {
+        val nx = rover.x + dirDx(rover.facing)
+        val ny = rover.y + dirDy(rover.facing)
+        if (!inBounds(nx, ny)) return 1
+        return if (terrainPassable(terrainAt(nx, ny))) 0 else 1
+    }
+
+    // ================= port bus (§6.2/§6.3) =================
+    /**
+     * `IN <port>` for the FIRELINE profile. Reserved ports 15/31 and every
+     * unknown number read 0 (RF8-PLATFORM-SPEC.md §4.2); no port read here
+     * touches the spread RNG stream. A peripheral due at a later §8.3 step
+     * answers its documented no-target value until that step lands.
+     */
+    fun sensor(port: Int): Int = when (port) {
+        FirelinePorts.HP -> rover.hp
+        FirelinePorts.DIR -> rover.facing
+        FirelinePorts.RX -> rover.x
+        FirelinePorts.RY -> rover.y
+        FirelinePorts.DIST -> selectedFire()?.dist ?: NO_TARGET_DIST
+        FirelinePorts.ANGLE -> selectedFire()?.let { angleTo(it.x, it.y) } ?: NO_TARGET_ANGLE
+        FirelinePorts.FIRE -> 0                                       // reserved in ISA v1
+        FirelinePorts.SHIELD -> if (rover.shieldTicksRemaining > 0) 1 else 0
+        FirelinePorts.HEAT -> rover.heat
+        FirelinePorts.ENEMY_HP -> selectedFire()?.intensity ?: NO_TARGET_ENEMY_HP
+        FirelinePorts.RAND -> sensorRng.nextByte()                    // sensor stream only
+        FirelinePorts.AHEAD -> aheadBlocked()
+        FirelinePorts.PROFILE_PORT -> FirelinePorts.PROFILE
+        FirelinePorts.PROFILE_REV_PORT -> FirelinePorts.PROFILE_REV
+        FirelinePorts.CAPS_PORT -> FirelinePorts.CAPS
+        FirelinePorts.FIRE_DIST -> selectedFire()?.dist ?: NO_TARGET_DIST
+        FirelinePorts.FIRE_ANGLE -> selectedFire()?.let { angleTo(it.x, it.y) } ?: NO_TARGET_ANGLE
+        FirelinePorts.FIRE_LEVEL -> selectedFire()?.intensity ?: NO_TARGET_LEVEL
+        FirelinePorts.CIV_DIST -> NO_TARGET_DIST                      // filled by §8.3 step 5
+        FirelinePorts.CIV_ANGLE -> NO_TARGET_ANGLE                    // filled by §8.3 step 5
+        FirelinePorts.CIV_COUNT -> 0                                  // filled by §8.3 step 5
+        FirelinePorts.WATER -> rover.water
+        FirelinePorts.LOCAL_FIRE -> fireAt(rover.x, rover.y)
+        FirelinePorts.SMOKE -> 0                                      // filled by §8.3 step 8
+        FirelinePorts.WIND_DIR -> descriptor.windDir
+        FirelinePorts.WIND_FORCE -> descriptor.windForce
+        FirelinePorts.EXIT_DIST -> NO_TARGET_DIST                     // filled by §8.3 step 6
+        FirelinePorts.EXIT_ANGLE -> NO_TARGET_ANGLE                   // filled by §8.3 step 6
+        FirelinePorts.TILE -> terrainAt(rover.x, rover.y)
+        FirelinePorts.MISSION -> 0                                    // filled by §8.3 step 6
+        else -> 0                                                     // 15, 31 and any unknown port
+    }
+
+    // ================= headless helpers =================
+    /** Advance until finished or the tick guard is reached (result lands at §8.3 step 9). */
+    fun runUntilFinished(maxTicks: Int = MAX_TICKS) {
+        var guard = 0
+        while (!finished && tick < maxTicks && guard < maxTicks) {
+            tickOnce()
+            guard++
+        }
+    }
+
+    fun render(): String = TextGrid.render(this)
+}
