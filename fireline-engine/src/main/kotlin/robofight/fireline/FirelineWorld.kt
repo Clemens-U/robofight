@@ -351,8 +351,22 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
         addEvent(if (outcome == RunStatus.SUCCESS) "MISSION SUCCESS" else "MISSION FAILURE $reason")
     }
 
-    /** §3.3 derived smoke (filled by §8.3 step 8). */
-    fun smokeAt(x: Int, y: Int): Int = 0
+    /**
+     * §3.3 derived smoke — derived from fire, never simulated:
+     * `min(255, LOCAL_FIRE + sum(W/N/E/S neighbour intensities) / 2)`.
+     * Integer division truncates; off-grid neighbours (and walls, which never
+     * burn) contribute zero. Informational only: smoke does not hide targets,
+     * block packets, block movement, or stop burning (§3.3, §6.1).
+     */
+    fun smokeAt(x: Int, y: Int): Int {
+        var neighbours = 0
+        for ((dx, dy) in NEIGHBOUR_OFFSETS) {
+            val nx = x + dx
+            val ny = y + dy
+            if (inBounds(nx, ny)) neighbours += fireAt(nx, ny)
+        }
+        return (fireAt(x, y) + neighbours / 2).coerceAtMost(SMOKE_MAX)
+    }
 
     // ---- statistics ----
     fun roverOnExit(): Boolean = terrainAt(rover.x, rover.y) == TERRAIN_EXIT
@@ -492,7 +506,7 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
         FirelinePorts.CIV_COUNT -> requiredWaiting()
         FirelinePorts.WATER -> rover.water
         FirelinePorts.LOCAL_FIRE -> fireAt(rover.x, rover.y)
-        FirelinePorts.SMOKE -> 0                                      // filled by §8.3 step 8
+        FirelinePorts.SMOKE -> smokeAt(rover.x, rover.y)
         FirelinePorts.WIND_DIR -> descriptor.windDir
         FirelinePorts.WIND_FORCE -> descriptor.windForce
         FirelinePorts.EXIT_DIST -> selectedExit()?.let { manhattan(rover.x, rover.y, it.first, it.second) }

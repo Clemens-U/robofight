@@ -81,6 +81,12 @@ const val IGNITION_INTENSITY = 25       // a newly ignited cell starts here
 /** Preferred authored starting intensities (§3.3); the engine accepts every integer 0..100. */
 val FIRE_LEVELS = intArrayOf(25, 50, 75, 100)
 
+// ---- §3.3 derived smoke ----
+const val SMOKE_MAX = 255
+
+/** Orthogonal neighbour offsets in W, N, E, S order (same order the SMOKE formula names). */
+val NEIGHBOUR_OFFSETS = listOf(-1 to 0, 0 to -1, 1 to 0, 0 to 1)
+
 // ---- §4.2/§4.4 growth + spread table (fixed; changing these bumps the engine version) ----
 const val GROWTH_FLOOR_EXIT = 5           // floor / exit grow +5 per spread step
 const val GROWTH_FUEL_PROTECTED = 10      // fuel / protected asset grow +10
