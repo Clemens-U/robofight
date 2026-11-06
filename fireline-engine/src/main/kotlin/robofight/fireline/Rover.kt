@@ -106,8 +106,17 @@ class Rover(private val world: FirelineWorld, startingWater: Int) : Env {
     }
 
     override fun shield() {
-        // inert until §8.3 step 4: the approved two-tick activation /
-        // five-tick window semantics land with the shield milestone.
+        if (destroyed) return
+        // RF8-PLATFORM-SPEC.md §6.1 / FIRELINE-DESIGN.md §5: SHIELD is a
+        // two-tick ACTIVATION; on completion the thermal shield is armed to
+        // SHIELD_DURATION (five resolution ticks, re-arming resets rather than
+        // extends) and adds 20 heat. The world decrements the duration only in
+        // tick-order step 15, which yields exactly the five-tick window.
+        heat = (heat + HEAT_SHIELD).coerceAtMost(HEAT_MAX)
+        heatedThisTick = true
+        shieldsRaised++
+        shieldTicksRemaining = SHIELD_DURATION
+        world.addEvent("SHIELD ACTIVE $SHIELD_DURATION")
     }
 
     // ---- Zero page (shared with Arena): world publishes the tick counter ----
