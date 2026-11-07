@@ -512,8 +512,12 @@ per milestone):
       (`:fireline-app:assembleDebug` green; aapt2 badging reports package
       `robofight.fireline`, label `FIRELINE`, minSdk 24, launchable activity,
       zero permissions).
-- [ ] 2. Firmware source persistence: pure-Kotlin validation/naming/repository
-      layer plus the FIRELINE-private SQLite store (`fireline.db`).
+- [x] 2. Firmware source persistence: pure-Kotlin validation/naming/repository
+      layer plus the FIRELINE-private SQLite store (`fireline.db`). 19 unit
+      tests / 104 assertions green on plain JVM; the SQLite DDL and its
+      `COLLATE NOCASE` uniqueness were additionally verified against a real
+      SQLite engine (the Android SQLite class itself is compile-verified only -
+      no Robolectric in the offline catalog).
 - [ ] 3. FILES surface and editor: file cards, JetBrains Mono editor body,
       line gutter, assemble errors, port cheat sheet, SAF import/export.
 - [ ] 4. MISSION surface: mission picker (the five authored missions),
