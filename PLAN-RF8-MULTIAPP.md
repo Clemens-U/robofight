@@ -502,6 +502,38 @@ port catalog is shared, even though those ports read zero there.
 - Accessibility labels and small-screen layout are usable at the existing
   minimum supported API.
 
+### 9.6 Phase 5 execution notes
+
+Milestone checklist for `codex/fireline-app` (one commit per milestone, one gate
+per milestone):
+
+- [x] 1. Module skeleton: `:fireline-app` wiring, manifest, F-palette color
+      tokens, adaptive launcher icon, chrome-only `MainActivity`
+      (`:fireline-app:assembleDebug` green; aapt2 badging reports package
+      `robofight.fireline`, label `FIRELINE`, minSdk 24, launchable activity,
+      zero permissions).
+- [ ] 2. Firmware source persistence: pure-Kotlin validation/naming/repository
+      layer plus the FIRELINE-private SQLite store (`fireline.db`).
+- [ ] 3. FILES surface and editor: file cards, JetBrains Mono editor body,
+      line gutter, assemble errors, port cheat sheet, SAF import/export.
+- [ ] 4. MISSION surface: mission picker (the five authored missions),
+      firmware selection, grid and telemetry panel.
+- [ ] 5. Run control: `RUN`, `STEP` (exactly one world tick) and `RESET` over
+      the headless `FirelineRun` path.
+- [ ] 6. RESULT surface: outcome, failure reason, ticks, civilians, HP, water,
+      fire remaining, route back to the editor.
+- [ ] 7. Gate close-out: side-by-side install with both Arena packages,
+      offline run, background/rotation resilience, headless vs app result
+      equality for one mission tuple.
+
+Locked build facts (do not re-derive): AGP 9.4.1 built-in Kotlin only (no
+`org.jetbrains.kotlin.android`), `jvmTarget` pinned to 11, `namespace` and
+`applicationId` `robofight.fireline`, compileSdk 37 / targetSdk 36 / minSdk 24,
+no flavors, no permissions, `implementation(project(":rf8-core"))` is explicit
+because `:fireline-engine` declares it as `implementation`. All UI color comes
+from `res/values/colors.xml` (DESIGN-FIRELINE 2.2b direction F); Kotlin reads
+those resources through `FirelineTheme` instead of copying hex literals.
+
 ---
 
 ## 10. Phase 6 — packaging and release readiness
