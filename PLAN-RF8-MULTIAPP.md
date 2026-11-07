@@ -533,8 +533,15 @@ per milestone):
       are delivered in step 5's run-control commit. 11 new unit tests
       (37 total) green; badges persisted per mission+engine version with
       the engine's §7.5 ranking as the update rule.
-- [ ] 5. Run control: `RUN`, `STEP` (exactly one world tick) and `RESET` over
-      the headless `FirelineRun` path.
+- [x] 5. Run control: `RUN`, `STEP` (exactly one world tick) and `RESET` over
+      the headless `FirelineRun` path. `MissionSession` drives only
+      `FirelineWorld.tickOnce()` (guard mirrors `runWithGuard`); a JVM test
+      proves tick-by-tick sessions equal `runWithGuard` for all five authored
+      missions incl. final-state hashes. Live 20x20 `FirelineGridView`
+      (DESIGN 4 glyph language incl. amendments A-1/A-2/A-5), telemetry panel
+      from engine ports + `Vm` flags, event panel with tap-open full-log
+      overlay, heat bar with overload threshold, pinned 48dp RUN/STEP/RESET.
+      5 new tests (42 total) green.
 - [ ] 6. RESULT surface: outcome, failure reason, ticks, civilians, HP, water,
       fire remaining, route back to the editor.
 - [ ] 7. Gate close-out: side-by-side install with both Arena packages,

@@ -19,10 +19,15 @@ import android.widget.TextView
 import robofight.fireline.app.files.FirmwareFile
 import robofight.fireline.app.files.FirmwareRepository
 import robofight.fireline.app.files.SaveOutcome
+import robofight.fireline.app.editor.EditorModel
 import robofight.fireline.app.mission.BestBadgeStore
 import robofight.fireline.app.mission.FirmwareSelection
+import robofight.fireline.app.mission.MissionRunSurface
 import robofight.fireline.app.mission.MissionSelection
+import robofight.fireline.app.mission.MissionSession
 import robofight.fireline.app.mission.MissionSurface
+import robofight.fireline.app.mission.RunRecordStore
+import robofight.fireline.app.mission.RunSummary
 import robofight.fireline.app.mission.SharedPreferencesValues
 import robofight.fireline.R
 import robofight.fireline.Mission
@@ -51,6 +56,7 @@ class MainActivity : Activity() {
     private lateinit var firmwareSelection: FirmwareSelection
     private lateinit var missionSelection: MissionSelection
     private lateinit var bestStore: BestBadgeStore
+    private lateinit var runStore: RunRecordStore
     private lateinit var contentFrame: FrameLayout
     private lateinit var tabs: MutableMap<String, TextView>
     private lateinit var filesSurface: FilesSurface
@@ -58,6 +64,7 @@ class MainActivity : Activity() {
     private var selectedFirmwareName: String? = null
     private var currentTab: String = "FILES"
     private var missionSurface: MissionSurface? = null
+    private var currentRunSurface: MissionRunSurface? = null
     private var editorSurface: EditorSurface? = null
     private var pendingExport: Pair<String, String>? = null
 
@@ -69,6 +76,7 @@ class MainActivity : Activity() {
         firmwareSelection = FirmwareSelection(SharedPreferencesValues(prefs))
         missionSelection = MissionSelection(SharedPreferencesValues(prefs))
         bestStore = BestBadgeStore(SharedPreferencesValues(prefs))
+        runStore = RunRecordStore(SharedPreferencesValues(prefs))
         selectedFirmwareName = firmwareSelection.get()
         buildFilesSurface()
         setContentView(buildShell())
@@ -125,7 +133,7 @@ class MainActivity : Activity() {
         when (name) {
             "FILES" -> showFiles()
             "MISSION" -> showMission()
-            "RESULT" -> showPending("RESULT", getString(R.string.result_pending))
+            "RESULT" -> showResult()
         }
     }
 
@@ -150,6 +158,7 @@ class MainActivity : Activity() {
 
     private fun showFiles() {
         editorSurface = null
+        stopActiveRun()
         selectTab("FILES")
         filesSurface.refresh(selectedFirmwareName)
         showContent(filesSurface.root)
@@ -180,27 +189,66 @@ class MainActivity : Activity() {
 
     // ---- MISSION ----------------------------------------------------------------
 
-    private fun showMission() {
+    private fun showMission(attention: String? = null) {
         editorSurface = null
+        stopActiveRun()
         selectTab("MISSION")
         val surface = MissionSurface(
             activity = this,
             theme = theme,
             store = store,
             selection = firmwareSelection,
-            missionSelection = missionSelection,
             bestStore = bestStore,
-            onOpenRun = { mission, firmwareName -> showMissionSetup(mission, firmwareName) },
+            onOpenRun = { mission, firmwareName -> showMissionRun(mission, firmwareName) },
             onSelectFirmware = { file -> selectFirmware(file) },
-            onBackToPicker = { showMission() },
         )
         missionSurface = surface
-        showContent(surface.picker())
+        showContent(surface.picker(attention))
     }
 
-    private fun showMissionSetup(mission: Mission, firmwareName: String) {
+    /**
+     * Open the live run surface (milestone 5). The mission tuple is the
+     * mission's own rules + the selected stored firmware source; the session
+     * rebuilds a fresh FirelineWorld from it, so every open is a clean run.
+     * A stored source that will not assemble (e.g. Arena-only opcodes) is
+     * refused with a notice instead of crashing the tab.
+     */
+    private fun showMissionRun(mission: Mission, firmwareName: String) {
+        val file = store.find(firmwareName) ?: return showMission("firmware '$firmwareName' is gone  //  pick another")
+        val assembly = EditorModel.assembleSource(file.source)
+        if (!assembly.ok) {
+            return showMission("firmware '${file.name}' does not assemble  //  line ${assembly.errors.firstOrNull()?.first ?: "?"}: ${assembly.errors.firstOrNull()?.second ?: "error"}")
+        }
+        stopActiveRun()
+        val session = MissionSession(mission, file.name, file.source)
+        missionSelection.set(mission.id)
+        val surface = MissionRunSurface(
+            activity = this,
+            theme = theme,
+            session = session,
+            onRunFinished = { summary ->
+                bestStore.update(summary)
+                runStore.put(summary)
+                currentRunSurface = null
+                showResult()
+            },
+        )
+        currentRunSurface = surface
         selectTab("MISSION")
-        showContent(missionSurface!!.runSetup(mission, firmwareName))
+        showContent(surface.root)
+    }
+
+    /** A live session must not keep ticking while another tab is on screen. */
+    private fun stopActiveRun() {
+        currentRunSurface?.stopRun()
+        currentRunSurface = null
+    }
+
+    /** Temporary until milestone 6 replaces it with the RESULT surface. */
+    private fun showResult() {
+        editorSurface = null
+        stopActiveRun()
+        showPending("RESULT", getString(R.string.result_pending))
     }
 
     private fun selectFirmware(file: FirmwareFile) {

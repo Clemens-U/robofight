@@ -30,6 +30,20 @@ class FirelineTheme(private val context: Context) {
     val rover = color(R.color.fireline_rover)
     val caret = color(R.color.fireline_caret)
 
+    // Grid entity colors (DESIGN-FIRELINE.md 2.2b / 4): the fire ramp is the
+    // digit ramp 1-4; entities read their own tokens, same single source.
+    val empty = color(R.color.fireline_empty)
+    val wall = color(R.color.fireline_wall)
+    val fire1 = color(R.color.fireline_fire1)
+    val fire2 = color(R.color.fireline_fire2)
+    val fire3 = color(R.color.fireline_fire3)
+    val fire4 = color(R.color.fireline_fire4)
+    val water = color(R.color.fireline_water)
+    val refill = color(R.color.fireline_refill)
+    val civilian = color(R.color.fireline_civilian)
+    val fuel = color(R.color.fireline_fuel)
+    val asset = color(R.color.fireline_asset)
+
     val runFill = color(R.color.fireline_run_fill)
     val runText = color(R.color.fireline_run_text)
     val secondaryFill = color(R.color.fireline_secondary_fill)

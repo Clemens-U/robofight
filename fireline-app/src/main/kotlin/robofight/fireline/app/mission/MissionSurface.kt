@@ -18,34 +18,31 @@ import robofight.fireline.app.files.FirmwareFile
 import robofight.fireline.app.files.FirmwareRepository
 
 /**
- * MISSION surface, picker phase (milestone 4; DESIGN-FIRELINE.md 5.2).
+ * MISSION surface, picker (milestones 4-5; DESIGN-FIRELINE.md 5.2).
  *
  * Empty state: the five authored mission cards (ids 01-05, engine briefing,
  * objective chips, tick limit, wind, water, read-only seed, best-result badge
  * per engine version) above the firmware picker (the FIRELINE file store's
  * saved sources, `[>]` selects the mission firmware exactly like FILES does).
  *
- * Choosing mission + firmware opens the run setup header card (id/name,
- * firmware, seed, wind, briefing, objective chips, tick/timeLimit). The live
- * grid, telemetry and the RUN / STEP / RESET control bar belong to
- * MissionRunSurface (milestone 5); this commit shows the setup card with a
- * labelled placeholder panel instead of pretending to run.
+ * Choosing mission + firmware hands the pair to MainActivity, which opens the
+ * live MissionRunSurface (milestone 5): header card, grid, telemetry, event
+ * panel and the RUN / STEP / RESET bar.
  */
 class MissionSurface(
     private val activity: Activity,
     private val theme: FirelineTheme,
     private val store: FirmwareRepository,
     private val selection: FirmwareSelection,
-    private val missionSelection: MissionSelection,
     private val bestStore: BestBadgeStore,
     private val onOpenRun: (Mission, String) -> Unit,
     private val onSelectFirmware: (FirmwareFile) -> Unit,
-    private val onBackToPicker: () -> Unit,
 ) {
 
     /** The MISSION tab's empty state: mission cards + firmware picker. */
-    fun picker(): View {
+    fun picker(attention: String? = null): View {
         val column = column(matchParent, wrapContent)
+        if (attention != null) column.addView(text(8, theme.textBright, attention))
         val notice = text(8, theme.textDim)
         notice.text = selection.get()
             ?.let { "mission firmware: $it" }
@@ -55,43 +52,6 @@ class MissionSurface(
             column.addView(missionCard(mission, MissionPickerModel.cardFor(mission, bestStore.get(mission.id, FIRELINE_ENGINE_VERSION))))
         }
         column.addView(firmwarePicker())
-        return ScrollView(activity).apply {
-            isVerticalScrollBarEnabled = true
-            addView(column)
-        }
-    }
-
-    /**
-     * Run setup header card for a chosen mission + firmware (DESIGN 5.2 layout
-     * order; the seed line is read-only). Milestone 5 swaps the placeholder
-     * panel for the live grid panel with telemetry and controls.
-     */
-    fun runSetup(mission: Mission, firmwareName: String): View {
-        missionSelection.set(mission.id)
-        val card = MissionPickerModel.cardFor(mission, bestStore.get(mission.id, FIRELINE_ENGINE_VERSION))
-        val column = column(matchParent, wrapContent)
-
-        val header = column(matchParent, wrapContent).apply {
-            background = theme.panelDrawable()
-            setPadding(theme.dp(8), theme.dp(6), theme.dp(8), theme.dp(6))
-        }
-        header.addView(text(9, theme.textBright, "MISSION ${card.idLabel} / ${mission.name}", theme.displayFace))
-        header.addView(text(7, theme.text, "firmware: $firmwareName", theme.workFace))
-        header.addView(text(7, theme.textDim, "${card.seedLabel}  //  WIND ${card.windLabel}  //  WATER ${card.startingWater}  //  ${card.timeLimitLabel}  //  TICK 0", theme.workFace))
-        header.addView(text(7, theme.text, mission.briefing, theme.workFace))
-        header.addView(chipRow(card.objectiveChips))
-        card.badgeLabel?.let { header.addView(text(7, theme.caret, it, theme.displayFace)) }
-        column.addView(header)
-
-        column.addView(panelNotice(
-            "RUN SETUP  //  grid, telemetry and the RUN / STEP / RESET bar arrive with milestone 5",
-        ))
-
-        val actions = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(6), 0, 0) }
-        actions.addView(button("MISSION LIST", theme.secondaryFill, theme.secondaryText, onBackToPicker))
-        actions.addView(spacer())
-        column.addView(actions)
-
         return ScrollView(activity).apply {
             isVerticalScrollBarEnabled = true
             addView(column)
@@ -179,18 +139,6 @@ class MissionSurface(
             row.addView(view)
         }
         return row
-    }
-
-    private fun panelNotice(message: String): View {
-        val panel = column(matchParent, wrapContent).apply {
-            background = theme.panelDrawable(fill = theme.panel2)
-            setPadding(theme.dp(8), theme.dp(10), theme.dp(8), theme.dp(10))
-            layoutParams = LinearLayout.LayoutParams(matchParent, theme.dp(120)).apply {
-                topMargin = theme.dp(6)
-            }
-        }
-        panel.addView(text(8, theme.textDim, message, theme.workFace))
-        return panel
     }
 
     // ---- view builders (house style) --------------------------------------------
