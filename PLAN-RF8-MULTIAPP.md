@@ -428,6 +428,18 @@ sentinel values, damage, and mission completion.
 - Different seeds can alter spread but not authored static terrain.
 - All port and world acceptance tests from `FIRELINE-DESIGN.md` pass.
 
+> ✅ DONE 2026-11-07 on `codex/fireline-engine`: steps 1-10 landed as ten
+> milestones; `:fireline-engine` stays pure JVM (depends only on `:rf8-core`).
+> The five authored MVP missions (NOZZLE CHECK, CORRIDOR, FIRST RESPONSE,
+> DOWNWIND, HOT ZONE) each carry reference firmware that wins deterministically
+> plus a failing variant with an expected failure reason. 127 engine tests
+> green; full 7-task gate green. Mission economics that the layouts must
+> respect: a burning fuel cell grows +10 per 5-tick spread window, so any
+> firmware needs a shot cadence under ~12.5 ticks to win a grind - the
+> reference solutions park on refill stations with a 6-tick
+> `IN FIRE_LEVEL / JZ / SHOOT / JMP` loop and exploit water packets passing
+> through extinguished cells.
+
 ---
 
 ## 9. Phase 5 — create `:fireline-app`
