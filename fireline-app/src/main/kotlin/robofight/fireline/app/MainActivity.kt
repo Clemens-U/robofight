@@ -26,24 +26,25 @@ import robofight.fireline.app.mission.MissionRunSurface
 import robofight.fireline.app.mission.MissionSelection
 import robofight.fireline.app.mission.MissionSession
 import robofight.fireline.app.mission.MissionSurface
+import robofight.fireline.app.mission.ResultSurface
 import robofight.fireline.app.mission.RunRecordStore
 import robofight.fireline.app.mission.RunSummary
 import robofight.fireline.app.mission.SharedPreferencesValues
 import robofight.fireline.R
 import robofight.fireline.Mission
+import robofight.fireline.Missions
 
 /**
  * FIRELINE MainActivity (PLAN-RF8-MULTIAPP.md 9.2): programmatic views only, no
  * XML layouts, no androidx - the Arena house style. Owns the shell (wordmark
  * strip, tagline, FILES | MISSION | RESULT tabs), the FIRELINE-private file
- * store, and the surfaces built so far: FILES, the editor, and the MISSION
- * picker + run setup (milestone 4).
+ * store, and the surfaces built so far: FILES, the editor, the MISSION picker
+ * + run surface, and the RESULT surface (milestones 3-6).
  *
- * Milestone 4 state: MISSION shows the five authored mission cards with their
- * best-result badges and the firmware picker; opening a run setup persists the
- * selected mission id (12.1) next to the already-persisted firmware selection.
- * The live grid/telemetry/control bar is milestone 5 and the RESULT surface is
- * milestone 6; RESULT still renders its pending notice.
+ * Mission selection state, the selected mission id (12.1), the last-run record
+ * and per-mission best badges are plain-data SharedPreferences records,
+ * versioned `fireline.mission.v1` / `fireline.mission.last.v1` /
+ * `fireline.mission.best.v1`; RESULT renders only from the last-run record.
  *
  * Motion rule (DESIGN-FIRELINE.md 7): nothing here animates; the CRT overlay is
  * default-off and therefore absent.
@@ -244,11 +245,33 @@ class MainActivity : Activity() {
         currentRunSurface = null
     }
 
-    /** Temporary until milestone 6 replaces it with the RESULT surface. */
+    /** RESULT renders only from the stored RunSummary (12.1: plain data). */
     private fun showResult() {
         editorSurface = null
         stopActiveRun()
-        showPending("RESULT", getString(R.string.result_pending))
+        selectTab("RESULT")
+        val summary = runStore.get()
+        if (summary == null) {
+            showPending("RESULT", "no run recorded yet  //  finish a mission run to see the outcome")
+            return
+        }
+        val surface = ResultSurface(
+            activity = this,
+            theme = theme,
+            summary = summary,
+            onRetry = {
+                val mission = Missions.byId(summary.missionId)
+                if (mission == null) showMission("mission ${summary.missionId} is no longer in the catalog")
+                else showMissionRun(mission, summary.firmwareName)
+            },
+            onEditFirmware = {
+                val file = store.find(summary.firmwareName)
+                if (file == null) showMission("firmware '${summary.firmwareName}' is gone  //  pick another")
+                else openEditor(file, displayName = file.name)
+            },
+            onMissionList = { showMission() },
+        )
+        showContent(surface.root)
     }
 
     private fun selectFirmware(file: FirmwareFile) {

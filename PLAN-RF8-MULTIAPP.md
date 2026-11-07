@@ -542,8 +542,19 @@ per milestone):
       from engine ports + `Vm` flags, event panel with tap-open full-log
       overlay, heat bar with overload threshold, pinned 48dp RUN/STEP/RESET.
       5 new tests (42 total) green.
-- [ ] 6. RESULT surface: outcome, failure reason, ticks, civilians, HP, water,
-      fire remaining, route back to the editor.
+- [x] 6. RESULT surface: `ResultSurface` renders the DESIGN 5.3 wireframe from
+      the stored plain-data `RunSummary` only (12.1; no world state is kept or
+      resurrected): big MISSION COMPLETE / FAILURE banner with the exact
+      `FailureReason` enum chip, mission id/name + tick line, objective `o`/`x`
+      chips, full stat block (ticks, water used/left, shots, HP/HEAT/SHIELD,
+      civilians, burning cells + total intensity, protected intact/lost,
+      firmware bytes/instructions, fingerprint short form `$hex8` = top 32 bits
+      of the engine 64-bit final-state hash), FIRMWARE_FAULT halt + last
+      instruction addendum, WHY block with the persisted event tail tapping open
+      the same scrollable log overlay, and RETRY / EDIT FIRMWARE / MISSION LIST
+      routes (EDIT FIRMWARE jumps straight into the FILES editor for that file).
+      8 new tests (50 total) green, incl. all five reason enums and the
+      fingerprint short form against a real engine hash.
 - [ ] 7. Gate close-out: side-by-side install with both Arena packages,
       offline run, background/rotation resilience, headless vs app result
       equality for one mission tuple.
