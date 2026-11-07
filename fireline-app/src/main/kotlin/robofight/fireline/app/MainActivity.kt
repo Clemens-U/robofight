@@ -19,20 +19,26 @@ import android.widget.TextView
 import robofight.fireline.app.files.FirmwareFile
 import robofight.fireline.app.files.FirmwareRepository
 import robofight.fireline.app.files.SaveOutcome
+import robofight.fireline.app.mission.BestBadgeStore
+import robofight.fireline.app.mission.FirmwareSelection
+import robofight.fireline.app.mission.MissionSelection
+import robofight.fireline.app.mission.MissionSurface
+import robofight.fireline.app.mission.SharedPreferencesValues
 import robofight.fireline.R
+import robofight.fireline.Mission
 
 /**
  * FIRELINE MainActivity (PLAN-RF8-MULTIAPP.md 9.2): programmatic views only, no
  * XML layouts, no androidx - the Arena house style. Owns the shell (wordmark
  * strip, tagline, FILES | MISSION | RESULT tabs), the FIRELINE-private file
- * store, and the two milestone-3 surfaces: FILES and the editor.
+ * store, and the surfaces built so far: FILES, the editor, and the MISSION
+ * picker + run setup (milestone 4).
  *
- * Milestone 3 state: FILES is live, the editor is live, and import/export go
- * through Android's Storage Access Framework (`ACTION_OPEN_DOCUMENT` /
- * `ACTION_CREATE_DOCUMENT`), which needs no storage permission at all
- * (PLAN-RF8-MULTIAPP.md 9.4). MISSION and RESULT render their pending notices
- * until milestones 4-6. The firmware selected with `[>]` is persisted so the
- * later MISSION surface survives a rotation.
+ * Milestone 4 state: MISSION shows the five authored mission cards with their
+ * best-result badges and the firmware picker; opening a run setup persists the
+ * selected mission id (12.1) next to the already-persisted firmware selection.
+ * The live grid/telemetry/control bar is milestone 5 and the RESULT surface is
+ * milestone 6; RESULT still renders its pending notice.
  *
  * Motion rule (DESIGN-FIRELINE.md 7): nothing here animates; the CRT overlay is
  * default-off and therefore absent.
@@ -42,11 +48,16 @@ class MainActivity : Activity() {
     private lateinit var theme: FirelineTheme
     private lateinit var store: FirmwareRepository
     private lateinit var prefs: SharedPreferences
+    private lateinit var firmwareSelection: FirmwareSelection
+    private lateinit var missionSelection: MissionSelection
+    private lateinit var bestStore: BestBadgeStore
     private lateinit var contentFrame: FrameLayout
     private lateinit var tabs: MutableMap<String, TextView>
     private lateinit var filesSurface: FilesSurface
 
     private var selectedFirmwareName: String? = null
+    private var currentTab: String = "FILES"
+    private var missionSurface: MissionSurface? = null
     private var editorSurface: EditorSurface? = null
     private var pendingExport: Pair<String, String>? = null
 
@@ -55,7 +66,10 @@ class MainActivity : Activity() {
         theme = FirelineTheme(this)
         store = FirelineFiles(this)
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
-        selectedFirmwareName = prefs.getString(KEY_FIRMWARE, null)
+        firmwareSelection = FirmwareSelection(SharedPreferencesValues(prefs))
+        missionSelection = MissionSelection(SharedPreferencesValues(prefs))
+        bestStore = BestBadgeStore(SharedPreferencesValues(prefs))
+        selectedFirmwareName = firmwareSelection.get()
         buildFilesSurface()
         setContentView(buildShell())
         showFiles()
@@ -110,12 +124,13 @@ class MainActivity : Activity() {
     private fun onTab(name: String) {
         when (name) {
             "FILES" -> showFiles()
-            "MISSION" -> showPending("MISSION", getString(R.string.mission_pending))
+            "MISSION" -> showMission()
             "RESULT" -> showPending("RESULT", getString(R.string.result_pending))
         }
     }
 
     private fun selectTab(name: String) {
+        currentTab = name
         for ((tab, view) in tabs) {
             val active = tab == name
             view.setTextColor(if (active) theme.runText else theme.textDim)
@@ -163,11 +178,38 @@ class MainActivity : Activity() {
         )
     }
 
+    // ---- MISSION ----------------------------------------------------------------
+
+    private fun showMission() {
+        editorSurface = null
+        selectTab("MISSION")
+        val surface = MissionSurface(
+            activity = this,
+            theme = theme,
+            store = store,
+            selection = firmwareSelection,
+            missionSelection = missionSelection,
+            bestStore = bestStore,
+            onOpenRun = { mission, firmwareName -> showMissionSetup(mission, firmwareName) },
+            onSelectFirmware = { file -> selectFirmware(file) },
+            onBackToPicker = { showMission() },
+        )
+        missionSurface = surface
+        showContent(surface.picker())
+    }
+
+    private fun showMissionSetup(mission: Mission, firmwareName: String) {
+        selectTab("MISSION")
+        showContent(missionSurface!!.runSetup(mission, firmwareName))
+    }
+
     private fun selectFirmware(file: FirmwareFile) {
         selectedFirmwareName = file.name
-        prefs.edit().putString(KEY_FIRMWARE, file.name).apply()
+        firmwareSelection.set(file.name)
         filesSurface.refresh(selectedFirmwareName)
         filesSurface.setNotice("selected ${file.name} as mission firmware")
+        // The MISSION picker shows the SELECTED marker too, so refresh it live.
+        if (currentTab == "MISSION") showMission()
     }
 
     private fun confirmDelete(file: FirmwareFile) {
@@ -178,7 +220,7 @@ class MainActivity : Activity() {
                 store.delete(file.id)
                 if (file.name.equals(selectedFirmwareName, ignoreCase = true)) {
                     selectedFirmwareName = null
-                    prefs.edit().remove(KEY_FIRMWARE).apply()
+                    firmwareSelection.clear()
                 }
                 filesSurface.setNotice("deleted ${file.name}")
                 showFiles()
@@ -198,7 +240,7 @@ class MainActivity : Activity() {
                     editorSurface?.setEditing(outcome.file)
                     if (file.name.equals(selectedFirmwareName, ignoreCase = true)) {
                         selectedFirmwareName = outcome.file.name
-                        prefs.edit().putString(KEY_FIRMWARE, outcome.file.name).apply()
+                        firmwareSelection.set(outcome.file.name)
                     }
                     filesSurface.setNotice("renamed to ${outcome.file.name}")
                 }
@@ -248,7 +290,7 @@ class MainActivity : Activity() {
 
     private fun selectFirmwareQuietly(file: FirmwareFile) {
         selectedFirmwareName = file.name
-        prefs.edit().putString(KEY_FIRMWARE, file.name).apply()
+        firmwareSelection.set(file.name)
     }
 
     private fun showPending(tab: String, message: String) {
@@ -396,7 +438,6 @@ class MainActivity : Activity() {
 
     companion object {
         private const val PREFS = "fireline_ui"
-        private const val KEY_FIRMWARE = "firmware"
         private const val REQ_IMPORT = 41
         private const val REQ_EXPORT = 42
     }

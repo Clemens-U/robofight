@@ -6,6 +6,5 @@
     <string name="app_icon_description">Opcode FIRELINE icon</string>
     <string name="tagline">The same little computer. A different job.</string>
     <string name="editor_hint">; RF-8 source  //  comments start with a semicolon</string>
-    <string name="mission_pending">MISSION  //  mission picker and run surface arrive with milestone 4</string>
     <string name="result_pending">RESULT  //  outcome surface arrives with milestone 6</string>
 </resources>

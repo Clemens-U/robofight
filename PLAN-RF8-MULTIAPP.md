@@ -527,8 +527,12 @@ per milestone):
       zero permissions). 26 unit tests green; `:app:assembleFreeDebug` and
       `:app:assembleProDebug` stayed UP-TO-DATE, so Arena is untouched. Editor
       behavior on a device is milestone 7 gate work.
-- [ ] 4. MISSION surface: mission picker (the five authored missions),
-      firmware selection, grid and telemetry panel.
+- [x] 4. MISSION surface: mission picker (the five authored missions),
+      firmware selection, grid and telemetry panel. Picker + firmware
+      selection + run setup header live here; the grid and telemetry panel
+      are delivered in step 5's run-control commit. 11 new unit tests
+      (37 total) green; badges persisted per mission+engine version with
+      the engine's §7.5 ranking as the update rule.
 - [ ] 5. Run control: `RUN`, `STEP` (exactly one world tick) and `RESET` over
       the headless `FirelineRun` path.
 - [ ] 6. RESULT surface: outcome, failure reason, ticks, civilians, HP, water,
