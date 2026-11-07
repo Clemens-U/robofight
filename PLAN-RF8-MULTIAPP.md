@@ -518,8 +518,15 @@ per milestone):
       `COLLATE NOCASE` uniqueness were additionally verified against a real
       SQLite engine (the Android SQLite class itself is compile-verified only -
       no Robolectric in the offline catalog).
-- [ ] 3. FILES surface and editor: file cards, JetBrains Mono editor body,
-      line gutter, assemble errors, port cheat sheet, SAF import/export.
+- [x] 3. FILES surface and editor: file cards (bytes + instruction count from
+      the shared assembler), EDIT / `[>]` / COPY / DEL, NEW FILE, the
+      JetBrains Mono editor (13sp body, 1.5 line height, 4-digit gutter, four
+      highlight classes, line-numbered assemble errors that jump), the
+      insertable `; FIRELINE PORTS` block derived from `FirelinePorts`, and SAF
+      import/export (`ACTION_OPEN_DOCUMENT` / `ACTION_CREATE_DOCUMENT`, still
+      zero permissions). 26 unit tests green; `:app:assembleFreeDebug` and
+      `:app:assembleProDebug` stayed UP-TO-DATE, so Arena is untouched. Editor
+      behavior on a device is milestone 7 gate work.
 - [ ] 4. MISSION surface: mission picker (the five authored missions),
       firmware selection, grid and telemetry panel.
 - [ ] 5. Run control: `RUN`, `STEP` (exactly one world tick) and `RESET` over

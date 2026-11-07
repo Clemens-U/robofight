@@ -1,46 +1,69 @@
 package robofight.fireline.app
 
 import android.app.Activity
+import android.app.AlertDialog
+import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
+import android.provider.DocumentsContract
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import robofight.fireline.FIRELINE_ENGINE_VERSION
-import robofight.fireline.GRID
-import robofight.fireline.Mission
-import robofight.fireline.Missions
+import robofight.fireline.app.files.FirmwareFile
+import robofight.fireline.app.files.FirmwareRepository
+import robofight.fireline.app.files.SaveOutcome
 import robofight.fireline.R
 
 /**
- * FIRELINE MainActivity (PLAN-RF8-MULTIAPP.md 9.2): programmatic views only,
- * no XML layouts and no androidx, same house style as the Arena app.
+ * FIRELINE MainActivity (PLAN-RF8-MULTIAPP.md 9.2): programmatic views only, no
+ * XML layouts, no androidx - the Arena house style. Owns the shell (wordmark
+ * strip, tagline, FILES | MISSION | RESULT tabs), the FIRELINE-private file
+ * store, and the two milestone-3 surfaces: FILES and the editor.
  *
- * Milestone 1 delivers the chrome: the wordmark strip, the tagline caption,
- * the FILES | MISSION | RESULT tab order and proof that the FIRELINE engine is
- * linked. The FILES surface and the editor land in milestone 3; MISSION and
- * RESULT render as pending tabs until the run surfaces arrive.
+ * Milestone 3 state: FILES is live, the editor is live, and import/export go
+ * through Android's Storage Access Framework (`ACTION_OPEN_DOCUMENT` /
+ * `ACTION_CREATE_DOCUMENT`), which needs no storage permission at all
+ * (PLAN-RF8-MULTIAPP.md 9.4). MISSION and RESULT render their pending notices
+ * until milestones 4-6. The firmware selected with `[>]` is persisted so the
+ * later MISSION surface survives a rotation.
  *
- * Motion rule (DESIGN-FIRELINE.md 7): nothing here animates. FIRELINE v1 ships
- * the CRT scanline overlay default-off, so no overlay view exists in this
- * skeleton.
+ * Motion rule (DESIGN-FIRELINE.md 7): nothing here animates; the CRT overlay is
+ * default-off and therefore absent.
  */
 class MainActivity : Activity() {
 
     private lateinit var theme: FirelineTheme
+    private lateinit var store: FirmwareRepository
+    private lateinit var prefs: SharedPreferences
+    private lateinit var contentFrame: FrameLayout
+    private lateinit var tabs: MutableMap<String, TextView>
+    private lateinit var filesSurface: FilesSurface
+
+    private var selectedFirmwareName: String? = null
+    private var editorSurface: EditorSurface? = null
+    private var pendingExport: Pair<String, String>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         theme = FirelineTheme(this)
-        setContentView(buildChrome())
+        store = FirelineFiles(this)
+        prefs = getSharedPreferences(PREFS, MODE_PRIVATE)
+        selectedFirmwareName = prefs.getString(KEY_FIRMWARE, null)
+        buildFilesSurface()
+        setContentView(buildShell())
+        showFiles()
     }
 
-    // ---- chrome -----------------------------------------------------------------
+    // ---- shell ------------------------------------------------------------------
 
-    private fun buildChrome(): View {
+    private fun buildShell(): View {
         val root = column(matchParent, matchParent).apply {
             setBackgroundColor(theme.field)
             setPadding(theme.dp(12), theme.dp(10), theme.dp(12), theme.dp(10))
@@ -48,82 +71,310 @@ class MainActivity : Activity() {
         root.addView(wordmarkStrip())
         root.addView(theme.rule())
         root.addView(tabStrip())
-        root.addView(engineProof())
+        contentFrame = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(matchParent, 0, 1f)
+        }
+        root.addView(contentFrame)
         return root
     }
 
-    /** `OPCODE FIRELINE            RF-8` plus the tagline caption strip. */
     private fun wordmarkStrip(): View {
         val strip = row(matchParent, wrapContent)
-        strip.addView(label("OPCODE FIRELINE", 12, theme.textBright))
+        strip.addView(label("OPCODE FIRELINE", 12, theme.textBright, theme.displayFace))
         strip.addView(spacer())
-        strip.addView(label("RF-8", 10, theme.textDim))
+        strip.addView(label("RF-8", 10, theme.textDim, theme.displayFace))
         val block = column(matchParent, wrapContent)
         block.addView(strip)
-        block.addView(label(getString(R.string.tagline), 8, theme.textDim))
+        block.addView(label(getString(R.string.tagline), 8, theme.textDim, theme.displayFace))
         return block
     }
 
-    /** Tab order is FILES | MISSION | RESULT (FIRELINE-DESIGN 11.1). */
+    /** Tab order FILES | MISSION | RESULT (FIRELINE-DESIGN 11.1). */
     private fun tabStrip(): View {
-        val strip = row(matchParent, wrapContent).apply {
-            setPadding(0, theme.dp(8), 0, theme.dp(8))
+        val strip = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(8), 0, theme.dp(8)) }
+        tabs = LinkedHashMap()
+        for (name in listOf("FILES", "MISSION", "RESULT")) {
+            val tab = label(name, 8, theme.textDim, theme.displayFace).apply {
+                background = theme.panelDrawable(fill = theme.secondaryFill, stroke = theme.border)
+                setPadding(theme.dp(10), theme.dp(6), theme.dp(10), theme.dp(6))
+                gravity = Gravity.CENTER
+                contentDescription = name
+                setOnClickListener { onTab(name) }
+            }
+            tabs[name] = tab
+            strip.addView(tab)
         }
-        strip.addView(tabButton("FILES", selected = true))
-        strip.addView(tabButton("MISSION", selected = false))
-        strip.addView(tabButton("RESULT", selected = false))
         return strip
     }
 
-    private fun tabButton(name: String, selected: Boolean): View =
-        label(
-            if (selected) name else "$name  pending",
-            8,
-            if (selected) theme.runText else theme.textDim,
-        ).apply {
-            background = theme.panelDrawable(
-                fill = if (selected) theme.runFill else theme.secondaryFill,
-                stroke = if (selected) theme.runFill else theme.border,
-            )
-            setPadding(theme.dp(10), theme.dp(6), theme.dp(10), theme.dp(6))
-            gravity = Gravity.CENTER
+    private fun onTab(name: String) {
+        when (name) {
+            "FILES" -> showFiles()
+            "MISSION" -> showPending("MISSION", getString(R.string.mission_pending))
+            "RESULT" -> showPending("RESULT", getString(R.string.result_pending))
         }
+    }
 
-    /** Proof the FIRELINE engine is linked: version plus the five authored missions. */
-    private fun engineProof(): View {
+    private fun selectTab(name: String) {
+        for ((tab, view) in tabs) {
+            val active = tab == name
+            view.setTextColor(if (active) theme.runText else theme.textDim)
+            view.background = theme.panelDrawable(
+                fill = if (active) theme.runFill else theme.secondaryFill,
+                stroke = if (active) theme.runFill else theme.border,
+            )
+        }
+    }
+
+    private fun showContent(view: View) {
+        contentFrame.removeAllViews()
+        contentFrame.addView(view)
+    }
+
+    // ---- FILES ------------------------------------------------------------------
+
+    private fun showFiles() {
+        editorSurface = null
+        selectTab("FILES")
+        filesSurface.refresh(selectedFirmwareName)
+        showContent(filesSurface.root)
+    }
+
+    private fun buildFilesSurface() {
+        filesSurface = FilesSurface(
+            activity = this,
+            theme = theme,
+            store = store,
+            onNewFile = { promptNewName() },
+            onEdit = { file -> openEditor(file, displayName = file.name) },
+            onDuplicate = { file ->
+                when (val outcome = store.duplicate(file.id)) {
+                    is SaveOutcome.Saved -> {
+                        filesSurface.setNotice("copied to ${outcome.file.name}")
+                        showFiles()
+                    }
+                    is SaveOutcome.Rejected -> filesSurface.setNotice(outcome.problems.joinToString("  //  "))
+                }
+            },
+            onDelete = { file -> confirmDelete(file) },
+            onSelectFirmware = { file -> selectFirmware(file) },
+            onImport = { requestImport() },
+            onExport = { file -> requestExport(file) },
+        )
+    }
+
+    private fun selectFirmware(file: FirmwareFile) {
+        selectedFirmwareName = file.name
+        prefs.edit().putString(KEY_FIRMWARE, file.name).apply()
+        filesSurface.refresh(selectedFirmwareName)
+        filesSurface.setNotice("selected ${file.name} as mission firmware")
+    }
+
+    private fun confirmDelete(file: FirmwareFile) {
+        AlertDialog.Builder(this)
+            .setTitle("DELETE ${file.name}")
+            .setMessage("Remove this source from FIRELINE? The file is not exported, so it will be gone.")
+            .setPositiveButton("DELETE") { _, _ ->
+                store.delete(file.id)
+                if (file.name.equals(selectedFirmwareName, ignoreCase = true)) {
+                    selectedFirmwareName = null
+                    prefs.edit().remove(KEY_FIRMWARE).apply()
+                }
+                filesSurface.setNotice("deleted ${file.name}")
+                showFiles()
+            }
+            .setNegativeButton("CANCEL", null)
+            .show()
+    }
+
+    private fun promptNewName() {
+        promptName("NEW FILE", "UNTITLED", onSave = { name -> openEditor(file = null, displayName = name) })
+    }
+
+    private fun promptRename(file: FirmwareFile) {
+        promptName("RENAME ${file.name}", file.name.removeSuffix(".ASM"), onSave = { name ->
+            when (val outcome = store.rename(file.id, name)) {
+                is SaveOutcome.Saved -> {
+                    editorSurface?.setEditing(outcome.file)
+                    if (file.name.equals(selectedFirmwareName, ignoreCase = true)) {
+                        selectedFirmwareName = outcome.file.name
+                        prefs.edit().putString(KEY_FIRMWARE, outcome.file.name).apply()
+                    }
+                    filesSurface.setNotice("renamed to ${outcome.file.name}")
+                }
+                is SaveOutcome.Rejected -> filesSurface.setNotice(outcome.problems.joinToString("  //  "))
+            }
+        })
+    }
+
+    /** One text dialog for every name the app needs (new file, rename). */
+    private fun promptName(title: String, prefill: String, onSave: (String) -> Unit) {
+        val input = EditText(this).apply {
+            setText(prefill)
+            setTextColor(theme.text)
+            typeface = theme.workFace
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setSingleLine(true)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setView(input)
+            .setPositiveButton("OK") { _, _ -> onSave(input.text.toString()) }
+            .setNegativeButton("CANCEL", null)
+            .show()
+    }
+
+    // ---- editor -----------------------------------------------------------------
+
+    private fun openEditor(file: FirmwareFile?, displayName: String) {
+        selectTab("FILES")
+        val surface = EditorSurface(
+            activity = this,
+            theme = theme,
+            store = store,
+            file = file,
+            displayName = displayName,
+            onClose = { showFiles() },
+            onSaved = { saved ->
+                if (selectedFirmwareName == null) selectFirmwareQuietly(saved)
+                filesSurface.refresh(selectedFirmwareName)
+            },
+            onExport = { name, source -> requestExport(name, source) },
+            onRename = { target -> promptRename(target) },
+        )
+        editorSurface = surface
+        showContent(surface.root)
+    }
+
+    private fun selectFirmwareQuietly(file: FirmwareFile) {
+        selectedFirmwareName = file.name
+        prefs.edit().putString(KEY_FIRMWARE, file.name).apply()
+    }
+
+    private fun showPending(tab: String, message: String) {
+        selectTab(tab)
         val card = column(matchParent, wrapContent).apply {
             background = theme.panelDrawable()
             setPadding(theme.dp(10), theme.dp(10), theme.dp(10), theme.dp(10))
         }
-        card.addView(label("FILES", 12, theme.textBright))
-        card.addView(label(
-            "engine v$FIRELINE_ENGINE_VERSION, ${Missions.ALL.size} authored missions",
-            8, theme.textDim,
-        ))
-        for (mission in Missions.ALL) card.addView(label(missionSkeletonLine(mission), 7, theme.text))
-        card.addView(label("firmware storage and editor arrive with milestones 2 and 3", 7, theme.textDim))
-        return card
+        card.addView(label(message, 8, theme.text, theme.workFace))
+        showContent(card)
     }
 
-    /**
-     * Skeleton-only line: grid size plus civilian count read straight from the
-     * mission layout, no invented strings. Milestone 3 replaces this with the
-     * real `.asm` file cards.
-     */
-    private fun missionSkeletonLine(mission: Mission): String =
-        "%02d  %-16s grid %dx%d, civilians %d".format(
-            mission.id, mission.name, GRID, GRID, mission.layout.civilians.size,
+    // ---- SAF import / export (no storage permissions) ---------------------------
+
+    private fun requestImport() {
+        try {
+            startActivityForResult(
+                Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "text/plain"
+                },
+                REQ_IMPORT,
+            )
+        } catch (e: android.content.ActivityNotFoundException) {
+            filesSurface.setNotice("no documents UI on this device  //  import unavailable")
+        }
+    }
+
+    private fun requestExport(file: FirmwareFile?) {
+        if (file == null) {
+            filesSurface.setNotice("nothing to export  //  no files in store")
+            return
+        }
+        requestExport(file.name, file.source)
+    }
+
+    private fun requestExport(name: String, source: String) {
+        pendingExport = name to source
+        try {
+            startActivityForResult(
+                Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TITLE, name)
+                },
+                REQ_EXPORT,
+            )
+        } catch (e: android.content.ActivityNotFoundException) {
+            pendingExport = null
+            filesSurface.setNotice("no documents UI on this device  //  export unavailable")
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != RESULT_OK) {
+            if (requestCode == REQ_EXPORT) pendingExport = null
+            return
+        }
+        val uri = data?.data
+        when (requestCode) {
+            REQ_IMPORT -> handleImport(uri)
+            REQ_EXPORT -> handleExport(uri)
+        }
+    }
+
+    private fun handleImport(uri: Uri?) {
+        if (uri == null) return
+        val text = try {
+            contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+        } catch (e: Exception) {
+            null
+        }
+        if (text == null) {
+            filesSurface.setNotice("import failed  //  could not read the document")
+            return
+        }
+        when (val outcome = store.save(displayName(uri), text)) {
+            is SaveOutcome.Saved -> {
+                val renamed = outcome.requestedName?.let { "  //  ${it} was taken" } ?: ""
+                filesSurface.refresh(selectedFirmwareName)
+                filesSurface.setNotice("imported ${outcome.file.name}${renamed}")
+            }
+            is SaveOutcome.Rejected -> filesSurface.setNotice("import refused  //  ${outcome.problems.joinToString("  //  ")}")
+        }
+    }
+
+    private fun handleExport(uri: Uri?) {
+        val payload = pendingExport
+        pendingExport = null
+        if (uri == null || payload == null) return
+        val ok = try {
+            contentResolver.openOutputStream(uri)?.use { stream ->
+                stream.write(payload.second.toByteArray(Charsets.UTF_8))
+                true
+            } ?: false
+        } catch (e: Exception) {
+            false
+        }
+        filesSurface.setNotice(
+            if (ok) "exported ${payload.first}  //  ${payload.second.length} characters as UTF-8"
+            else "export failed  //  could not write the document"
         )
+    }
+
+    /** Provider display name, falling back to the last path segment. */
+    private fun displayName(uri: Uri): String {
+        if (DocumentsContract.isDocumentUri(this, uri)) {
+            contentResolver.query(uri, null, null, null, null)?.use { c ->
+                val column = c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                if (c.moveToFirst()) return c.getString(column)
+            }
+        }
+        return uri.lastPathSegment ?: "IMPORTED.ASM"
+    }
 
     // ---- view builders (house style) --------------------------------------------
 
-    private fun label(textValue: String, sizeSp: Int, color: Int): TextView =
+    private fun label(value: String, sizeSp: Int, color: Int, face: Typeface): TextView =
         TextView(this).apply {
-            text = textValue
+            text = value
             setTextColor(color)
-            typeface = displayFace
+            typeface = face
             setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp.toFloat())
             includeFontPadding = false
+            layoutParams = LinearLayout.LayoutParams(wrapContent, wrapContent)
         }
 
     private fun row(width: Int, height: Int) = LinearLayout(this).apply {
@@ -140,8 +391,13 @@ class MainActivity : Activity() {
         layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
     }
 
-    private val displayFace: Typeface get() = theme.displayFace
-
     private val matchParent = ViewGroup.LayoutParams.MATCH_PARENT
     private val wrapContent = ViewGroup.LayoutParams.WRAP_CONTENT
+
+    companion object {
+        private const val PREFS = "fireline_ui"
+        private const val KEY_FIRMWARE = "firmware"
+        private const val REQ_IMPORT = 41
+        private const val REQ_EXPORT = 42
+    }
 }

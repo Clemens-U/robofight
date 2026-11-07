@@ -26,6 +26,7 @@ class FirelineTheme(private val context: Context) {
     val textBright = color(R.color.fireline_text_bright)
     val textDim = color(R.color.fireline_text_dim)
 
+    val exit = color(R.color.fireline_exit)
     val rover = color(R.color.fireline_rover)
     val caret = color(R.color.fireline_caret)
 
@@ -37,6 +38,19 @@ class FirelineTheme(private val context: Context) {
     /** Display face: wordmark, tabs, control labels (never body-size reading). */
     val displayFace: Typeface by lazy {
         Typeface.createFromAsset(context.assets, "fonts/PressStart2P-Regular.ttf")
+    }
+
+    /**
+     * Work face (DESIGN-FIRELINE.md 3, LOCKED): JetBrains Mono for editor body
+     * and telemetry. A missing/corrupt asset degrades to the platform monospace
+     * instead of crashing the app.
+     */
+    val workFace: Typeface by lazy {
+        try {
+            Typeface.createFromAsset(context.assets, "fonts/JetBrainsMono-Regular.ttf")
+        } catch (e: RuntimeException) {
+            Typeface.create("monospace", Typeface.NORMAL)
+        }
     }
 
     fun color(id: Int): Int = context.resources.getColor(id)
