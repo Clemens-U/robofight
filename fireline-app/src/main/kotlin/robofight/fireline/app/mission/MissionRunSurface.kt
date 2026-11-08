@@ -196,17 +196,29 @@ class MissionRunSurface(
 
     // ---- instrument row ----------------------------------------------------------
 
+    /**
+     * One framed panel around both instrument columns (milestone 9): a single
+     * `panelDrawable` border encloses the RF-8 column and the TELEMETRY column,
+     * separated by a 1dp vertical rule in the border token color. The row is a
+     * horizontal LinearLayout, so the panel stretches to the taller column and
+     * the MATCH_PARENT-height children share the same panel top/bottom; both
+     * column bodies are top-weighted, so the RF-8 / TELEMETRY headings sit on
+     * the same baseline. The columns carry no frames of their own (the old
+     * double-border look came from each column having its own panelDrawable).
+     */
     private fun instrumentRow(): View {
-        val row = row(matchParent, wrapContent).apply {
+        val panel = column(matchParent, wrapContent).apply {
+            background = theme.panelDrawable()
             layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
                 topMargin = theme.chromeBlockGapPx()
             }
         }
+        val row = row(matchParent, wrapContent)
+        panel.addView(row)
 
-        val vm = column(0, wrapContent).apply {
-            background = theme.panelDrawable()
-            setPadding(theme.dp(8), theme.dp(8), theme.dp(8), theme.dp(8))
-            layoutParams = LinearLayout.LayoutParams(0, wrapContent, 1f)
+        val vm = column(0, matchParent).apply {
+            setPadding(theme.dp(8), theme.dp(8), theme.dp(7), theme.dp(8))
+            layoutParams = LinearLayout.LayoutParams(0, matchParent, 1f)
         }
         vm.addView(text(7, theme.textBright, "RF-8", theme.displayFace))
         vm.addView(vmRegisters)
@@ -215,10 +227,14 @@ class MissionRunSurface(
         vm.addView(vmInstruction)
         contextLabels.forEach { vm.addView(it) }
 
-        val tele = column(0, wrapContent).apply {
-            background = theme.panelDrawable()
-            setPadding(theme.dp(8), theme.dp(8), theme.dp(8), theme.dp(8))
-            layoutParams = LinearLayout.LayoutParams(0, wrapContent, 1f)
+        val separator = View(activity).apply {
+            setBackgroundColor(theme.border)
+            layoutParams = LinearLayout.LayoutParams(theme.dp(1), matchParent)
+        }
+
+        val tele = column(0, matchParent).apply {
+            setPadding(theme.dp(7), theme.dp(8), theme.dp(8), theme.dp(8))
+            layoutParams = LinearLayout.LayoutParams(0, matchParent, 1f)
         }
         tele.addView(text(7, theme.textBright, "TELEMETRY", theme.displayFace))
         for (name in TELEMETRY_ORDER) {
@@ -233,8 +249,9 @@ class MissionRunSurface(
         tele.addView(heatBar)
 
         row.addView(vm)
+        row.addView(separator)
         row.addView(tele)
-        return row
+        return panel
     }
 
     private fun eventPanel(): View {
