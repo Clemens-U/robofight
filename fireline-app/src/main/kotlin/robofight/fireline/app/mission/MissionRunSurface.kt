@@ -49,8 +49,8 @@ class MissionRunSurface(
     }
     private val heatBar = HeatBarView(activity, theme)
 
-    private val tickLine = text(7, theme.text)
-    private val statusLine = text(8, theme.textDim)
+    private val tickLine = text(14, theme.text, face = theme.workFace)
+    private val statusLine = text(14, theme.textDim, face = theme.workFace)
     private val vmRegisters = text(7, theme.text, "", theme.workFace)
     private val vmFlags = text(7, theme.textDim, "", theme.workFace)
     private val vmLastOp = text(7, theme.text, "", theme.workFace)
@@ -73,34 +73,57 @@ class MissionRunSurface(
             setPadding(theme.dp(8), theme.dp(8), theme.dp(8), theme.dp(8))
         }
         card.addView(text(
-            9, theme.textBright,
+            10, theme.textBright,
             "MISSION %02d / %s".format(mission.id, mission.name),
             theme.displayFace,
         ))
-        card.addView(text(7, theme.text, "firmware: ${session.firmwareName}  //  ${MissionPickerModel.seedLabel(mission)}", theme.workFace))
-        card.addView(text(
-            7, theme.textDim,
-            "WIND ${MissionPickerModel.windLabel(mission)}  //  WATER ${mission.startingWater}  //  ${MissionPickerModel.timeLimitLabel(mission)}",
+        val firmwareRow = row(matchParent, wrapContent)
+        firmwareRow.addView(text(12, theme.text, session.firmwareName, theme.workFace),
+            LinearLayout.LayoutParams(0, wrapContent, 1f))
+        val details = column(matchParent, wrapContent).apply {
+            setPadding(theme.dp(12), theme.dp(8), theme.dp(12), theme.dp(8))
+        }
+        details.addView(text(
+            12, theme.text,
+            "${MissionPickerModel.seedLabel(mission)}\nWIND ${MissionPickerModel.windLabel(mission)}  |  WATER ${mission.startingWater}  |  ${MissionPickerModel.timeLimitLabel(mission)}",
             theme.workFace,
         ))
-        card.addView(text(7, theme.text, mission.briefing, theme.workFace))
+        details.addView(text(14, theme.textBright, mission.briefing, theme.workFace).apply {
+            layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
+                topMargin = theme.dp(8)
+                bottomMargin = theme.dp(8)
+            }
+        })
+        firmwareRow.addView(text(12, theme.exit, "BRIEFING +", theme.workFace).apply {
+            setPadding(theme.dp(8), theme.dp(4), 0, theme.dp(4))
+            contentDescription = "Show mission briefing and objectives"
+            setOnClickListener {
+                (details.parent as? ViewGroup)?.removeView(details)
+                android.app.AlertDialog.Builder(activity)
+                    .setTitle("MISSION %02d / %s".format(mission.id, mission.name))
+                    .setView(ScrollView(activity).apply { addView(details) })
+                    .setPositiveButton("CLOSE", null)
+                    .show()
+            }
+        })
+        card.addView(firmwareRow)
         card.addView(chipRow(MissionPickerModel.objectiveChips(mission)))
-        // The tick / status rows were flush under the chips (milestone 8):
-        // each status line gets its own chrome gap.
-        tickLine.layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
-            topMargin = theme.chromeBlockGapPx()
-        }
-        card.addView(tickLine)
-        statusLine.layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
-            topMargin = theme.dp(4)
-        }
-        card.addView(statusLine)
         main.addView(card)
+        val runStatus = row(matchParent, wrapContent).apply {
+            setBackgroundColor(theme.panel)
+            setPadding(theme.dp(8), theme.dp(4), theme.dp(8), theme.dp(4))
+            layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
+                topMargin = theme.dp(6)
+            }
+        }
+        runStatus.addView(tickLine, LinearLayout.LayoutParams(0, wrapContent, 1f))
+        runStatus.addView(statusLine)
 
         val scroller = ScrollView(activity).apply {
             layoutParams = LinearLayout.LayoutParams(matchParent, 0, 1f)
         }
         val content = column(matchParent, wrapContent)
+        // Mission identity and goals remain pinned above the scrolling instruments.
 
         val gridPanel = column(matchParent, wrapContent).apply {
             background = theme.panelDrawable()
@@ -120,6 +143,7 @@ class MissionRunSurface(
         main.addView(scroller)
 
         main.addView(controlBar())
+        main.addView(runStatus)
 
         buildLogOverlay()
         container.addView(logOverlay)
@@ -173,10 +197,12 @@ class MissionRunSurface(
             running = true
             ticker.run()
         })
+        bar.addView(View(activity), LinearLayout.LayoutParams(theme.dp(6), 1))
         bar.addView(controlButton("STEP", theme.secondaryFill, theme.secondaryText) {
             if (running || session.finished) return@controlButton
             stepOnce()
         })
+        bar.addView(View(activity), LinearLayout.LayoutParams(theme.dp(6), 1))
         bar.addView(controlButton("RESET", theme.secondaryFill, theme.secondaryText) {
             stopRun()
             session.reset()
@@ -337,7 +363,7 @@ class MissionRunSurface(
             session.status == robofight.fireline.RunStatus.FAILURE ->
                 "MISSION FAILURE  TICK ${t.tick}"
             session.guardReached -> "TICK GUARD REACHED"
-            else -> if (running) "RUNNING  //  ${MissionSession.RUN_TICK_MS} ms per tick" else "PAUSED  //  STEP or RUN"
+            else -> if (running) "RUNNING" else "PAUSED"
         }
         statusLine.contentDescription = statusLine.text
         statusLine.setTextColor(
@@ -393,7 +419,7 @@ class MissionRunSurface(
     private fun chipRow(chips: List<String>): View {
         val row = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(4), 0, theme.dp(4)) }
         for (chip in chips) {
-            row.addView(text(6, theme.text, chip, theme.displayFace).apply {
+            row.addView(text(12, theme.text, chip.replace('_', ' '), theme.workFace).apply {
                 background = theme.panelDrawable(fill = theme.panel2, stroke = theme.border)
                 setPadding(theme.dp(4), theme.dp(2), theme.dp(4), theme.dp(2))
                 contentDescription = chip

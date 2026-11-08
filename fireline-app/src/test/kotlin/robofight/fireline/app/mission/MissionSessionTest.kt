@@ -106,6 +106,27 @@ class MissionSessionTest {
     }
 
     @Test
+    fun recentEventsPersistAcrossQuietTicksAndClearOnReset() {
+        val session = MissionSession(Missions.byId(1)!!, "TEST.ASM", "loop: SHOOT\nJMP loop")
+        repeat(3) { session.step() }
+        val first = session.currentEvents(4)
+        assertTrue(first.single().contains("PACKET ->"))
+        session.step()
+        assertTrue(session.currentWorld.lastEvents.isEmpty())
+        assertEquals(first, session.currentEvents(4))
+        driveToFinish(session)
+        val expected = session.eventLog.asReversed().flatMap { line ->
+            val tick = line.substringBefore(' ')
+            line.substringAfter(" | ").split(" · ").filter { it.isNotEmpty() }
+                .asReversed().map { "$tick $it" }
+        }.take(4)
+        assertEquals(4, expected.size)
+        assertEquals(expected, session.currentEvents(4))
+        session.reset()
+        assertTrue(session.currentEvents(4).isEmpty())
+    }
+
+    @Test
     fun eventLogKeepsEngineEventStrings() {
         val nozzle = Missions.byId(1)!!
         val session = MissionSession(nozzle, "REFERENCE.ASM", nozzle.referenceSource)

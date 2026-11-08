@@ -45,6 +45,7 @@ class MissionSession(val mission: Mission, val firmwareName: String, val firmwar
 
     /** Per-tick log lines in the golden-trace shape `NNN <op> | <events ...>`. */
     val eventLog: MutableList<String> = ArrayList()
+    private val recentEvents = ArrayDeque<String>()
 
     var guardReached = false
         private set
@@ -64,6 +65,10 @@ class MissionSession(val mission: Mission, val firmwareName: String, val firmwar
             return StepOutcome.GUARD_STOPPED
         }
         world.tickOnce()
+        for (event in world.lastEvents) {
+            recentEvents.addFirst("%03d %s".format(world.tick, event))
+            if (recentEvents.size > 4) recentEvents.removeLast()
+        }
         eventLog.add("%03d %s | %s".format(world.tick, world.lastOp, world.lastEvents.joinToString(" · ")))
         return if (world.finished) StepOutcome.FINISHED else StepOutcome.ADVANCED
     }
@@ -72,11 +77,12 @@ class MissionSession(val mission: Mission, val firmwareName: String, val firmwar
     fun reset() {
         world = FirelineWorld(descriptor)
         eventLog.clear()
+        recentEvents.clear()
         guardReached = false
     }
 
-    /** Newest-first event strings of the current tick, exactly as the engine wrote them. */
-    fun currentEvents(maxLines: Int): List<String> = world.lastEvents.asReversed().take(maxLines)
+    /** Rolling, newest-first event tail; quiet ticks retain the previous events. */
+    fun currentEvents(maxLines: Int): List<String> = recentEvents.take(maxLines)
 
     fun fullLogNewestFirst(): List<String> = eventLog.asReversed()
 

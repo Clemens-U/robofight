@@ -85,7 +85,7 @@ class MissionSurface(
 
         val actions = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(7), 0, 0) }
         val notice = text(7, theme.textDim).apply { visibility = View.GONE }
-        actions.addView(button("OPEN RUN SETUP", theme.runFill, theme.runText, {
+        actions.addView(button("OPEN MISSION", theme.runFill, theme.runText, {
             val firmware = selection.get()
             if (firmware == null || store.find(firmware) == null) {
                 notice.text = "select mission firmware first  //  pick one in the picker below"
@@ -122,7 +122,14 @@ class MissionSurface(
             if (file.name.equals(selected, ignoreCase = true)) {
                 card.addView(text(7, theme.caret, "SELECTED", theme.displayFace))
             }
-            card.addView(button("[>]", theme.secondaryFill, theme.secondaryText, { onSelectFirmware(file) }))
+            val isActive = file.name.equals(selected, ignoreCase = true)
+            card.addView(button("SELECT", theme.runFill, theme.runText, { onSelectFirmware(file) }).apply {
+                isSelected = isActive
+                if (!isActive) {
+                    background = theme.panelDrawable(fill = theme.panel, stroke = theme.border)
+                    setTextColor(theme.text)
+                }
+            })
             section.addView(card)
         }
         return section

@@ -20,9 +20,6 @@ import robofight.fireline.TERRAIN_WALL
 import robofight.fireline.TextGrid
 import robofight.fireline.FirelineWorld
 import robofight.fireline.SMOKE_MAX
-import robofight.fireline.inBounds
-import robofight.fireline.dirDx
-import robofight.fireline.dirDy
 import robofight.fireline.app.FirelineTheme
 
 /**
@@ -34,9 +31,8 @@ import robofight.fireline.app.FirelineTheme
  * Glyph language (all state-carrying):
  *  - fire is always the digit 1-4 in the ramp color (amendment A-2), chosen
  *    through the engine's own TextGrid.fireGlyph so app and headless agree;
- *  - rover is a bold `R` on a panel-2 identity tile (amendment A-5) with the
- *    facing nose caret drawn IN the facing cell when that cell is empty, and
- *    as a small caret on the rover cell edge when it is occupied (A-1);
+ *  - rover uses Arena's centered letter/direction pair on one baseline,
+ *    inside a panel-2 identity tile;
  *  - packets are `*` from the current tick's packet list only - drawn where
  *    the engine says they are, never interpolated;
  *  - shield is a one-cell bracket ring while `shieldTicksRemaining > 0`, and
@@ -60,14 +56,13 @@ class FirelineGridView(
         }
 
     private val displayFace: Typeface = theme.displayFace
-    private val boldFace: Typeface = Typeface.create(displayFace, Typeface.BOLD)
 
     private val fillPaint = Paint()
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val glyphPaint = Paint().apply { textAlign = Paint.Align.CENTER; typeface = displayFace }
     private val roverPaint = Paint().apply {
         textAlign = Paint.Align.CENTER
-        typeface = boldFace
+        typeface = displayFace
         color = theme.rover
     }
 
@@ -111,7 +106,6 @@ class FirelineGridView(
         }
 
         if (w.rover.shieldTicksRemaining > 0) drawShieldRing(canvas, roverX, roverY, cell)
-        drawFacingCaret(canvas, w, roverX, roverY, cell)
 
         // Grid lines over the cells, under the frame border.
         linePaint.color = theme.gridline
@@ -157,7 +151,16 @@ class FirelineGridView(
 
         val glyph = TextGrid.glyphAt(w, x, y)
         when {
-            isRover -> drawGlyph(canvas, roverPaint, cell, left, top, TextGrid.ROVER_GLYPH.toString())
+            isRover -> {
+                // Match Opcode Arena: the two-character marker is centered as
+                // one unit, using the same pixel font, size and baseline.
+                val heading = when (w.rover.facing and 3) {
+                    DIR_N -> '^'; DIR_E -> '>'; DIR_S -> 'v'; DIR_W -> '<'; else -> '?'
+                }
+                roverPaint.textSize = cell * 0.52f
+                canvas.drawText("${TextGrid.ROVER_GLYPH}$heading",
+                    left + cell * 0.5f, top + cell * 0.69f, roverPaint)
+            }
             civilian != null -> drawGlyph(canvas, glyphPaint.apply {
                 color = theme.civilian
                 textSize = cell * 0.62f
@@ -228,38 +231,4 @@ class FirelineGridView(
         canvas.drawLine(right, bottom - arm, right, bottom, linePaint)
     }
 
-    private fun drawFacingCaret(canvas: Canvas, w: FirelineWorld, roverX: Int, roverY: Int, cell: Float) {
-        val facing = w.rover.facing
-        val caretChar = when (facing and 3) {
-            DIR_N -> "^"; DIR_E -> ">"; DIR_S -> "v"; DIR_W -> "<"; else -> "?"
-        }
-        val nx = roverX + dirDx(facing)
-        val ny = roverY + dirDy(facing)
-        val facingEmpty = inBounds(nx, ny) &&
-            w.terrainAt(nx, ny) == TERRAIN_FLOOR &&
-            w.fireAt(nx, ny) == 0 &&
-            !w.hasWaterPacketAt(nx, ny) &&
-            !(nx == w.rover.x && ny == w.rover.y) &&
-            w.civilians.none { it.status == CivilianStatus.WAITING && it.x == nx && it.y == ny }
-
-        glyphPaint.apply { color = theme.caret; typeface = displayFace }
-        if (facingEmpty) {
-            glyphPaint.textSize = cell * 0.62f
-            drawGlyph(canvas, glyphPaint, cell, nx * cell, ny * cell, caretChar)
-        } else {
-            // Amendment A-1: occupied facing cell -> small caret on the rover
-            // cell edge so the facing state is never hidden.
-            glyphPaint.textSize = cell * 0.42f
-            val left = roverX * cell
-            val top = roverY * cell
-            val (cx, cy) = when (facing and 3) {
-                DIR_N -> (left + cell / 2f) to (top + cell * 0.42f * 0.5f + cell * 0.06f)
-                DIR_S -> (left + cell / 2f) to (top + cell - cell * 0.42f * 0.5f - cell * 0.06f)
-                DIR_W -> (left + cell * 0.42f * 0.5f + cell * 0.06f) to (top + cell / 2f)
-                else -> (left + cell - cell * 0.42f * 0.5f - cell * 0.06f) to (top + cell / 2f)
-            }
-            val baseline = cy - (glyphPaint.ascent() + glyphPaint.descent()) / 2f
-            canvas.drawText(caretChar, cx, baseline, glyphPaint)
-        }
-    }
 }
