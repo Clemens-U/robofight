@@ -89,6 +89,8 @@ class MissionRunSurface(
             "${MissionPickerModel.seedLabel(mission)}\nWIND ${MissionPickerModel.windLabel(mission)}  |  WATER ${mission.startingWater}  |  ${MissionPickerModel.timeLimitLabel(mission)}",
             theme.workFace,
         ))
+        details.addView(text(12, theme.text,
+            "NOZZLE RANGE ${robofight.fireline.WATER_RANGE} CELLS", theme.workFace))
         details.addView(text(14, theme.textBright, mission.briefing, theme.workFace).apply {
             layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
                 topMargin = theme.dp(8)

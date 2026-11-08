@@ -18,7 +18,7 @@ import kotlin.math.abs
  * growth/spread rules, RNG generator/salts/draw order/traversal, port
  * semantics or shield timing — never silently.
  */
-const val FIRELINE_ENGINE_VERSION = 2
+const val FIRELINE_ENGINE_VERSION = 3
 
 // ---- Grid and directions (FIRELINE-DESIGN.md §3.1) ----
 /** Mission layout is exactly 20x20 (§2, §13.4). */
@@ -71,7 +71,8 @@ const val DEFAULT_STARTING_WATER = 100
 const val WATER_PER_SHOT = 10           // consumed by a successful SHOOT
 const val WATER_REFILL = 10             // per resolution tick on a refill cell
 const val WATER_MAX = 100
-const val PACKET_LIFE = 20              // max 20 water-resolution steps
+const val WATER_RANGE = 5               // adjacent cell is distance 1; last reachable cell is 5
+const val PACKET_LIFE = WATER_RANGE     // one resolution per cell, including the spawn cell
 const val PACKET_FIRE_REDUCE = 25       // intensity removed from the first burning cell hit
 
 // ---- Fire model (§4) ----

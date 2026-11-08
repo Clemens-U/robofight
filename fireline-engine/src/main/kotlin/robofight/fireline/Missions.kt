@@ -198,7 +198,7 @@ object Missions {
     // capped fuel cell (+10 every 5-tick spread window) outgrows bloated
     // loops, so this mission is built around the leanest possible one: a
     // PARKED bomber that never moves (FIRE_ANGLE + SHOOT, ~8 ticks per shot,
-    // net -9 per cycle). A water packet lives 20 steps and passes through
+    // net -9 per cycle). A water packet reaches five cells and passes through
     // extinguished cells, so the rover standing on the refill at (3,2) can
     // suppress every burning cell on row 2 without ever advancing.
     // (4,2)+(5,2) is the burning pair ON the wind axis (WIND_DIR=E, force 2

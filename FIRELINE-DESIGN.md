@@ -176,7 +176,7 @@ at vertical map row 2, column 2 separates cells `(2,2)` and `(3,2)`; a `-` at
 horizontal row 2, column 2 separates `(2,2)` and `(2,3)`.
 
 The canonical hash includes both 380-bit maps after terrain and before fire.
-FIRELINE_ENGINE_VERSION is 2; ISA/profile port numbers and Arena are unchanged.
+Thin walls were introduced in engine version 2; ISA/profile port numbers and Arena are unchanged.
 Version-1 stored results remain readable, but their fingerprints/best records
 must not be compared as version-2 runs.
 
@@ -249,7 +249,9 @@ is a silent no-op after its normal two-tick instruction cost.
 - creation checks that adjacent cell for fire immediately but does not also
   advance a second cell on the creation tick;
 - on later ticks the packet advances one cell during water resolution;
-- maximum life is 20 resolution ticks;
+- maximum range is **five cells** from the firing position: the adjacent spawn
+  cell is distance 1; on the fifth resolution the packet checks cell 5 for fire,
+  then expires if it has not hit anything. It never enters cell 6;
 - a wall or boundary consumes the packet;
 - the first burning cell contacted loses 25 intensity and consumes the packet;
 - intensity at or below zero becomes zero;
@@ -259,6 +261,14 @@ If water is below 10 when `SHOOT` completes, no packet is created, no water is
 removed, and no heat is added. The instruction still occupies its three ticks.
 Heat lockout is checked when `SHOOT` begins and retains the shared one-tick
 locked-no-op behavior.
+
+Range amendment (2026-11-08): FIRELINE_ENGINE_VERSION is now 3 because this
+changes simulation outcomes. WATER_RANGE=5 and PACKET_LIFE=5 describe the same
+five inspected cells, including the creation tick. Movement of the rover after
+firing does not change a packet's remaining range. Wall/edge/boundary absorption,
+first-fire absorption, three-tick instruction cost, water cost, heat cost, and
+packet speed remain unchanged. Version-2 results remain readable but are not
+ranked against version-3 runs.
 
 ---
 

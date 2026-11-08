@@ -648,6 +648,11 @@ The migration is complete only when all are true:
 
 ## 13. Decisions deliberately deferred
 
+Five-cell water range implemented (2026-11-08): FIRELINE engine 3 counts the
+adjacent cell as distance 1, checks fire at distance 5 before expiring, and never
+reaches distance 6. Other discharge costs, timing, and collision rules are
+unchanged. See FIRELINE-DESIGN.md section 3.6.
+
 Thin-wall follow-up implemented (2026-11-08): FIRELINE engine 2 supports Arena's
 vertical/horizontal edge geometry alongside full-cell blocks. Layout authoring,
 reachability validation, MOVE/AHEAD, water emission/flight, spread, canonical

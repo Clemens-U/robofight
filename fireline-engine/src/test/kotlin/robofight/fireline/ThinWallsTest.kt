@@ -136,7 +136,7 @@ class ThinWallsTest {
 
     @Test
     fun allAuthoredMissionsUseThinWallsWithoutChangingTheirGridSize() {
-        assertEquals(2, FIRELINE_ENGINE_VERSION)
+        assertTrue(FIRELINE_ENGINE_VERSION >= 2)
         for (mission in Missions.ALL) {
             assertTrue(mission.layout.hasEdgeWalls(), mission.name)
             assertEquals(CELLS, mission.layout.terrain.size)
