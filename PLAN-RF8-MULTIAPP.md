@@ -555,9 +555,24 @@ per milestone):
       routes (EDIT FIRMWARE jumps straight into the FILES editor for that file).
       8 new tests (50 total) green, incl. all five reason enums and the
       fingerprint short form against a real engine hash.
-- [ ] 7. Gate close-out: side-by-side install with both Arena packages,
+- [x] 7. Gate close-out: side-by-side install with both Arena packages,
       offline run, background/rotation resilience, headless vs app result
-      equality for one mission tuple.
+      equality for one mission tuple. On-device gate (emulator-5554, Medium
+      Phone): `robofight.android`, `robofight.android.pro` and
+      `robofight.fireline` installed side by side; FILES editor -> SAF
+      export/import roundtrip for `CORRIDOR-REF.ASM` byte-identical (md5
+      verified store -> export -> store); two SAF defects fixed in
+      `fireline-app` (export landed as `NAME.ASM.txt` under the
+      `text/plain` + extensionless-title pairing - now a `exportFileName`
+      title with the generic octet-stream type; the `text/plain` open filter
+      rendered exported `.ASM` items disabled in DocumentsUI - now `*/*`
+      with the store validator as the gate); STEP x 30 matched the headless
+      tick-30 snapshot and the mission 02 run finished at tick 102 with
+      fingerprint `$47e28d84` on both the RESULT surface and the headless
+      runner; HOME/relaunch and rotation recreate a single clean session
+      (no parallel sim, db contents unchanged); RUN/STEP/RESET measured at
+      48dp with content descriptions incl. the grid's live state line, and
+      the run surface stays readable at 720x1280. 51 unit tests green.
 
 Locked build facts (do not re-derive): AGP 9.4.1 built-in Kotlin only (no
 `org.jetbrains.kotlin.android`), `jvmTarget` pinned to 11, `namespace` and

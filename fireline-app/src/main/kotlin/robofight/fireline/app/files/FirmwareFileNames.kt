@@ -94,4 +94,16 @@ object FirmwareFileNames {
 
     /** Suggested name for the FILES "duplicate" affordance. */
     fun duplicateName(name: String): String = baseName(name) + "-COPY" + STORE_EXT
+
+    /**
+     * Name offered to SAF `ACTION_CREATE_DOCUMENT` (Intent.EXTRA_TITLE).
+     * DocumentsUI only keeps a title's extension when it already matches the
+     * requested MIME type, so a bare `TANKER.ASM` under `text/plain` silently
+     * landed as `TANKER.ASM.txt` on device (milestone 7 gate finding). The
+     * export intent pairs this exact `BASE.ASM` title with the generic
+     * `application/octet-stream` type, which makes the picker keep the title
+     * verbatim; the store name always carries [STORE_EXT], so the roundtrip
+     * file is byte-identically named.
+     */
+    fun exportFileName(name: String): String = baseName(name) + STORE_EXT
 }

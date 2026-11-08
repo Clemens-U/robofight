@@ -82,6 +82,16 @@ class FirmwareFileNamesTest {
     }
 
     @Test
+    fun exportFileNameAlwaysCarriesTheStoreExtension() {
+        // SAF export pairs this title with a generic MIME type so DocumentsUI
+        // keeps it verbatim instead of appending ".txt" (milestone 7 fix).
+        assertEquals("TANKER.ASM", FirmwareFileNames.exportFileName("TANKER.ASM"))
+        assertEquals("TANKER.ASM", FirmwareFileNames.exportFileName("tanker.asm"))
+        assertEquals("PATROL-2.ASM", FirmwareFileNames.exportFileName("PATROL-2.ASM"))
+        assertEquals("NOEXT.ASM", FirmwareFileNames.exportFileName("NOEXT"))
+    }
+
+    @Test
     fun duplicateNamingScheme() {
         assertEquals("TANKER.ASM", FirmwareFileNames.uniqueName("TANKER.ASM", emptySet()))
         assertEquals("TANKER_2.ASM", FirmwareFileNames.uniqueName("TANKER.ASM", setOf("TANKER.ASM")))

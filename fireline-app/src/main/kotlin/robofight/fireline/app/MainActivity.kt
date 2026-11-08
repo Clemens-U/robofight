@@ -17,6 +17,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import robofight.fireline.app.files.FirmwareFile
+import robofight.fireline.app.files.FirmwareFileNames
 import robofight.fireline.app.files.FirmwareRepository
 import robofight.fireline.app.files.SaveOutcome
 import robofight.fireline.app.editor.EditorModel
@@ -381,7 +382,13 @@ class MainActivity : Activity() {
             startActivityForResult(
                 Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                     addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "text/plain"
+                    // `text/plain` looked right but DocumentsUI renders every
+                    // item whose inferred MIME differs as DISABLED (enabled=false
+                    // in the accessibility tree), so exported `NAME.ASM` files
+                    // (stored as octet-stream BIN) could never be picked
+                    // (milestone 7 gate finding). The store validates and
+                    // sanitizes whatever arrives anyway.
+                    type = "*/*"
                 },
                 REQ_IMPORT,
             )
@@ -404,8 +411,12 @@ class MainActivity : Activity() {
             startActivityForResult(
                 Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                     addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TITLE, name)
+                    // Generic type + explicit `.ASM` title: DocumentsUI only keeps
+                    // a title's extension when it matches the MIME type, so the
+                    // old text/plain pairing appended `.txt` to `NAME.ASM`
+                    // (milestone 7 gate finding; FirmwareFileNames.exportFileName).
+                    type = "application/octet-stream"
+                    putExtra(Intent.EXTRA_TITLE, FirmwareFileNames.exportFileName(name))
                 },
                 REQ_EXPORT,
             )
@@ -469,13 +480,19 @@ class MainActivity : Activity() {
 
     /** Provider display name, falling back to the last path segment. */
     private fun displayName(uri: Uri): String {
-        if (DocumentsContract.isDocumentUri(this, uri)) {
+        val raw = if (DocumentsContract.isDocumentUri(this, uri)) {
             contentResolver.query(uri, null, null, null, null)?.use { c ->
                 val column = c.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-                if (c.moveToFirst()) return c.getString(column)
-            }
+                if (c.moveToFirst()) c.getString(column) else null
+            } ?: uri.lastPathSegment ?: "IMPORTED.ASM"
+        } else {
+            uri.lastPathSegment ?: "IMPORTED.ASM"
         }
-        return uri.lastPathSegment ?: "IMPORTED.ASM"
+        // DocumentsUI can hand back `NAME.ASM.txt` from a pre-fix export (or any
+        // text wrapper a user saved around a source); strip the wrapper so the
+        // store name stays `NAME.ASM` instead of sanitizing to `NAME-ASM.ASM`.
+        val unwrapped = raw.removeSuffix(".txt").removeSuffix(".TXT")
+        return unwrapped.ifBlank { raw }
     }
 
     // ---- view builders (house style) --------------------------------------------

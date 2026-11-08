@@ -21,7 +21,8 @@ import robofight.fireline.app.view.HeatBarView
  * instrument row (RF-8 registers + current instruction with 2 context lines |
  * telemetry ports), the newest-first event panel (tap opens the full log as a
  * scrollable overlay, no separate tab), and the pinned RUN / STEP / RESET bar
- * at 48dp equal thirds.
+ * at 48dp equal thirds (bar 52dp so each button keeps >= 48dp after the bar's
+ * top padding - the milestone 7 accessibility measurement).
  *
  * Run control semantics (PLAN 9.5 gate items):
  *  - STEP is exactly one `MissionSession.step()` == one `FirelineWorld.tickOnce()`,
@@ -43,7 +44,9 @@ class MissionRunSurface(
     private val handler = Handler(Looper.getMainLooper())
     private var running = false
 
-    private val gridView = FirelineGridView(activity, theme)
+    private val gridView = FirelineGridView(activity, theme).apply {
+        contentDescription = "MISSION GRID"
+    }
     private val heatBar = HeatBarView(activity, theme)
 
     private val tickLine = text(7, theme.text)
@@ -277,8 +280,17 @@ class MissionRunSurface(
     private fun refresh() {
         val t = session.telemetry()
         gridView.world = session.currentWorld
-
+        // Accessibility: the canvas grid carries a concise per-refresh state
+        // line so the run surface is usable with touch explored off (9.5 gate).
+        gridView.contentDescription =
+            "MISSION GRID " + (if (session.finished) "finished" else "running") +
+                " mission " + "%02d".format(mission.id) +
+                " tick " + t.tick + " of " + t.timeLimit +
+                " rover x " + t.x + " y " + t.y +
+                " hp " + t.hp + " heat " + t.heat + " water " + t.water +
+                " fire distance " + t.fireDist + " civilians " + t.civCount
         tickLine.text = "TICK ${t.tick} / ${t.timeLimit}"
+        tickLine.contentDescription = tickLine.text
         statusLine.text = when {
             session.status == robofight.fireline.RunStatus.SUCCESS ->
                 "MISSION SUCCESS  TICK ${t.tick}"
@@ -289,6 +301,7 @@ class MissionRunSurface(
             session.guardReached -> "TICK GUARD REACHED"
             else -> if (running) "RUNNING  //  ${MissionSession.RUN_TICK_MS} ms per tick" else "PAUSED  //  STEP or RUN"
         }
+        statusLine.contentDescription = statusLine.text
         statusLine.setTextColor(
             if (session.status != null) theme.textBright else theme.textDim,
         )
@@ -376,7 +389,7 @@ class MissionRunSurface(
     }
 
     companion object {
-        private const val CONTROL_BAR_DP = 48
+        private const val CONTROL_BAR_DP = 52
         private const val HEAT_BAR_DP = 10
         private const val EVENT_SLOTS = 4
         private const val CONTEXT_SLOTS = 5
