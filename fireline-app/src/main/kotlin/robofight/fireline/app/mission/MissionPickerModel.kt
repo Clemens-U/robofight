@@ -7,8 +7,8 @@ import robofight.fireline.TextGrid
 
 /**
  * One authored mission rendered as a picker card (DESIGN-FIRELINE.md 5.2):
- * the MISSION empty state shows exactly the five cards of Missions.ALL, ids
- * zero-padded 01-05, with the engine's own briefing text, objective chips,
+ * the free MISSION picker shows ids 01, 02 and 04, with the engine's own
+ * briefing text, objective chips,
  * time limit, wind, starting water and the read-only seed. No `FL1-` mission
  * code affordance exists in v1 (DESIGN 5.2, open question 5), so the picker
  * has no stub cards.
@@ -38,9 +38,14 @@ data class MissionCard(
 
 object MissionPickerModel {
 
-    /** The five authored missions in catalog order, each with its best badge. */
+    /** Free edition content; retired IDs stay stable in the engine catalog. */
+    val availableMissions: List<Mission> = listOf(Missions.NOZZLE_CHECK, Missions.CORRIDOR, Missions.DOWNWIND)
+
+    fun availableById(id: Int): Mission? = availableMissions.firstOrNull { it.id == id }
+
+    /** The three free missions in catalog order, each with its best badge. */
     fun cards(bestOf: (Mission) -> RunSummary?): List<MissionCard> =
-        Missions.ALL.map { cardFor(it, bestOf(it)) }
+        availableMissions.map { cardFor(it, bestOf(it)) }
 
     fun cardFor(mission: Mission, best: RunSummary?): MissionCard = MissionCard(
         idLabel = "%02d".format(mission.id),

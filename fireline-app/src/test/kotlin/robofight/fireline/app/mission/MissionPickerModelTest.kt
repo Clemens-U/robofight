@@ -17,20 +17,23 @@ import robofight.fireline.RunStatus
 class MissionPickerModelTest {
 
     @Test
-    fun catalogIsTheFiveAuthoredMissionsInOrder() {
+    fun freeCatalogContainsOnlyMissionsOneTwoAndFourWithStableIds() {
         val cards = MissionPickerModel.cards { null }
-        assertEquals(listOf("01", "02", "03", "04", "05"), cards.map { it.idLabel })
+        assertEquals(listOf("01", "02", "04"), cards.map { it.idLabel })
         assertEquals(
-            listOf("NOZZLE CHECK", "CORRIDOR", "FIRST RESPONSE", "DOWNWIND", "HOT ZONE"),
+            listOf("NOZZLE CHECK", "CORRIDOR", "DOWNWIND"),
             cards.map { it.name },
         )
-        assertEquals(listOf(1, 2, 3, 4, 5), cards.map { it.missionId })
+        assertEquals(listOf(1, 2, 4), cards.map { it.missionId })
+        assertNull(MissionPickerModel.availableById(3))
+        assertNull(MissionPickerModel.availableById(5))
+        assertEquals(Missions.DOWNWIND, MissionPickerModel.availableById(4))
     }
 
     @Test
     fun briefingsAreVerbatimEngineText() {
         val cards = MissionPickerModel.cards { null }
-        assertEquals(Missions.ALL.map { it.briefing }, cards.map { it.briefing })
+        assertEquals(MissionPickerModel.availableMissions.map { it.briefing }, cards.map { it.briefing })
         assertEquals(
             "One stationary fire straight ahead. Read DIST/ANGLE, shoot, watch HEAT.",
             cards.first().briefing,
@@ -42,18 +45,16 @@ class MissionPickerModelTest {
         val cards = MissionPickerModel.cards { null }
         assertEquals(listOf("EXTINGUISH_ALL"), cards[0].objectiveChips)
         assertEquals(listOf("EXTINGUISH_ALL", "REACH_EXIT"), cards[1].objectiveChips)
-        assertEquals(listOf("RESCUE_ALL", "REACH_EXIT"), cards[2].objectiveChips)
-        assertEquals(listOf("EXTINGUISH_ALL", "RESCUE_ALL", "REACH_EXIT"), cards[3].objectiveChips)
-        assertEquals(listOf("RESCUE_ALL", "REACH_EXIT", "PROTECT_ASSETS"), cards[4].objectiveChips)
+        assertEquals(listOf("EXTINGUISH_ALL", "RESCUE_ALL", "REACH_EXIT"), cards[2].objectiveChips)
     }
 
     @Test
     fun rulesMatchTheAuthoredMissionNumbers() {
         val cards = MissionPickerModel.cards { null }
-        assertEquals(listOf(60, 120, 120, 500, 200), cards.map { it.timeLimit })
-        assertEquals(listOf(1001, 2002, 3003, 4004, 5005), cards.map { it.seedLabel.removePrefix("SEED ").removeSuffix(" (FIXED)").toInt() })
-        assertEquals(listOf("W x0", "W x0", "W x0", "E x2", "N x0"), cards.map { it.windLabel })
-        assertEquals(listOf(100, 100, 100, 100, 60), cards.map { it.startingWater })
+        assertEquals(listOf(60, 120, 500), cards.map { it.timeLimit })
+        assertEquals(listOf(1001, 2002, 4004), cards.map { it.seedLabel.removePrefix("SEED ").removeSuffix(" (FIXED)").toInt() })
+        assertEquals(listOf("W x0", "W x0", "E x2"), cards.map { it.windLabel })
+        assertEquals(listOf(100, 100, 100), cards.map { it.startingWater })
         assertEquals(listOf("LIMIT 60 TICKS", "LIMIT 120 TICKS"), cards.take(2).map { it.timeLimitLabel })
         // The seed line is read-only display only; no editor affordance exists in v1.
         assertTrue(cards.all { it.seedLabel.contains("(FIXED)") })

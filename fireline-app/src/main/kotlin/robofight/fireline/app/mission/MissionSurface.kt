@@ -10,20 +10,16 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import robofight.fireline.Mission
-import robofight.fireline.Missions
 import robofight.fireline.FIRELINE_ENGINE_VERSION
 import robofight.fireline.app.FirelineTheme
-import robofight.fireline.app.editor.EditorModel
-import robofight.fireline.app.files.FirmwareFile
 import robofight.fireline.app.files.FirmwareRepository
 
 /**
  * MISSION surface, picker (milestones 4-5; DESIGN-FIRELINE.md 5.2).
  *
- * Empty state: the five authored mission cards (ids 01-05, engine briefing,
- * objective chips, tick limit, wind, water, read-only seed, best-result badge
- * per engine version) above the firmware picker (the FIRELINE file store's
- * saved sources, `[>]` selects the mission firmware exactly like FILES does).
+ * Empty state: the three free mission cards (ids 01, 02, 04, engine briefing,
+ * objective chips, tick limit, wind, water and read-only seed). Firmware is
+ * selected in FILES; this surface only displays the active filename.
  *
  * Choosing mission + firmware hands the pair to MainActivity, which opens the
  * live MissionRunSurface (milestone 5): header card, grid, telemetry, event
@@ -36,22 +32,20 @@ class MissionSurface(
     private val selection: FirmwareSelection,
     private val bestStore: BestBadgeStore,
     private val onOpenRun: (Mission, String) -> Unit,
-    private val onSelectFirmware: (FirmwareFile) -> Unit,
 ) {
 
-    /** The MISSION tab's empty state: mission cards + firmware picker. */
+    /** Mission cards and the active firmware filename; selection lives in FILES. */
     fun picker(attention: String? = null): View {
         val column = column(matchParent, wrapContent)
         if (attention != null) column.addView(text(8, theme.textBright, attention))
         val notice = text(8, theme.textDim)
         notice.text = selection.get()
             ?.let { "mission firmware: $it" }
-            ?: "no mission firmware selected  //  pick one below or in FILES"
+            ?: "no mission firmware selected  //  select a file in FILES"
         column.addView(notice)
-        for (mission in Missions.ALL) {
+        for (mission in MissionPickerModel.availableMissions) {
             column.addView(missionCard(mission, MissionPickerModel.cardFor(mission, bestStore.get(mission.id, FIRELINE_ENGINE_VERSION))))
         }
-        column.addView(firmwarePicker())
         return ScrollView(activity).apply {
             isVerticalScrollBarEnabled = true
             addView(column)
@@ -86,7 +80,7 @@ class MissionSurface(
         actions.addView(button("OPEN MISSION", theme.runFill, theme.runText, {
             val firmware = selection.get()
             if (firmware == null || store.find(firmware) == null) {
-                notice.text = "select mission firmware first  //  pick one in the picker below"
+                notice.text = "select firmware in FILES, then open a mission"
                 notice.visibility = View.VISIBLE
             } else {
                 onOpenRun(mission, firmware)
@@ -95,43 +89,6 @@ class MissionSurface(
         panel.addView(actions)
         panel.addView(notice)
         return panel
-    }
-
-    private fun firmwarePicker(): View {
-        val section = column(matchParent, wrapContent).apply { setPadding(0, theme.dp(12), 0, 0) }
-        section.addView(text(8, theme.textBright, "MISSION FIRMWARE", theme.displayFace))
-        val files = store.list()
-        if (files.isEmpty()) {
-            section.addView(text(7, theme.textDim, "no firmware files yet  //  NEW FILE or IMPORT .asm in FILES", theme.workFace))
-            return section
-        }
-        val selected = selection.get()
-        for (file in files) {
-            val card = row(matchParent, wrapContent).apply {
-                background = theme.panelDrawable()
-                setPadding(theme.dp(8), theme.dp(7), theme.dp(8), theme.dp(7))
-                layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
-                    topMargin = theme.dp(6)
-                }
-            }
-            card.addView(text(12, theme.text, file.name, theme.workFace),
-                LinearLayout.LayoutParams(0, wrapContent, 1f))
-            card.addView(spacer())
-            card.addView(text(11, theme.textDim, EditorModel.cardStats(file.source).format(), theme.workFace))
-            if (file.name.equals(selected, ignoreCase = true)) {
-                card.addView(text(7, theme.caret, "SELECTED", theme.displayFace))
-            }
-            val isActive = file.name.equals(selected, ignoreCase = true)
-            card.addView(button("SELECT", theme.runFill, theme.runText, { onSelectFirmware(file) }).apply {
-                isSelected = isActive
-                if (!isActive) {
-                    background = theme.panelDrawable(fill = theme.panel, stroke = theme.border)
-                    setTextColor(theme.text)
-                }
-            })
-            section.addView(card)
-        }
-        return section
     }
 
     private fun chipRow(chips: List<String>): View {
@@ -186,10 +143,6 @@ class MissionSurface(
     private fun column(width: Int, height: Int) = LinearLayout(activity).apply {
         orientation = LinearLayout.VERTICAL
         layoutParams = ViewGroup.LayoutParams(width, height)
-    }
-
-    private fun spacer(): View = View(activity).apply {
-        layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
     }
 
     companion object {

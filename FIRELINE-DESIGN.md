@@ -611,8 +611,13 @@ Changing this order is a FIRELINE engine-version bump.
 
 ## 9. Authored MVP missions
 
-Ship at least these five deterministic training missions. Exact wall maps are
-content work, but each must pass the stated teaching and validation contract.
+The engine retains the following five authored missions and their deterministic
+tests. The free Android edition offers exactly **01 NOZZLE CHECK**, **02 CORRIDOR**,
+and **04 DOWNWIND** (tier decision 2026-11-08). **03 FIRST RESPONSE** and **05 HOT
+ZONE** are removed from the free picker and cannot be started through historical
+result RETRY actions. Retain their engine definitions for future paid content
+and readable historical results; do not renumber missions or delete user files.
+See PLAN-PRO.md section 9 for FIRELINE paid-version ideas.
 
 Engine-2 layout revision (2026-11-08), explicitly superseding the original
 geometry under the same five mission IDs:
@@ -808,6 +813,9 @@ compact typography with 11sp descriptions, 10sp metadata/badges, natural font
 line spacing (no extra 5dp leading), and 2dp section gaps. The separate briefing
 uses readable 14sp text. Run and result text also use natural font leading.
 Result details use 13sp text with natural wrapping. Full run logs use 14sp.
+Firmware selection lives only in FILES. The MISSION picker displays the selected
+filename and directs unselected users to FILES; it does not duplicate the file
+list or SELECT buttons below the mission cards.
 Keep mission identity/goals, the entire 20x20 grid, and bottom controls/status
 pinned. Reserve a separate EVENTS panel with four 12sp rows above the run
 controls; instrument scrolling must never hide the event tail. Long event rows

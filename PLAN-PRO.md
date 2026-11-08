@@ -225,3 +225,51 @@ arenas, riddles, and modes that can exercise it.
 - PRO retention: fights per week in the Pro app, arena-pack utilization
   spread (are the procedural arenas actually played?).
 - Review sentiment on the free listing (the cross-sell must not sour it).
+
+---
+
+## 9. FIRELINE free edition and possible paid extensions
+
+Added 2026-11-08. This section concerns **Opcode FIRELINE**, not Arena/The
+Circuit; the existing Arena tier decisions above are unchanged.
+
+### 9.1 Free mission content (decided)
+
+The free FIRELINE app offers exactly three missions, retaining their stable IDs:
+
+- **01 / NOZZLE CHECK**
+- **02 / CORRIDOR**
+- **04 / DOWNWIND**
+
+Remove **03 / FIRST RESPONSE** and **05 / HOT ZONE** from the free mission
+selection and prevent launching them through old result RETRY routes. Preserve
+their engine definitions, reference programs, and tests for future paid content;
+retain historical result readability and user firmware. Core mechanics and
+programming/debugging tools remain available in the free app. This is a content
+selection change, not a change to the simulator or its engine version.
+
+### 9.2 FIRELINE challenge codes (paid-extension idea; not implemented)
+
+Adapt the successful Arena challenge-code loop to FIRELINE: create an incident,
+export/share its code offline, import it on another device, write a solution,
+and compare deterministic results or send a response back. Treat this as a
+candidate feature for a future paid FIRELINE edition; scope, pricing, packaging,
+and free/paid code permissions remain undecided.
+
+- Reproduce an incident from its FIRELINE format/engine version, stable mission
+  or layout identity, seed, geometry (including blocks/thin walls), objectives,
+  wind, water, time limit, and any other rules needed for exact replay.
+- Distinguish the incident to solve from a submitted firmware solution. Decide
+  explicitly whether solution source is included or hidden in each code type.
+- Support import/preview, copy/export, local history, and reproducible replay,
+  with optional response chains and result fingerprints, analogous to Arena.
+- Potential scoring: completion first, then ticks, water usage, damage, or code
+  size. Lock comparison rules before sharing scored challenges.
+- Use a dedicated FIRELINE code format/spec; **do not reuse Arena RF1 codes**.
+  Require version validation, bounded parsing, and clear incompatible-version
+  handling. Resolve access to paid missions without bypassing the content gate.
+- Keep it offline, with no account/server requirement. Prefer the shared RF-8
+  language and identical simulation mechanics across future FIRELINE editions.
+
+Author and approve `FIRELINE-CODES.md` before implementing a wire format. This
+section records the feature idea only; it does not add challenge-code UI now.

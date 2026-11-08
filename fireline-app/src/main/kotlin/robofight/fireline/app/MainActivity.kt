@@ -1,5 +1,7 @@
 package robofight.fireline.app
 
+import robofight.fireline.app.mission.MissionPickerModel
+
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
@@ -282,7 +284,6 @@ class MainActivity : Activity() {
             selection = firmwareSelection,
             bestStore = bestStore,
             onOpenRun = { mission, firmwareName -> showMissionRun(mission, firmwareName) },
-            onSelectFirmware = { file -> selectFirmware(file) },
         )
         missionSurface = surface
         showContent(surface.picker(attention))
@@ -296,6 +297,10 @@ class MainActivity : Activity() {
      * refused with a notice instead of crashing the tab.
      */
     private fun showMissionRun(mission: Mission, firmwareName: String) {
+        if (MissionPickerModel.availableById(mission.id) == null) {
+            showMission("mission %02d is not included in the free edition".format(mission.id))
+            return
+        }
         val file = store.find(firmwareName) ?: return showMission("firmware '$firmwareName' is gone  //  pick another")
         val assembly = EditorModel.assembleSource(file.source)
         if (!assembly.ok) {

@@ -119,9 +119,6 @@ class FilesSurface(
         }
         meta.addView(text(7, theme.textDim, "edited " + formatFileTime(file.updatedMillis), theme.workFace))
         meta.addView(spacer())
-        if (file.name.equals(selectedName, ignoreCase = true)) {
-            meta.addView(text(7, theme.caret, "MISSION FIRMWARE", theme.displayFace))
-        }
         card.addView(meta)
 
         val actions = row(matchParent, wrapContent).apply {
