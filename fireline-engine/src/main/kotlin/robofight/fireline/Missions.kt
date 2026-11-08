@@ -39,8 +39,17 @@ object Missions {
         return rows(*grid.map { String(it) }.toTypedArray())
     }
 
-    /** A wall segment spanning x0..x1 on row y. */
-    private fun wallRow(y: Int, x0: Int, x1: Int) = (x0..x1).map { Triple(it, y, GLYPH_WALL) }
+    /** Authored thin segments: (x,y0,y1) right of cells; (y,x0,x1) below cells. */
+    private fun verticalRows(vararg segments: Triple<Int, Int, Int>): List<String> {
+        val rows = Array(GRID) { CharArray(GRID - 1) { '.' } }
+        for ((x, y0, y1) in segments) for (y in y0..y1) rows[y][x] = '|'
+        return rows.map { it.concatToString() }
+    }
+    private fun horizontalRows(vararg segments: Triple<Int, Int, Int>): List<String> {
+        val rows = Array(GRID - 1) { CharArray(GRID) { '.' } }
+        for ((y, x0, x1) in segments) for (x in x0..x1) rows[y][x] = '-'
+        return rows.map { it.concatToString() }
+    }
 
     /**
      * Shared reactive extinguishing pattern: shoot at the selected burning cell
@@ -64,9 +73,10 @@ object Missions {
         name = "NOZZLE CHECK",
         briefing = "One stationary fire straight ahead. Read DIST/ANGLE, shoot, watch HEAT.",
         layout = Layout.decode(
-            terrainRows = field(2, 2, listOf(Triple(5, 1, GLYPH_WALL), Triple(5, 3, GLYPH_WALL), Triple(6, 2, GLYPH_WALL))),
+            terrainRows = field(2, 2, listOf(Triple(6, 2, GLYPH_WALL))),
             fireRows = fireAt(listOf(Triple(5, 2, '2'))),
             roverDir = DIR_E,
+            horizontalEdgeRows = horizontalRows(Triple(1, 5, 5), Triple(2, 5, 5)),
         ),
         seed = 1001,
         objectives = Objectives.EXTINGUISH_ALL,
@@ -82,11 +92,12 @@ object Missions {
     )
 
     // ---- 9.2 ----
-    // Row 3 is the unbreakable wall line: the naive east route dies at (3,2).
+    // Thin wall below row 2, with a gate at x=2; the naive east route hits
+    // the solid obstacle at (3,2).
     // The rover drops through the gap at (2,3), walks east along row 10 to the
     // pocket approach at (8,10) — a refill firebreak the pocket fire can never
     // ignite — and shoots the pocket cell (9,10) directly (the packet spawns
-    // on the burning cell). The pocket is ringed by wall cells on the north,
+    // on the burning cell). The pocket is ringed by thin walls on the north,
     // west-approach side and south and by the refill east of it, so the fixed
     // 5-tick spread cadence can never leave the pocket; the burning pocket is
     // also the barrier that makes the timed MOVE phase wait until the shots
@@ -99,10 +110,7 @@ object Missions {
             terrainRows = field(
                 2, 2,
                 listOf(Triple(3, 2, GLYPH_WALL)) +
-                    wallRow(3, 0, 19).filter { it.first != 2 } +
                     listOf(
-                        Triple(8, 9, GLYPH_WALL), Triple(9, 9, GLYPH_WALL), Triple(10, 9, GLYPH_WALL),   // pocket north
-                        Triple(8, 11, GLYPH_WALL), Triple(9, 11, GLYPH_WALL), Triple(10, 11, GLYPH_WALL), // pocket south
                         Triple(8, 10, GLYPH_REFILL),                           // approach side firebreak
                         Triple(10, 10, GLYPH_REFILL),                          // pocket east
                         Triple(11, 10, GLYPH_EXIT),                            // exit behind the pocket
@@ -110,6 +118,10 @@ object Missions {
             ),
             fireRows = fireAt(listOf(Triple(9, 10, '1'))),
             roverDir = DIR_E,
+            horizontalEdgeRows = horizontalRows(
+                Triple(2, 0, 1), Triple(2, 3, 19), // one-cell gate at x=2
+                Triple(9, 8, 10), Triple(10, 8, 10), // thin pocket walls
+            ),
         ),
         seed = 2002,
         objectives = Objectives.EXTINGUISH_ALL or Objectives.REACH_EXIT,
@@ -152,6 +164,8 @@ object Missions {
             ),
             fireRows = fireAt(listOf(Triple(12, 4, '1'), Triple(14, 14, '1'), Triple(3, 16, '1'))),
             roverDir = DIR_E,
+            verticalEdgeRows = verticalRows(Triple(7, 3, 9)),
+            horizontalEdgeRows = horizontalRows(Triple(9, 3, 6)),
         ),
         seed = 3003,
         objectives = Objectives.RESCUE_ALL or Objectives.REACH_EXIT,
@@ -214,11 +228,11 @@ object Missions {
                     Triple(7, 2, GLYPH_REFILL), Triple(8, 2, GLYPH_FUEL), Triple(9, 2, GLYPH_REFILL),
                     Triple(10, 2, GLYPH_REFILL), Triple(11, 2, GLYPH_FUEL), Triple(12, 2, GLYPH_REFILL),
                     Triple(2, 6, GLYPH_CIVILIAN), Triple(2, 12, GLYPH_EXIT),
-                ) +
-                    wallRow(1, 4, 12) + wallRow(3, 4, 12),
+                ),
             ),
             fireRows = fireAt(listOf(Triple(4, 2, '1'))),
             roverDir = DIR_E,
+            horizontalEdgeRows = horizontalRows(Triple(1, 4, 12), Triple(2, 4, 12)),
         ),
         seed = 4004,
         objectives = Objectives.RESCUE_ALL or Objectives.EXTINGUISH_ALL or Objectives.REACH_EXIT,
@@ -276,8 +290,7 @@ object Missions {
         layout = Layout.decode(
             terrainRows = field(
                 1, 2,
-                wallRow(1, 0, 19) + wallRow(3, 0, 19) +
-                    listOf(Triple(0, 2, GLYPH_WALL)) +
+                listOf(Triple(0, 2, GLYPH_WALL)) +
                     (2..8).map { Triple(it, 2, GLYPH_FLOOR) } +
                     listOf(Triple(9, 2, GLYPH_REFILL)) +
                     (10..15).map { Triple(it, 2, GLYPH_FLOOR) } +
@@ -288,6 +301,7 @@ object Missions {
                 (2..8).map { Triple(it, 2, '4') } + (10..15).map { Triple(it, 2, '4') },
             ),
             roverDir = DIR_E,
+            horizontalEdgeRows = horizontalRows(Triple(1, 0, 19), Triple(2, 0, 19)),
         ),
         seed = 5005,
         objectives = Objectives.RESCUE_ALL or Objectives.PROTECT_ASSETS or Objectives.REACH_EXIT,

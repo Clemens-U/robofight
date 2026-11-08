@@ -144,6 +144,42 @@ Every cell has exactly one terrain kind:
 Terrain identifiers returned by `IN TILE` are the numeric IDs above. A civilian
 does not change the terrain ID.
 
+#### Thin edge walls (engine version 2, 2026-11-08)
+
+Keep full-cell `#` blocks and add thin walls between adjacent cells, using
+Arena's coordinate convention. An edge wall does not occupy either cell or
+change its `TILE` value. The outer grid boundary remains implicit.
+
+- Vertical edges lie RIGHT of `(x,y)`, `x=0..18`, `y=0..19`, stored row-major
+  at `y*19+x` (380 booleans).
+- Horizontal edges lie BELOW `(x,y)`, `x=0..19`, `y=0..18`, stored row-major
+  at `y*20+x` (380 booleans).
+- Edges block crossing in both directions: rover MOVE, initial water emission,
+  in-flight packets, and fire ignition across that edge. A blocked MOVE retains
+  its two-tick cost; a blocked shot still consumes its normal water/heat/ticks.
+- `AHEAD` returns 1 across an edge. Target distance/angle sensors retain their
+  geometric Manhattan/delta behavior, including targets behind walls. Smoke
+  retains the existing local-neighbor formula; walls do not add smoke transport
+  simulation or visibility occlusion.
+- Spread still consumes two random bytes per burning snapshot cell BEFORE
+  testing wall geometry. An edge prevents ignition, not growth of existing fire.
+- Reachability validation follows passable cells through open edges, including
+  gaps in wall segments. Constructor inputs and returned edge arrays are copied.
+- Draw edges as thin lines on grid boundaries, distinct from solid block tiles.
+  Headless output uses a 41x41 cell-and-gutter picture when thin walls exist.
+
+`Layout.decode` accepts optional `verticalEdgeRows` (20 strings of 19 chars,
+`.` open / `|` wall) and `horizontalEdgeRows` (19 strings of 20 chars,
+`.` open / `-` wall). Both default to empty geometry. Encoding methods round-trip
+these maps separately from the unchanged terrain/fire maps. For example a `|`
+at vertical map row 2, column 2 separates cells `(2,2)` and `(3,2)`; a `-` at
+horizontal row 2, column 2 separates `(2,2)` and `(2,3)`.
+
+The canonical hash includes both 380-bit maps after terrain and before fire.
+FIRELINE_ENGINE_VERSION is 2; ISA/profile port numbers and Arena are unchanged.
+Version-1 stored results remain readable, but their fingerprints/best records
+must not be compared as version-2 runs.
+
 ### 3.3 Dynamic cell state
 
 Each cell additionally stores fire intensity `0..100`.
@@ -568,6 +604,25 @@ Changing this order is a FIRELINE engine-version bump.
 Ship at least these five deterministic training missions. Exact wall maps are
 content work, but each must pass the stated teaching and validation contract.
 
+Engine-2 layout revision (2026-11-08), explicitly superseding the original
+geometry under the same five mission IDs:
+
+- NOZZLE CHECK: thin north/south fire-pocket edges, retaining the solid backstop.
+- CORRIDOR: thin gated cross-map partition and pocket edges, retaining the solid
+  obstacle immediately ahead of spawn. Gate `(2,2)->(2,3)` stays open.
+- FIRST RESPONSE: thin room partitions beside the rescue route, with open ends
+  preserving access to both civilians and the exit.
+- DOWNWIND: thin north/south containment edges along the fuel lane; refill cells
+  still bound its ends and the paired fuel cells can still ignite each other.
+- HOT ZONE: thin continuous corridor edges above/below the burning lane, retaining
+  the solid west stop. The civilian, refill pockets, exit, and protected asset
+  remain authored at their existing positions.
+
+All reference programs, mission seeds/objectives, and documented failing programs
+retain their teaching contracts; determinism and seed-sweep tests cover the new
+geometry. Existing user firmware remains source-compatible, though outcomes may
+change with the versioned geometry.
+
 ### 9.1 `01 / NOZZLE CHECK`
 
 - Objective: `EXTINGUISH_ALL`.
@@ -860,7 +915,8 @@ For every authored mission:
 5. Sweep representative seeds and assert termination under the maximum guard.
 
 The final-state hash input must be canonical and ordered: engine version, tick,
-rover state, row-major terrain/fire arrays, ordered civilians, ordered water
+rover state, row-major terrain, vertical edges, horizontal edges, fire arrays,
+ordered civilians, ordered water
 packets, objective state, and both RNG states. Do not use JVM object hash codes.
 
 ### 13.3 Integration tests

@@ -61,7 +61,7 @@ class MissionPickerModelTest {
 
     @Test
     fun badgeTextUsesEngineEnumNames() {
-        val success = runSummarySample(RunStatus.SUCCESS, null, tick = 34)
+        val success = runSummarySample(RunStatus.SUCCESS, null, tick = 34, engineVersion = FIRELINE_ENGINE_VERSION)
         val failure = runSummarySample(RunStatus.FAILURE, FailureReason.CIVILIAN_LOST, tick = 112)
         assertEquals("BEST: SUCCESS  TICK 34", MissionPickerModel.badgeLabel(success))
         assertEquals("BEST: FAILURE CIVILIAN_LOST  TICK 112", MissionPickerModel.badgeLabel(failure))

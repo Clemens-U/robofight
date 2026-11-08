@@ -114,6 +114,19 @@ class FirelineGridView(
             canvas.drawLine(i * cell, 0f, i * cell, height.toFloat(), linePaint)
             canvas.drawLine(0f, i * cell, width.toFloat(), i * cell, linePaint)
         }
+        // Thin walls lie on cell boundaries, above the faint grid lines.
+        linePaint.color = theme.wall
+        linePaint.strokeWidth = maxOf(2f, cell * 0.14f)
+        linePaint.strokeCap = Paint.Cap.SQUARE
+        for (y in 0 until GRID) for (x in 0 until GRID) {
+            if (w.layout.verticalEdgeAt(x, y)) {
+                canvas.drawLine((x + 1) * cell, y * cell, (x + 1) * cell, (y + 1) * cell, linePaint)
+            }
+            if (w.layout.horizontalEdgeAt(x, y)) {
+                canvas.drawLine(x * cell, (y + 1) * cell, (x + 1) * cell, (y + 1) * cell, linePaint)
+            }
+        }
+        linePaint.strokeCap = Paint.Cap.BUTT
         linePaint.color = theme.border
         linePaint.strokeWidth = 2f
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), linePaint)

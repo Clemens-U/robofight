@@ -88,11 +88,36 @@ class Layout(
     val roverY: Int,
     val roverDir: Int,
     val civilians: List<CivilianSpec>,
+    vertEdge: BooleanArray = BooleanArray(GRID * (GRID - 1)),
+    horizEdge: BooleanArray = BooleanArray(GRID * (GRID - 1)),
 ) {
+    private val verticalEdges = vertEdge.copyOf()
+    private val horizontalEdges = horizEdge.copyOf()
     init {
         require(terrain.size == CELLS) { "layout terrain must have $CELLS cells (got ${terrain.size})" }
         require(fire.size == CELLS) { "layout fire must have $CELLS cells (got ${fire.size})" }
+        require(vertEdge.size == GRID * (GRID - 1)) { "vertical edges must have 380 entries" }
+        require(horizEdge.size == GRID * (GRID - 1)) { "horizontal edges must have 380 entries" }
     }
+
+    /** Arena coordinates: vertical edge RIGHT of (x,y), horizontal edge BELOW (x,y). */
+    fun verticalEdgeAt(x: Int, y: Int): Boolean =
+        x in 0 until GRID - 1 && y in 0 until GRID && verticalEdges[y * (GRID - 1) + x]
+    fun horizontalEdgeAt(x: Int, y: Int): Boolean =
+        x in 0 until GRID && y in 0 until GRID - 1 && horizontalEdges[y * GRID + x]
+    fun hasEdgeWalls(): Boolean = verticalEdges.any { it } || horizontalEdges.any { it }
+    fun wallBetween(ax: Int, ay: Int, bx: Int, by: Int): Boolean {
+        if (!inBounds(ax, ay) || !inBounds(bx, by)) return false
+        return when {
+            by == ay && bx == ax + 1 -> verticalEdgeAt(ax, ay)
+            by == ay && bx == ax - 1 -> verticalEdgeAt(bx, by)
+            bx == ax && by == ay + 1 -> horizontalEdgeAt(ax, ay)
+            bx == ax && by == ay - 1 -> horizontalEdgeAt(bx, by)
+            else -> false
+        }
+    }
+    fun verticalEdgesRowMajor(): BooleanArray = verticalEdges.copyOf()
+    fun horizontalEdgesRowMajor(): BooleanArray = horizontalEdges.copyOf()
 
     fun terrainAt(x: Int, y: Int): Int = terrain[cellIndex(x, y)]
     fun fireAt(x: Int, y: Int): Int = fire[cellIndex(x, y)]
@@ -166,7 +191,7 @@ class Layout(
                 val nx = x + dirDx(d); val ny = y + dirDy(d)
                 if (!inBounds(nx, ny)) continue
                 val ni = cellIndex(nx, ny)
-                if (reached[ni] || !terrainPassable(terrain[ni])) continue
+                if (reached[ni] || !terrainPassable(terrain[ni]) || wallBetween(x, y, nx, ny)) continue
                 reached[ni] = true
                 stack.addLast(ni)
             }
@@ -193,6 +218,8 @@ class Layout(
             fireRows: List<String>,
             roverDir: Int = DIR_E,
             civilians: List<CivilianSpec> = emptyList(),
+            verticalEdgeRows: List<String> = List(GRID) { ".".repeat(GRID - 1) },
+            horizontalEdgeRows: List<String> = List(GRID - 1) { ".".repeat(GRID) },
         ): Layout {
             val problems = ArrayList<String>()
             val terrain = IntArray(CELLS)
@@ -245,8 +272,25 @@ class Layout(
             } else decodedCiv
 
             if (problems.isNotEmpty()) throw IllegalArgumentException("invalid layout:\n" + problems.joinToString("\n"))
-            return Layout(terrain, fire, spawnX, spawnY, roverDir, civs)
+            val v = decodeEdges(verticalEdgeRows, GRID, GRID - 1, '|')
+            val h = decodeEdges(horizontalEdgeRows, GRID - 1, GRID, '-')
+            return Layout(terrain, fire, spawnX, spawnY, roverDir, civs, v, h)
         }
+
+        private fun decodeEdges(rows: List<String>, height: Int, width: Int, wall: Char): BooleanArray {
+            require(rows.size == height && rows.all { it.length == width }) {
+                "'$wall' edge map must be $height rows of $width characters"
+            }
+            require(rows.all { row -> row.all { it == '.' || it == wall } }) {
+                "edge map accepts only '.' and '$wall'"
+            }
+            return BooleanArray(width * height) { rows[it / width][it % width] == wall }
+        }
+
+        fun encodeVerticalEdges(layout: Layout): List<String> =
+            (0 until GRID).map { y -> (0 until GRID - 1).map { x -> if (layout.verticalEdgeAt(x, y)) '|' else '.' }.joinToString("") }
+        fun encodeHorizontalEdges(layout: Layout): List<String> =
+            (0 until GRID - 1).map { y -> (0 until GRID).map { x -> if (layout.horizontalEdgeAt(x, y)) '-' else '.' }.joinToString("") }
 
         /** Render a layout back to the ASCII terrain form (round-trip check for authored content). */
         fun encodeTerrain(layout: Layout): List<String> =

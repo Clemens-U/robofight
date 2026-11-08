@@ -81,12 +81,14 @@ private val GOLDEN_TRACE =
         val text = w.canonicalState()
         val lines = text.split('\n')
         assertEquals(
-            listOf("engine", "tick", "rover", "terrain", "fire", "civilians", "packets", "objective", "rng"),
+            listOf("engine", "tick", "rover", "terrain", "verticalEdges", "horizontalEdges", "fire", "civilians", "packets", "objective", "rng"),
             lines.filter { it.isNotEmpty() }.map { it.substringBefore('=') },
             "§13.2 fixes the components and their order",
         )
         assertEquals(400, lines[3].substringAfter('=').split(',').size, "terrain is row-major over 400 cells")
-        assertTrue(lines[4].split(',').size == 400, "fire array is row-major over 400 cells")
+        assertEquals(380, lines[4].substringAfter('=').length)
+        assertEquals(380, lines[5].substringAfter('=').length)
+        assertTrue(lines[6].split(',').size == 400, "fire array is row-major over 400 cells")
         assertTrue(text.contains("rng=") && text.contains(","), "both RNG states are in the fingerprint")
         assertTrue(text.contains("engine=${FIRELINE_ENGINE_VERSION}"))
         // No Java identity hash codes anywhere (nothing looks like `Class@1a2b3c4d`).

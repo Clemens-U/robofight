@@ -78,6 +78,7 @@ class Rover(private val world: FirelineWorld, startingWater: Int) : Env {
         // §3.5: a failed move is a silent no-op after its normal two-tick cost.
         // Walls and protected assets block; fire and civilians do not (§3.2/§3.4).
         if (!inBounds(nx, ny)) return
+        if (world.layout.wallBetween(x, y, nx, ny)) return
         if (!terrainPassable(world.terrainAt(nx, ny))) return
         x = nx; y = ny
         distanceMoved++

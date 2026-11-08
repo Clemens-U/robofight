@@ -38,6 +38,10 @@ class WaterPacket(
                 world.addEvent("PACKET SPENT BOUNDARY $x,$y")
                 return false
             }
+            if (world.layout.wallBetween(x, y, nx, ny)) {
+                world.addEvent("PACKET SPENT EDGE $x,$y -> $nx,$ny")
+                return false
+            }
             if (world.terrainAt(nx, ny) == TERRAIN_WALL) {
                 world.addEvent("PACKET SPENT WALL $nx,$ny")
                 return false

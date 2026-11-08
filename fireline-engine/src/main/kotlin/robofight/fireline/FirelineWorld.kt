@@ -185,6 +185,10 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
             addEvent("PACKET BLOCKED BOUNDARY")
             return
         }
+        if (layout.wallBetween(shooter.x, shooter.y, x, y)) {
+            addEvent("PACKET BLOCKED EDGE ${shooter.x},${shooter.y} -> $x,$y")
+            return
+        }
         if (terrainAt(x, y) == TERRAIN_WALL) {
             addEvent("PACKET BLOCKED WALL $x,$y")
             return
@@ -297,6 +301,7 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
             val nx = x + dirDx(chosen)
             val ny = y + dirDy(chosen)
             if (!inBounds(nx, ny)) continue
+            if (layout.wallBetween(x, y, nx, ny)) continue
             val target = terrainAt(nx, ny)
             val threshold = spreadThresholdFor(target, chosen, descriptor.windDir, descriptor.windForce)
             if (threshold <= 0) continue                    // wall / refill / off-grid
@@ -471,6 +476,7 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
         val nx = rover.x + dirDx(rover.facing)
         val ny = rover.y + dirDy(rover.facing)
         if (!inBounds(nx, ny)) return 1
+        if (layout.wallBetween(rover.x, rover.y, nx, ny)) return 1
         return if (terrainPassable(terrainAt(nx, ny))) 0 else 1
     }
 
@@ -540,6 +546,8 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
             .append(',').append(rover.shieldsRaised).append(',').append(if (rover.destroyed) 1 else 0)
             .append('\n')
         append("terrain=").append(terrain.joinToString(",")).append('\n')
+        append("verticalEdges=").append(layout.verticalEdgesRowMajor().joinToString("") { if (it) "1" else "0" }).append('\n')
+        append("horizontalEdges=").append(layout.horizontalEdgesRowMajor().joinToString("") { if (it) "1" else "0" }).append('\n')
         append("fire=").append(fire.joinToString(",")).append('\n')
         append("civilians=")
         append(civiliansOrdered().joinToString(";") {

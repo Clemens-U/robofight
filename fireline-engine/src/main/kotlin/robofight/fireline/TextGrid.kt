@@ -31,6 +31,11 @@ object TextGrid {
 
     fun render(world: FirelineWorld): String = buildString {
         append(header(world)).append('\n')
+        if (world.layout.hasEdgeWalls()) {
+            append(renderWithEdges(world)).append('\n')
+            append(footer(world))
+            return@buildString
+        }
         append(' ')
         for (x in 0 until GRID) append(if (x % 5 == 0) '+' else ' ')   // column ruler (never a fire glyph)
         append('\n')
@@ -41,6 +46,18 @@ object TextGrid {
         }
         append(footer(world))
     }.trimEnd()
+
+    /** Arena-style 41x41 debug view: cells occupy odd coordinates, edges the gutters. */
+    private fun renderWithEdges(world: FirelineWorld): String {
+        val size = GRID * 2 + 1
+        val picture = Array(size) { CharArray(size) { ' ' } }
+        for (y in 0 until GRID) for (x in 0 until GRID) {
+            picture[y * 2 + 1][x * 2 + 1] = glyphAt(world, x, y)
+            if (world.layout.verticalEdgeAt(x, y)) picture[y * 2 + 1][x * 2 + 2] = '|'
+            if (world.layout.horizontalEdgeAt(x, y)) picture[y * 2 + 2][x * 2 + 1] = '-'
+        }
+        return picture.joinToString("\n") { it.concatToString() }
+    }
 
     fun header(world: FirelineWorld): String {
         val status = when {

@@ -648,6 +648,12 @@ The migration is complete only when all are true:
 
 ## 13. Decisions deliberately deferred
 
+Thin-wall follow-up implemented (2026-11-08): FIRELINE engine 2 supports Arena's
+vertical/horizontal edge geometry alongside full-cell blocks. Layout authoring,
+reachability validation, MOVE/AHEAD, water emission/flight, spread, canonical
+hashing, headless/Android rendering, and all five authored missions are updated.
+See FIRELINE-DESIGN.md sections 3.2 and 9 for geometry and compatibility rules.
+
 FIRELINE usability backlog (2026-11-08; see FIRELINE-DESIGN.md section 15):
 
 - [ ] Add optional commented starter firmware and a brief programming-loop
