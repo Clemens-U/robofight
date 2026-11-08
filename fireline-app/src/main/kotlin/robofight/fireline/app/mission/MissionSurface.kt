@@ -63,9 +63,9 @@ class MissionSurface(
     private fun missionCard(mission: Mission, card: MissionCard): View {
         val panel = column(matchParent, wrapContent).apply {
             background = theme.panelDrawable()
-            setPadding(theme.dp(8), theme.dp(6), theme.dp(8), theme.dp(6))
+            setPadding(theme.dp(8), theme.dp(8), theme.dp(8), theme.dp(8))
             layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
-                topMargin = theme.dp(6)
+                topMargin = theme.chromeBlockGapPx()
             }
         }
         val head = row(matchParent, wrapContent)
@@ -74,16 +74,16 @@ class MissionSurface(
         card.badgeLabel?.let { head.addView(text(7, theme.caret, it, theme.displayFace)) }
         panel.addView(head)
 
-        panel.addView(text(7, theme.text, card.briefing, theme.workFace))
+        panel.addView(gapped(7, theme.text, card.briefing, theme.workFace))
         panel.addView(chipRow(card.objectiveChips))
-        panel.addView(text(
+        panel.addView(gapped(
             7, theme.textDim,
             "${card.seedLabel}  //  ${card.timeLimitLabel}  //  WIND ${card.windLabel}  //  WATER ${card.startingWater}",
             theme.workFace,
         ))
-        if (card.badgeLabel == null) panel.addView(text(7, theme.textDim, "no run recorded yet for engine v$FIRELINE_ENGINE_VERSION", theme.workFace))
+        if (card.badgeLabel == null) panel.addView(gapped(7, theme.textDim, "no run recorded yet for engine v$FIRELINE_ENGINE_VERSION", theme.workFace))
 
-        val actions = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(4), 0, 0) }
+        val actions = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(7), 0, 0) }
         val notice = text(7, theme.textDim).apply { visibility = View.GONE }
         actions.addView(button("OPEN RUN SETUP", theme.runFill, theme.runText, {
             val firmware = selection.get()
@@ -100,7 +100,7 @@ class MissionSurface(
     }
 
     private fun firmwarePicker(): View {
-        val section = column(matchParent, wrapContent).apply { setPadding(0, theme.dp(10), 0, 0) }
+        val section = column(matchParent, wrapContent).apply { setPadding(0, theme.dp(12), 0, 0) }
         section.addView(text(8, theme.textBright, "MISSION FIRMWARE", theme.displayFace))
         val files = store.list()
         if (files.isEmpty()) {
@@ -111,9 +111,9 @@ class MissionSurface(
         for (file in files) {
             val card = row(matchParent, wrapContent).apply {
                 background = theme.panelDrawable()
-                setPadding(theme.dp(8), theme.dp(5), theme.dp(8), theme.dp(5))
+                setPadding(theme.dp(8), theme.dp(7), theme.dp(8), theme.dp(7))
                 layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
-                    topMargin = theme.dp(4)
+                    topMargin = theme.dp(6)
                 }
             }
             card.addView(text(8, theme.text, file.name, theme.workFace))
@@ -129,7 +129,7 @@ class MissionSurface(
     }
 
     private fun chipRow(chips: List<String>): View {
-        val row = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(3), 0, theme.dp(3)) }
+        val row = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(5), 0, theme.dp(5)) }
         for (chip in chips) {
             val view = text(6, theme.text, chip, theme.displayFace).apply {
                 background = theme.panelDrawable(fill = theme.panel2, stroke = theme.border)
@@ -153,6 +153,14 @@ class MissionSurface(
             layoutParams = LinearLayout.LayoutParams(wrapContent, wrapContent)
         }
 
+    /** Stacked chrome line with its own top gap (milestone 8 line spacing). */
+    private fun gapped(sizeSp: Int, color: Int, value: String, face: Typeface): TextView =
+        text(sizeSp, color, value, face).apply {
+        layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
+            topMargin = theme.dp(5)
+        }
+    }
+
     private fun text(sizeSp: Int, color: Int, value: String = "", face: Typeface = theme.displayFace): TextView =
         TextView(activity).apply {
             text = value
@@ -160,6 +168,7 @@ class MissionSurface(
             typeface = face
             setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp.toFloat())
             includeFontPadding = false
+            setLineSpacing(theme.chromeLineSpacingPx().toFloat(), 1f)
             layoutParams = LinearLayout.LayoutParams(wrapContent, wrapContent)
         }
 

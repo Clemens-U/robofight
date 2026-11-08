@@ -573,6 +573,7 @@ per milestone):
       (no parallel sim, db contents unchanged); RUN/STEP/RESET measured at
       48dp with content descriptions incl. the grid's live state line, and
       the run surface stays readable at 720x1280. 51 unit tests green.
+- [x] 8. Post-gate device polish (milestone 8): the shell root pads itself by the system bar insets (`setOnApplyWindowInsetsListener`; edge-to-edge is enforced from targetSdk 35, so the chrome no longer draws under the status bar and the pinned RUN/STEP/RESET bar clears the nav bar; re-dispatched onResume and after rotation), the FILES | MISSION | RESULT tabs are equal thirds of the full row (weight 1 + 4dp gutters), and chrome line spacing is raised (`FirelineTheme.chromeLineSpacingPx` 5dp extra leading, `chromeBlockGapPx` 7dp block gaps, 4dp stat/event row margins across FILES/MISSION/RESULT/run surfaces; editor gutter metrics and grid density math untouched). On-device evidence (emulator-5554): wordmark top y=89 vs the 63px status bar, tabs 31..363 / 373..706 / 716..1049, RUN/STEP/RESET bottom 2311 vs nav bar 2337, same at 720x1280 and after rotation; `testDebugUnitTest` + `assembleDebug` BUILD SUCCESSFUL, 51 tests, 0 failures.
 
 Locked build facts (do not re-derive): AGP 9.4.1 built-in Kotlin only (no
 `org.jetbrains.kotlin.android`), `jvmTarget` pinned to 11, `namespace` and

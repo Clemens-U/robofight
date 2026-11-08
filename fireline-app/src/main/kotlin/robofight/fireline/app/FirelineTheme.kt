@@ -71,6 +71,18 @@ class FirelineTheme(private val context: Context) {
 
     fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
 
+    /**
+     * Extra leading for stacked chrome/body text (milestone 8 polish). Every
+     * text view here sets `includeFontPadding = false`, which removes the
+     * font's own leading - so stacked 7-8sp lines visually touch. The chrome
+     * surfaces add this gap explicitly instead of re-enabling font padding
+     * (the editor's gutter math relies on the metrics staying as-is).
+     */
+    fun chromeLineSpacingPx(): Int = dp(CHROME_LINE_SPACING_DP)
+
+    /** Vertical gap between chrome blocks (tagline, status row, cards, stat rows). */
+    fun chromeBlockGapPx(): Int = dp(CHROME_BLOCK_GAP_DP)
+
     /** Card fill with a border, the house pattern for panel chrome. */
     fun panelDrawable(fill: Int = panel, stroke: Int = border, radiusDp: Int = 2): GradientDrawable =
         GradientDrawable().apply {
@@ -88,4 +100,8 @@ class FirelineTheme(private val context: Context) {
             )
         }
 
+    companion object {
+        private const val CHROME_LINE_SPACING_DP = 5
+        private const val CHROME_BLOCK_GAP_DP = 7
+    }
 }

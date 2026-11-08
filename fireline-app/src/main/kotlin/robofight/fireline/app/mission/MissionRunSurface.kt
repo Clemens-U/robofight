@@ -70,7 +70,7 @@ class MissionRunSurface(
 
         val card = column(matchParent, wrapContent).apply {
             background = theme.panelDrawable()
-            setPadding(theme.dp(8), theme.dp(5), theme.dp(8), theme.dp(5))
+            setPadding(theme.dp(8), theme.dp(8), theme.dp(8), theme.dp(8))
         }
         card.addView(text(
             9, theme.textBright,
@@ -85,7 +85,15 @@ class MissionRunSurface(
         ))
         card.addView(text(7, theme.text, mission.briefing, theme.workFace))
         card.addView(chipRow(MissionPickerModel.objectiveChips(mission)))
+        // The tick / status rows were flush under the chips (milestone 8):
+        // each status line gets its own chrome gap.
+        tickLine.layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
+            topMargin = theme.chromeBlockGapPx()
+        }
         card.addView(tickLine)
+        statusLine.layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
+            topMargin = theme.dp(4)
+        }
         card.addView(statusLine)
         main.addView(card)
 
@@ -98,7 +106,7 @@ class MissionRunSurface(
             background = theme.panelDrawable()
             setPadding(theme.dp(4), theme.dp(4), theme.dp(4), theme.dp(4))
             layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
-                topMargin = theme.dp(6)
+                topMargin = theme.chromeBlockGapPx()
             }
         }
         gridView.layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent)
@@ -191,13 +199,13 @@ class MissionRunSurface(
     private fun instrumentRow(): View {
         val row = row(matchParent, wrapContent).apply {
             layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
-                topMargin = theme.dp(6)
+                topMargin = theme.chromeBlockGapPx()
             }
         }
 
         val vm = column(0, wrapContent).apply {
             background = theme.panelDrawable()
-            setPadding(theme.dp(8), theme.dp(6), theme.dp(8), theme.dp(6))
+            setPadding(theme.dp(8), theme.dp(8), theme.dp(8), theme.dp(8))
             layoutParams = LinearLayout.LayoutParams(0, wrapContent, 1f)
         }
         vm.addView(text(7, theme.textBright, "RF-8", theme.displayFace))
@@ -209,7 +217,7 @@ class MissionRunSurface(
 
         val tele = column(0, wrapContent).apply {
             background = theme.panelDrawable()
-            setPadding(theme.dp(8), theme.dp(6), theme.dp(8), theme.dp(6))
+            setPadding(theme.dp(8), theme.dp(8), theme.dp(8), theme.dp(8))
             layoutParams = LinearLayout.LayoutParams(0, wrapContent, 1f)
         }
         tele.addView(text(7, theme.textBright, "TELEMETRY", theme.displayFace))
@@ -232,14 +240,21 @@ class MissionRunSurface(
     private fun eventPanel(): View {
         val panel = column(matchParent, wrapContent).apply {
             background = theme.panelDrawable()
-            setPadding(theme.dp(8), theme.dp(6), theme.dp(8), theme.dp(6))
+            setPadding(theme.dp(8), theme.dp(8), theme.dp(8), theme.dp(8))
             layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
-                topMargin = theme.dp(6)
+                topMargin = theme.chromeBlockGapPx()
             }
             contentDescription = "EVENTS  //  tap for full log"
         }
         panel.addView(text(7, theme.textBright, "EVENTS  //  tap for full log", theme.displayFace))
-        eventLabels.forEach { panel.addView(it) }
+        // Event rows are separate TextViews: give each one its own gap so the
+        // log tail stops reading as one dense block (milestone 8).
+        eventLabels.forEach { label ->
+            label.layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
+                topMargin = theme.dp(4)
+            }
+            panel.addView(label)
+        }
         val open = { showLogOverlay() }
         panel.setOnClickListener { open() }
         eventLabels.forEach { it.setOnClickListener { open() } }
@@ -253,7 +268,7 @@ class MissionRunSurface(
         logOverlay.setBackgroundColor(theme.field)
         logOverlay.isVerticalScrollBarEnabled = true
         val body = column(matchParent, wrapContent).apply {
-            setPadding(theme.dp(10), theme.dp(8), theme.dp(10), theme.dp(8))
+            setPadding(theme.dp(10), theme.dp(10), theme.dp(10), theme.dp(10))
         }
         val head = row(matchParent, wrapContent)
         head.addView(text(8, theme.textBright, "FULL EVENT LOG  //  newest first", theme.displayFace))
@@ -271,7 +286,13 @@ class MissionRunSurface(
         logColumn.removeAllViews()
         val lines = session.fullLogNewestFirst()
         if (lines.isEmpty()) logColumn.addView(text(7, theme.textDim, "no events yet", theme.workFace))
-        for (line in lines) logColumn.addView(text(7, theme.text, line, theme.workFace))
+        for (line in lines) {
+            logColumn.addView(text(7, theme.text, line, theme.workFace).apply {
+                layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
+                    topMargin = theme.dp(4)
+                }
+            })
+        }
         logOverlay.visibility = View.VISIBLE
     }
 
@@ -353,7 +374,7 @@ class MissionRunSurface(
         }
 
     private fun chipRow(chips: List<String>): View {
-        val row = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(2), 0, theme.dp(2)) }
+        val row = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(4), 0, theme.dp(4)) }
         for (chip in chips) {
             row.addView(text(6, theme.text, chip, theme.displayFace).apply {
                 background = theme.panelDrawable(fill = theme.panel2, stroke = theme.border)
@@ -371,6 +392,9 @@ class MissionRunSurface(
             typeface = face
             setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp.toFloat())
             includeFontPadding = false
+            // Stacked telemetry / status lines need explicit leading (font
+            // padding is off); wrapped lines only - single rows are unaffected.
+            setLineSpacing(theme.chromeLineSpacingPx().toFloat(), 1f)
             layoutParams = LinearLayout.LayoutParams(wrapContent, wrapContent)
         }
 

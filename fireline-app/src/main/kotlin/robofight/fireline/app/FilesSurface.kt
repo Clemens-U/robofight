@@ -52,6 +52,11 @@ class FilesSurface(
 
     init {
         column.addView(button("NEW FILE", theme.runFill, theme.runText, onNewFile))
+        // Status row between the button and the card list (milestone 8 line
+        // spacing polish: the row used to sit flush against both).
+        notice.layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
+            topMargin = theme.chromeBlockGapPx()
+        }
         column.addView(notice)
         column.addView(list)
         column.addView(importExportRow())
@@ -77,7 +82,11 @@ class FilesSurface(
     }
 
     private fun importExportRow(): View {
-        val row = row(matchParent, wrapContent)
+        val row = row(matchParent, wrapContent).apply {
+            layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
+                topMargin = theme.dp(10)
+            }
+        }
         row.addView(button("IMPORT .asm", theme.secondaryFill, theme.secondaryText, onImport))
         row.addView(spacer())
         row.addView(button("EXPORT .asm", theme.secondaryFill, theme.secondaryText, { onExport(currentSelection()) }))
@@ -92,9 +101,9 @@ class FilesSurface(
         val stats = EditorModel.cardStats(file.source)
         val card = column(wrapContent, wrapContent).apply {
             background = theme.panelDrawable()
-            setPadding(theme.dp(8), theme.dp(6), theme.dp(8), theme.dp(6))
+            setPadding(theme.dp(8), theme.dp(8), theme.dp(8), theme.dp(8))
             layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
-                topMargin = theme.dp(6)
+                topMargin = theme.chromeBlockGapPx()
             }
         }
         val header = row(matchParent, wrapContent)
@@ -103,7 +112,11 @@ class FilesSurface(
         header.addView(text(8, theme.textDim, stats.format(), theme.workFace))
         card.addView(header)
 
-        val meta = row(matchParent, wrapContent)
+        val meta = row(matchParent, wrapContent).apply {
+            layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
+                topMargin = theme.dp(6)
+            }
+        }
         meta.addView(text(7, theme.textDim, "edited " + formatFileTime(file.updatedMillis), theme.workFace))
         meta.addView(spacer())
         if (file.name.equals(selectedName, ignoreCase = true)) {
@@ -111,7 +124,11 @@ class FilesSurface(
         }
         card.addView(meta)
 
-        val actions = row(matchParent, wrapContent)
+        val actions = row(matchParent, wrapContent).apply {
+            layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
+                topMargin = theme.dp(6)
+            }
+        }
         actions.addView(button("EDIT", theme.secondaryFill, theme.secondaryText, { onEdit(file) }))
         actions.addView(button("[>]", theme.runFill, theme.runText, { onSelectFirmware(file) }))
         actions.addView(button("COPY", theme.secondaryFill, theme.secondaryText, { onDuplicate(file) }))
@@ -139,6 +156,7 @@ class FilesSurface(
             typeface = face
             setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp.toFloat())
             includeFontPadding = false
+            setLineSpacing(theme.chromeLineSpacingPx().toFloat(), 1f)
             layoutParams = LinearLayout.LayoutParams(wrapContent, wrapContent)
         }
 

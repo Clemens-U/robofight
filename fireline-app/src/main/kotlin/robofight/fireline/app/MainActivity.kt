@@ -62,6 +62,7 @@ class MainActivity : Activity() {
     private lateinit var contentFrame: FrameLayout
     private lateinit var tabs: MutableMap<String, TextView>
     private lateinit var filesSurface: FilesSurface
+    private var shellRoot: LinearLayout? = null
 
     private var selectedFirmwareName: String? = null
     private var currentTab: String = "FILES"
@@ -82,15 +83,47 @@ class MainActivity : Activity() {
         selectedFirmwareName = firmwareSelection.get()
         buildFilesSurface()
         setContentView(buildShell())
+        // Make sure the first layout pass already carries the system bar insets
+        // (some windows deliver the first dispatch only on request).
+        redispatchInsets()
         showFiles()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // The bars can change shape while the app is backgrounded (gesture
+        // nav vs button nav, display cutout, rotation): re-read them.
+        redispatchInsets()
     }
 
     // ---- shell ------------------------------------------------------------------
 
     private fun buildShell(): View {
+        val baseSide = theme.dp(12)
+        val baseVertical = theme.dp(10)
         val root = column(matchParent, matchParent).apply {
             setBackgroundColor(theme.field)
-            setPadding(theme.dp(12), theme.dp(10), theme.dp(12), theme.dp(10))
+            setPadding(baseSide, baseVertical, baseSide, baseVertical)
+            // Edge-to-edge is enforced from targetSdk 35 (we build against 36):
+            // the window draws behind the status and navigation bars and the
+            // framework no longer insets the content for us, so chrome that
+            // ignores the insets sits under the status bar. Framework-only
+            // handling (no androidx): the root keeps its own chrome padding
+            // and adds the system bar insets on top of it - top for the
+            // wordmark strip, bottom so the pinned RUN / STEP / RESET bar
+            // clears the navigation bar. The listener lives as long as this
+            // view tree, so a rotation or a nav-bar mode change re-pads from
+            // the freshly dispatched insets instead of the build-time values.
+            setOnApplyWindowInsetsListener { view, insets ->
+                val (left, top, right, bottom) = insetParts(insets)
+                view.setPadding(
+                    baseSide + left,
+                    baseVertical + top,
+                    baseSide + right,
+                    baseVertical + bottom,
+                )
+                insets
+            }
         }
         root.addView(wordmarkStrip())
         root.addView(theme.rule())
@@ -99,8 +132,35 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(matchParent, 0, 1f)
         }
         root.addView(contentFrame)
+        shellRoot = root
         return root
     }
+
+    /** Ask the window to re-dispatch insets (rotation, nav-bar mode change). */
+    private fun redispatchInsets() {
+        shellRoot?.requestApplyInsets()
+    }
+
+    /**
+     * The four system-bar inset sides. `WindowInsets.Type` / `getInsets` are
+     * API 30+ (and the old `left/top/right/bottom` getters are gone from the
+     * API 36 platform), so minSdk 24 devices read the legacy system-window
+     * sides instead - there they also cover the IME, which is exactly the
+     * resize the old `adjustResize` behaviour produced.
+     */
+    @Suppress("DEPRECATION")
+    private fun insetParts(insets: android.view.WindowInsets): IntArray =
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            val bars = insets.getInsets(android.view.WindowInsets.Type.systemBars())
+            intArrayOf(bars.left, bars.top, bars.right, bars.bottom)
+        } else {
+            intArrayOf(
+                insets.systemWindowInsetLeft,
+                insets.systemWindowInsetTop,
+                insets.systemWindowInsetRight,
+                insets.systemWindowInsetBottom,
+            )
+        }
 
     private fun wordmarkStrip(): View {
         val strip = row(matchParent, wrapContent)
@@ -109,21 +169,35 @@ class MainActivity : Activity() {
         strip.addView(label("RF-8", 10, theme.textDim, theme.displayFace))
         val block = column(matchParent, wrapContent)
         block.addView(strip)
-        block.addView(label(getString(R.string.tagline), 8, theme.textDim, theme.displayFace))
+        // The tagline sat flush under the wordmark (0 gap): give it its own
+        // chrome block gap (milestone 8 line-spacing polish).
+        block.addView(label(getString(R.string.tagline), 8, theme.textDim, theme.displayFace).apply {
+            layoutParams = LinearLayout.LayoutParams(wrapContent, wrapContent).apply {
+                topMargin = theme.chromeBlockGapPx()
+            }
+        })
         return block
     }
 
     /** Tab order FILES | MISSION | RESULT (FIRELINE-DESIGN 11.1). */
     private fun tabStrip(): View {
-        val strip = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(8), 0, theme.dp(8)) }
+        val strip = row(matchParent, wrapContent).apply {
+            setPadding(0, theme.dp(10), 0, theme.dp(10))
+        }
         tabs = LinkedHashMap()
-        for (name in listOf("FILES", "MISSION", "RESULT")) {
+        for ((index, name) in listOf("FILES", "MISSION", "RESULT").withIndex()) {
             val tab = label(name, 8, theme.textDim, theme.displayFace).apply {
                 background = theme.panelDrawable(fill = theme.secondaryFill, stroke = theme.border)
                 setPadding(theme.dp(10), theme.dp(6), theme.dp(10), theme.dp(6))
                 gravity = Gravity.CENTER
                 contentDescription = name
                 setOnClickListener { onTab(name) }
+                // Equal thirds of the full row instead of content width
+                // (milestone 8): weight 1 with width 0 makes every tab the
+                // same width and the strip spans the whole surface.
+                layoutParams = LinearLayout.LayoutParams(0, wrapContent, 1f).apply {
+                    if (index > 0) marginStart = theme.dp(4)
+                }
             }
             tabs[name] = tab
             strip.addView(tab)
@@ -504,6 +578,9 @@ class MainActivity : Activity() {
             typeface = face
             setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp.toFloat())
             includeFontPadding = false
+            // Chrome labels that wrap (tagline, notices) read cramped with the
+            // font padding off; the extra leading only applies between lines.
+            setLineSpacing(theme.chromeLineSpacingPx().toFloat(), 1f)
             layoutParams = LinearLayout.LayoutParams(wrapContent, wrapContent)
         }
 
