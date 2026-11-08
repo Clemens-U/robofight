@@ -47,7 +47,7 @@ class ResultSurface(
                 stroke = if (summary.success) theme.caret else theme.runFill,
             )
             setPadding(theme.dp(10), theme.dp(12), theme.dp(10), theme.dp(12))
-            setLineSpacing(theme.chromeLineSpacingPx().toFloat(), 1f)
+            setLineSpacing(0f, 1f)
             layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
                 topMargin = theme.chromeBlockGapPx()
             }
@@ -55,21 +55,21 @@ class ResultSurface(
         column.addView(banner)
         // Mission line and objective chips were flush under the banner; every
         // chrome block now gets its own vertical gap (milestone 8).
-        column.addView(text(8, theme.text, ResultModel.missionLine(summary), theme.workFace).apply {
+        column.addView(text(13, theme.text, ResultModel.missionLine(summary), theme.workFace).apply {
             layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
                 topMargin = theme.chromeBlockGapPx()
             }
         })
 
-        val chips = row(matchParent, wrapContent).apply {
+        val chips = column(matchParent, wrapContent).apply {
             setPadding(0, theme.dp(7), 0, theme.dp(7))
         }
-        chips.addView(text(7, theme.textDim, "objectives:", theme.displayFace))
+        chips.addView(text(13, theme.textDim, "Objectives:", theme.workFace))
         for ((name, met) in ResultModel.objectiveChips(summary)) {
             chips.addView(text(
-                7, if (met) theme.caret else theme.runFill,
+                13, if (met) theme.caret else theme.runFill,
                 "${if (met) "o" else "x"} $name",
-                theme.displayFace,
+                theme.workFace,
             ).apply { setPadding(theme.dp(5), 0, theme.dp(5), 0) })
         }
         column.addView(chips)
@@ -93,9 +93,9 @@ class ResultSurface(
             }
             contentDescription = "WHY  //  last events, tap for the log tail"
         }
-        why.addView(text(7, theme.textBright, "WHY: last events  //  tap for log tail", theme.displayFace))
+        why.addView(text(13, theme.textBright, "WHY: last events / tap for log tail", theme.workFace))
         val tail = ResultModel.whyLines(summary)
-        if (tail.isEmpty()) why.addView(text(7, theme.textDim, "no events recorded", theme.workFace))
+        if (tail.isEmpty()) why.addView(text(13, theme.textDim, "no events recorded", theme.workFace))
         addStackedRows(why, tail.take(WHY_VISIBLE), theme.text)
         val openLog = { showLogOverlay(tail) }
         why.setOnClickListener { openLog() }
@@ -125,7 +125,8 @@ class ResultSurface(
             setPadding(theme.dp(10), theme.dp(8), theme.dp(10), theme.dp(8))
         }
         val head = row(matchParent, wrapContent)
-        head.addView(text(8, theme.textBright, "RUN EVENT LOG TAIL  //  newest first", theme.displayFace))
+        head.addView(text(14, theme.textBright, "EVENT LOG / newest first", theme.workFace),
+            LinearLayout.LayoutParams(0, wrapContent, 1f))
         head.addView(spacer())
         head.addView(button("CLOSE", theme.secondaryFill, theme.secondaryText) {
             logOverlay.visibility = View.GONE
@@ -137,7 +138,7 @@ class ResultSurface(
 
     private fun showLogOverlay(tail: List<String>) {
         logColumn.removeAllViews()
-        if (tail.isEmpty()) logColumn.addView(text(7, theme.textDim, "no events recorded", theme.workFace))
+        if (tail.isEmpty()) logColumn.addView(text(13, theme.textDim, "no events recorded", theme.workFace))
         addStackedRows(logColumn, tail, theme.text)
         logOverlay.visibility = View.VISIBLE
     }
@@ -151,7 +152,7 @@ class ResultSurface(
      */
     private fun addStackedRows(target: LinearLayout, lines: List<String>, color: Int) {
         for (line in lines) {
-            val row = text(7, color, line, theme.workFace)
+            val row = text(13, color, line, theme.workFace)
             row.layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
                 topMargin = theme.dp(STAT_ROW_GAP_DP)
             }
@@ -176,7 +177,7 @@ class ResultSurface(
             typeface = face
             setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp.toFloat())
             includeFontPadding = false
-            setLineSpacing(theme.chromeLineSpacingPx().toFloat(), 1f)
+            setLineSpacing(0f, 1f)
             layoutParams = LinearLayout.LayoutParams(wrapContent, wrapContent)
         }
 
@@ -196,7 +197,7 @@ class ResultSurface(
 
     companion object {
         private const val WHY_VISIBLE = 4
-        private const val STAT_ROW_GAP_DP = 4
+        private const val STAT_ROW_GAP_DP = 2
         private val matchParent = ViewGroup.LayoutParams.MATCH_PARENT
         private val wrapContent = ViewGroup.LayoutParams.WRAP_CONTENT
     }

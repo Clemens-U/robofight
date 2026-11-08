@@ -70,21 +70,19 @@ class MissionSurface(
         }
         val head = row(matchParent, wrapContent)
         head.addView(text(9, theme.textBright, "${card.idLabel}  ${card.name}", theme.displayFace))
-        head.addView(spacer())
-        card.badgeLabel?.let { head.addView(text(7, theme.caret, it, theme.displayFace)) }
         panel.addView(head)
 
-        panel.addView(gapped(7, theme.text, card.briefing, theme.workFace))
+        panel.addView(gapped(11, theme.text, card.briefing, theme.workFace))
         panel.addView(chipRow(card.objectiveChips))
         panel.addView(gapped(
-            7, theme.textDim,
+            10, theme.textDim,
             "${card.seedLabel}  //  ${card.timeLimitLabel}  //  WIND ${card.windLabel}  //  WATER ${card.startingWater}",
             theme.workFace,
         ))
-        if (card.badgeLabel == null) panel.addView(gapped(7, theme.textDim, "no run recorded yet for engine v$FIRELINE_ENGINE_VERSION", theme.workFace))
+        if (card.badgeLabel == null) panel.addView(gapped(10, theme.textDim, "no run recorded yet for engine v$FIRELINE_ENGINE_VERSION", theme.workFace))
 
-        val actions = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(7), 0, 0) }
-        val notice = text(7, theme.textDim).apply { visibility = View.GONE }
+        val actions = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(4), 0, 0) }
+        val notice = text(12, theme.textDim, face = theme.workFace).apply { visibility = View.GONE }
         actions.addView(button("OPEN MISSION", theme.runFill, theme.runText, {
             val firmware = selection.get()
             if (firmware == null || store.find(firmware) == null) {
@@ -116,9 +114,10 @@ class MissionSurface(
                     topMargin = theme.dp(6)
                 }
             }
-            card.addView(text(8, theme.text, file.name, theme.workFace))
+            card.addView(text(12, theme.text, file.name, theme.workFace),
+                LinearLayout.LayoutParams(0, wrapContent, 1f))
             card.addView(spacer())
-            card.addView(text(7, theme.textDim, EditorModel.cardStats(file.source).format(), theme.workFace))
+            card.addView(text(11, theme.textDim, EditorModel.cardStats(file.source).format(), theme.workFace))
             if (file.name.equals(selected, ignoreCase = true)) {
                 card.addView(text(7, theme.caret, "SELECTED", theme.displayFace))
             }
@@ -136,11 +135,11 @@ class MissionSurface(
     }
 
     private fun chipRow(chips: List<String>): View {
-        val row = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(5), 0, theme.dp(5)) }
+        val row = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(3), 0, theme.dp(1)) }
         for (chip in chips) {
-            val view = text(6, theme.text, chip, theme.displayFace).apply {
+            val view = text(10, theme.text, chip.replace('_', ' '), theme.workFace).apply {
                 background = theme.panelDrawable(fill = theme.panel2, stroke = theme.border)
-                setPadding(theme.dp(5), theme.dp(3), theme.dp(5), theme.dp(3))
+                setPadding(theme.dp(4), theme.dp(2), theme.dp(4), theme.dp(2))
                 contentDescription = chip
             }
             row.addView(view)
@@ -160,11 +159,11 @@ class MissionSurface(
             layoutParams = LinearLayout.LayoutParams(wrapContent, wrapContent)
         }
 
-    /** Stacked chrome line with its own top gap (milestone 8 line spacing). */
+    /** Small section gap; wrapped body lines use the font's natural leading. */
     private fun gapped(sizeSp: Int, color: Int, value: String, face: Typeface): TextView =
         text(sizeSp, color, value, face).apply {
         layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
-            topMargin = theme.dp(5)
+            topMargin = theme.dp(2)
         }
     }
 
@@ -175,7 +174,7 @@ class MissionSurface(
             typeface = face
             setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp.toFloat())
             includeFontPadding = false
-            setLineSpacing(theme.chromeLineSpacingPx().toFloat(), 1f)
+            setLineSpacing(0f, 1f)
             layoutParams = LinearLayout.LayoutParams(wrapContent, wrapContent)
         }
 

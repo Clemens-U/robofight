@@ -208,7 +208,13 @@ class MainActivity : Activity() {
     private fun onTab(name: String) {
         when (name) {
             "FILES" -> showFiles()
-            "MISSION" -> showMission()
+            "MISSION" -> {
+                val run = currentRunSurface
+                if (run == null) showMission() else {
+                    selectTab("MISSION")
+                    showContent(run.root)
+                }
+            }
             "RESULT" -> showResult()
         }
     }
@@ -305,9 +311,10 @@ class MainActivity : Activity() {
             onRunFinished = { summary ->
                 bestStore.update(summary)
                 runStore.put(summary)
-                currentRunSurface = null
-                showResult()
+                // Leave the finished world visible. RESULT is an explicit tab
+                // choice; returning to MISSION restores this same final grid.
             },
+            onMissionList = { showMission() },
         )
         currentRunSurface = surface
         selectTab("MISSION")
@@ -323,7 +330,7 @@ class MainActivity : Activity() {
     /** RESULT renders only from the stored RunSummary (12.1: plain data). */
     private fun showResult() {
         editorSurface = null
-        stopActiveRun()
+        currentRunSurface?.stopRun()
         selectTab("RESULT")
         val summary = runStore.get()
         if (summary == null) {

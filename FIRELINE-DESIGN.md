@@ -736,10 +736,35 @@ Below or beside the grid show:
 - latest event, such as `FIRE +25`, `CIVILIAN RESCUED`, `SHIELD ACTIVE`, or
   `WATER EMPTY`.
 
+Readability amendment (2026-11-08): instrument overview uses 11sp monospace,
+event rows use 12sp, and tapping the instrument panel opens a scrollable 14sp
+snapshot of registers, source context, and telemetry. Mission picker cards retain
+compact typography with 11sp descriptions, 10sp metadata/badges, natural font
+line spacing (no extra 5dp leading), and 2dp section gaps. The separate briefing
+uses readable 14sp text. Run and result text also use natural font leading.
+Result details use 13sp text with natural wrapping. Full run logs use 14sp.
+Keep mission identity/goals, the entire 20x20 grid, and bottom controls/status
+pinned. Reserve a separate EVENTS panel with four 12sp rows above the run
+controls; instrument scrolling must never hide the event tail. Long event rows
+may ellipsize, with the complete text available in the full log. Scale the square
+grid to fit the available width and height; only the instrument panel scrolls
+independently below it. Never crop grid
+rows to make room for telemetry.
+
+When a mission finishes, record its result but retain the final grid on MISSION.
+RESULT is opened explicitly; switching back to MISSION restores the same paused
+or finished session during the activity lifetime. LIST opens the mission picker.
+This is an in-memory view, not persistence/restoration of mutable world state.
+
 ### 11.5 Simulation controls
 
 - `RUN` advances on the app's normal timer until paused or finished.
-- `STEP` advances exactly one **world tick**, not one completed instruction.
+- While RUN is active, `STEP` first pauses at the current tick without advancing
+  or rebuilding the session. Preserve registers, PC, pending multi-tick
+  instruction, world state, RNG, and event history. Subsequent paused `STEP`
+  presses advance exactly one **world tick**, not one completed instruction.
+- Opening the full event log or instrument inspector pauses the same session.
+  Closing either leaves it paused. `RUN` explicitly resumes from that context.
 - `RESET` reconstructs the initial world from descriptor and firmware.
 - Editing firmware never mutates a run already in progress; restart to load it.
 - No screen tap directly moves, turns, sprays, or shields the rover.
@@ -884,6 +909,22 @@ FIRELINE MVP is functionally complete when:
 ---
 
 ## 15. Post-MVP directions
+
+### Deferred usability follow-ups (evaluation 2026-11-08)
+
+The following remain deferred; the current startup and failure-result behavior
+is intentionally unchanged:
+
+- First-run onboarding: provide an optional commented starter program and a short
+  edit -> step -> observe -> improve introduction. Preserve offline use and
+  never replace user firmware. Evaluate the experience with an empty library.
+- Failure diagnostics: supplement the authoritative failure reason and event
+  tail with a concise, evidence-based explanation of earlier contributing events
+  (for example repeated shots blocked by a wall before TIME_EXPIRED). Derive
+  explanations from recorded run evidence; never invent a cause or change engine
+  outcomes. Keep the full trace available for inspection.
+
+### Other candidates
 
 Candidates, not commitments:
 

@@ -648,6 +648,14 @@ The migration is complete only when all are true:
 
 ## 13. Decisions deliberately deferred
 
+FIRELINE usability backlog (2026-11-08; see FIRELINE-DESIGN.md section 15):
+
+- [ ] Add optional commented starter firmware and a brief programming-loop
+  introduction for new players. Startup behavior remains unchanged for now.
+- [ ] Add evidence-based failure explanations that retain relevant earlier
+  events, such as repeated blocked shots, alongside the final reason and log.
+  Failure summaries remain unchanged for now.
+
 These are not blockers for starting phases 0-5:
 
 - FIRELINE paid/free editions.
