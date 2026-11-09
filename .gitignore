@@ -27,6 +27,9 @@ Thumbs.db
 # Android Studio IDE config (per-machine, never commit)
 .idea/
 
+# Local auxiliary Git worktrees
+.worktrees/
+
 # scratch / debug artifacts
 build.log
 build-*.log
@@ -34,6 +37,9 @@ shot.png
 window_dump.xml
 # uiautomator hierarchy dumps (scratch, device-specific)
 ui_*.xml
+
+# Play Console submission proof captured during release operations
+play-console-*.png
 
 # headless probe / scratch build dirs
 build-headless/
