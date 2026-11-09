@@ -158,4 +158,22 @@ class FirmwareStoreRulesTest {
         val saved = (repo.save("TAB", "MOV\tA,#1") as SaveOutcome.Saved).file
         assertEquals("MOV    A,#1", saved.source)
     }
+
+    @Test
+    fun starterSeedsOnlyAnEmptyLibrary() {
+        val empty = InMemoryFirmwareRepository()
+        val starter = StarterFirmware.seedIfEmpty(empty)
+        assertNotNull(starter)
+        assertEquals(StarterFirmware.NAME, starter?.name)
+        assertEquals(StarterFirmware.SOURCE, starter?.source)
+        assertEquals(1, empty.count())
+
+        // A second launch must not duplicate it, and an existing library is
+        // never modified by the first-use helper.
+        assertNull(StarterFirmware.seedIfEmpty(empty))
+        val existing = InMemoryFirmwareRepository()
+        existing.save("MY-CODE", "WAIT\n")
+        assertNull(StarterFirmware.seedIfEmpty(existing))
+        assertEquals(listOf("MY-CODE.ASM"), existing.list().map { it.name })
+    }
 }

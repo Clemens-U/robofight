@@ -22,6 +22,7 @@ import robofight.fireline.app.files.FirmwareFile
 import robofight.fireline.app.files.FirmwareFileNames
 import robofight.fireline.app.files.FirmwareRepository
 import robofight.fireline.app.files.SaveOutcome
+import robofight.fireline.app.files.StarterFirmware
 import robofight.fireline.app.editor.EditorModel
 import robofight.fireline.app.mission.BestBadgeStore
 import robofight.fireline.app.mission.FirmwareSelection
@@ -82,6 +83,7 @@ class MainActivity : Activity() {
         missionSelection = MissionSelection(SharedPreferencesValues(prefs))
         bestStore = BestBadgeStore(SharedPreferencesValues(prefs))
         runStore = RunRecordStore(SharedPreferencesValues(prefs))
+        seedStarterFirmwareOnce()
         selectedFirmwareName = firmwareSelection.get()
         buildFilesSurface()
         setContentView(buildShell())
@@ -89,6 +91,17 @@ class MainActivity : Activity() {
         // (some windows deliver the first dispatch only on request).
         redispatchInsets()
         showFiles()
+    }
+
+    /**
+     * Give a fresh install a selected, runnable first program. The preference
+     * prevents a player who intentionally deletes every file from having the
+     * starter recreated on the next launch.
+     */
+    private fun seedStarterFirmwareOnce() {
+        if (prefs.getBoolean(PREF_STARTER_SEEDED, false)) return
+        StarterFirmware.seedIfEmpty(store)?.let { firmwareSelection.set(it.name) }
+        prefs.edit().putBoolean(PREF_STARTER_SEEDED, true).apply()
     }
 
     override fun onResume() {
@@ -622,6 +635,7 @@ class MainActivity : Activity() {
 
     companion object {
         private const val PREFS = "fireline_ui"
+        private const val PREF_STARTER_SEEDED = "starter_firmware_seeded"
         private const val REQ_IMPORT = 41
         private const val REQ_EXPORT = 42
     }

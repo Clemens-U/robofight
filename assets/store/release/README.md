@@ -3,6 +3,12 @@
 Use the `free/` folder for **Opcode Arena** and `circuit/` for
 **Opcode Arena: The Circuit**. Do not mix assets between listings.
 
+Use `fireline/` for **Opcode FIRELINE**. Its three authentic 1080x2400
+emulator captures live under `fireline/screenshots/`; the `*-play.png`
+copies preserve the full captures inside an exact 1080x1920 (9:16) canvas for
+Google Play upload. FIRELINE currently ships three screenshots rather than the
+five used by the Arena listings.
+
 Each folder contains:
 
 - `icon-512.png` — 512×512, 32-bit PNG;

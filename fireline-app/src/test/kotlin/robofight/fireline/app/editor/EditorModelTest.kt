@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import robofight.fireline.Missions
+import robofight.fireline.app.files.StarterFirmware
 
 /**
  * Editor mechanics: gutter, assemble readout, cheat-sheet insertion, card
@@ -31,6 +32,17 @@ class EditorModelTest {
         assertTrue(summary.instructionCount > 0)
         assertEquals(summary.instructionCount * 3, summary.codeBytes)
         assertEquals(emptyList<Pair<Int, String>>(), summary.errors)
+    }
+
+    @Test
+    fun firstUseStarterAssemblesAndCompletesNozzleCheck() {
+        val summary = EditorModel.assembleSource(StarterFirmware.SOURCE)
+        assertTrue(summary.ok)
+        val result = robofight.fireline.FirelineRun.runWithGuard(
+            nozzleCheck,
+            nozzleCheck.descriptorForSource(StarterFirmware.SOURCE),
+        )
+        assertTrue(result.success)
     }
 
     @Test
