@@ -168,6 +168,13 @@ class MainActivity : Activity() {
         val strip = row(matchParent, wrapContent)
         strip.addView(label("OPCODE FIRELINE", 12, theme.textBright, theme.displayFace))
         strip.addView(spacer())
+        strip.addView(label(getString(R.string.privacy), 8, theme.water, theme.displayFace).apply {
+            setPadding(theme.dp(8), theme.dp(4), theme.dp(8), theme.dp(4))
+            contentDescription = "Open FIRELINE privacy policy"
+            setOnClickListener {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.privacy_policy_url))))
+            }
+        })
         strip.addView(label("RF-8", 10, theme.textDim, theme.displayFace))
         val block = column(matchParent, wrapContent)
         block.addView(strip)

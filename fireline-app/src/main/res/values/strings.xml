@@ -6,4 +6,6 @@
     <string name="app_icon_description">Opcode FIRELINE icon</string>
     <string name="tagline">The same little computer. A different job.</string>
     <string name="editor_hint">; RF-8 source  //  comments start with a semicolon</string>
+    <string name="privacy">PRIVACY</string>
+    <string name="privacy_policy_url">https://opcode-fireline.appsystems.at/privacy/</string>
 </resources>
