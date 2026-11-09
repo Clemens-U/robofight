@@ -1,0 +1,16 @@
+{
+  "name": "Opcode FIRELINE",
+  "short_name": "FIRELINE",
+  "description": "Program an RF-8 firefighting rover through deterministic emergency-response missions.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#16100e",
+  "theme_color": "#16100e",
+  "icons": [
+    {
+      "src": "/assets/fireline-helmet-rover.png",
+      "sizes": "1254x1254",
+      "type": "image/png"
+    }
+  ]
+}

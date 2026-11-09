@@ -1,0 +1,16 @@
+{
+  "name": "Opcode Arena",
+  "short_name": "Opcode Arena",
+  "description": "Write RF-8 firmware for an 8-bit robot and watch your code fight.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#000400",
+  "theme_color": "#000400",
+  "icons": [
+    {
+      "src": "/assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

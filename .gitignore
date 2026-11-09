@@ -39,3 +39,9 @@ ui_*.xml
 build-headless/
 build-headless-src/
 build-probe/
+
+# Website deployment output (recreated by website/build.ps1)
+website/dist/
+website/opcode-arena-deploy.zip
+website/fireline-dist/
+website/opcode-fireline-deploy.zip

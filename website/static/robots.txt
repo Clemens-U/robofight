@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://opcode-arena.appsystems.at/sitemap.xml
