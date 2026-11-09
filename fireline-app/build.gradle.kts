@@ -23,6 +23,30 @@ android {
         versionName = "0.1"
     }
 
+    // Use the same local upload key as the Arena apps. The key and password
+    // files are git-ignored and exist only on the signing machine; CI and
+    // source-only checkouts can still configure an unsigned release build.
+    val releaseKeystore = rootProject.file("robofight.keystore")
+    signingConfigs {
+        if (releaseKeystore.exists()) {
+            create("release") {
+                val keystorePasswordFile = rootProject.file("keystore.pass")
+                storeFile = releaseKeystore
+                storePassword = keystorePasswordFile.readText().trim()
+                keyAlias = "robofight"
+                keyPassword = storePassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (releaseKeystore.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+
     testOptions {
         unitTests.all { it.useJUnitPlatform() }
     }
