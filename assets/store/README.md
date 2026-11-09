@@ -51,6 +51,6 @@ the Android emulator at the Play-compliant 1080×2160 resolution; the free
 screenshots are the current 1080×1920 device captures. Upload images are
 24-bit RGB PNGs without alpha; store icons are 32-bit PNGs.
 
-`release/fireline/` contains the Opcode FIRELINE release disclosure draft and
-the selected Helmet Rover 512×512 Play icon. FIRELINE feature artwork and phone
-screenshots are tracked separately from the Arena product sets.
+`release/fireline/` contains the Opcode FIRELINE release disclosure draft,
+the selected Helmet Rover 512×512 Play icon, and its 1024×500 feature graphic.
+FIRELINE phone screenshots are tracked separately from the Arena product sets.
