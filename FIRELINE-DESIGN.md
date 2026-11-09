@@ -144,6 +144,42 @@ Every cell has exactly one terrain kind:
 Terrain identifiers returned by `IN TILE` are the numeric IDs above. A civilian
 does not change the terrain ID.
 
+#### Thin edge walls (engine version 2, 2026-11-08)
+
+Keep full-cell `#` blocks and add thin walls between adjacent cells, using
+Arena's coordinate convention. An edge wall does not occupy either cell or
+change its `TILE` value. The outer grid boundary remains implicit.
+
+- Vertical edges lie RIGHT of `(x,y)`, `x=0..18`, `y=0..19`, stored row-major
+  at `y*19+x` (380 booleans).
+- Horizontal edges lie BELOW `(x,y)`, `x=0..19`, `y=0..18`, stored row-major
+  at `y*20+x` (380 booleans).
+- Edges block crossing in both directions: rover MOVE, initial water emission,
+  in-flight packets, and fire ignition across that edge. A blocked MOVE retains
+  its two-tick cost; a blocked shot still consumes its normal water/heat/ticks.
+- `AHEAD` returns 1 across an edge. Target distance/angle sensors retain their
+  geometric Manhattan/delta behavior, including targets behind walls. Smoke
+  retains the existing local-neighbor formula; walls do not add smoke transport
+  simulation or visibility occlusion.
+- Spread still consumes two random bytes per burning snapshot cell BEFORE
+  testing wall geometry. An edge prevents ignition, not growth of existing fire.
+- Reachability validation follows passable cells through open edges, including
+  gaps in wall segments. Constructor inputs and returned edge arrays are copied.
+- Draw edges as thin lines on grid boundaries, distinct from solid block tiles.
+  Headless output uses a 41x41 cell-and-gutter picture when thin walls exist.
+
+`Layout.decode` accepts optional `verticalEdgeRows` (20 strings of 19 chars,
+`.` open / `|` wall) and `horizontalEdgeRows` (19 strings of 20 chars,
+`.` open / `-` wall). Both default to empty geometry. Encoding methods round-trip
+these maps separately from the unchanged terrain/fire maps. For example a `|`
+at vertical map row 2, column 2 separates cells `(2,2)` and `(3,2)`; a `-` at
+horizontal row 2, column 2 separates `(2,2)` and `(2,3)`.
+
+The canonical hash includes both 380-bit maps after terrain and before fire.
+Thin walls were introduced in engine version 2; ISA/profile port numbers and Arena are unchanged.
+Version-1 stored results remain readable, but their fingerprints/best records
+must not be compared as version-2 runs.
+
 ### 3.3 Dynamic cell state
 
 Each cell additionally stores fire intensity `0..100`.
@@ -213,7 +249,9 @@ is a silent no-op after its normal two-tick instruction cost.
 - creation checks that adjacent cell for fire immediately but does not also
   advance a second cell on the creation tick;
 - on later ticks the packet advances one cell during water resolution;
-- maximum life is 20 resolution ticks;
+- maximum range is **five cells** from the firing position: the adjacent spawn
+  cell is distance 1; on the fifth resolution the packet checks cell 5 for fire,
+  then expires if it has not hit anything. It never enters cell 6;
 - a wall or boundary consumes the packet;
 - the first burning cell contacted loses 25 intensity and consumes the packet;
 - intensity at or below zero becomes zero;
@@ -223,6 +261,14 @@ If water is below 10 when `SHOOT` completes, no packet is created, no water is
 removed, and no heat is added. The instruction still occupies its three ticks.
 Heat lockout is checked when `SHOOT` begins and retains the shared one-tick
 locked-no-op behavior.
+
+Range amendment (2026-11-08): FIRELINE_ENGINE_VERSION is now 3 because this
+changes simulation outcomes. WATER_RANGE=5 and PACKET_LIFE=5 describe the same
+five inspected cells, including the creation tick. Movement of the rover after
+firing does not change a packet's remaining range. Wall/edge/boundary absorption,
+first-fire absorption, three-tick instruction cost, water cost, heat cost, and
+packet speed remain unchanged. Version-2 results remain readable but are not
+ranked against version-3 runs.
 
 ---
 
@@ -565,8 +611,32 @@ Changing this order is a FIRELINE engine-version bump.
 
 ## 9. Authored MVP missions
 
-Ship at least these five deterministic training missions. Exact wall maps are
-content work, but each must pass the stated teaching and validation contract.
+The engine retains the following five authored missions and their deterministic
+tests. The free Android edition offers exactly **01 NOZZLE CHECK**, **02 CORRIDOR**,
+and **04 DOWNWIND** (tier decision 2026-11-08). **03 FIRST RESPONSE** and **05 HOT
+ZONE** are removed from the free picker and cannot be started through historical
+result RETRY actions. Retain their engine definitions for future paid content
+and readable historical results; do not renumber missions or delete user files.
+See PLAN-PRO.md section 9 for FIRELINE paid-version ideas.
+
+Engine-2 layout revision (2026-11-08), explicitly superseding the original
+geometry under the same five mission IDs:
+
+- NOZZLE CHECK: thin north/south fire-pocket edges, retaining the solid backstop.
+- CORRIDOR: thin gated cross-map partition and pocket edges, retaining the solid
+  obstacle immediately ahead of spawn. Gate `(2,2)->(2,3)` stays open.
+- FIRST RESPONSE: thin room partitions beside the rescue route, with open ends
+  preserving access to both civilians and the exit.
+- DOWNWIND: thin north/south containment edges along the fuel lane; refill cells
+  still bound its ends and the paired fuel cells can still ignite each other.
+- HOT ZONE: thin continuous corridor edges above/below the burning lane, retaining
+  the solid west stop. The civilian, refill pockets, exit, and protected asset
+  remain authored at their existing positions.
+
+All reference programs, mission seeds/objectives, and documented failing programs
+retain their teaching contracts; determinism and seed-sweep tests cover the new
+geometry. Existing user firmware remains source-compatible, though outcomes may
+change with the versioned geometry.
 
 ### 9.1 `01 / NOZZLE CHECK`
 
@@ -736,10 +806,38 @@ Below or beside the grid show:
 - latest event, such as `FIRE +25`, `CIVILIAN RESCUED`, `SHIELD ACTIVE`, or
   `WATER EMPTY`.
 
+Readability amendment (2026-11-08): instrument overview uses 11sp monospace,
+event rows use 12sp, and tapping the instrument panel opens a scrollable 14sp
+snapshot of registers, source context, and telemetry. Mission picker cards retain
+compact typography with 11sp descriptions, 10sp metadata/badges, natural font
+line spacing (no extra 5dp leading), and 2dp section gaps. The separate briefing
+uses readable 14sp text. Run and result text also use natural font leading.
+Result details use 13sp text with natural wrapping. Full run logs use 14sp.
+Firmware selection lives only in FILES. The MISSION picker displays the selected
+filename and directs unselected users to FILES; it does not duplicate the file
+list or SELECT buttons below the mission cards.
+Keep mission identity/goals, the entire 20x20 grid, and bottom controls/status
+pinned. Reserve a separate EVENTS panel with four 12sp rows above the run
+controls; instrument scrolling must never hide the event tail. Long event rows
+may ellipsize, with the complete text available in the full log. Scale the square
+grid to fit the available width and height; only the instrument panel scrolls
+independently below it. Never crop grid
+rows to make room for telemetry.
+
+When a mission finishes, record its result but retain the final grid on MISSION.
+RESULT is opened explicitly; switching back to MISSION restores the same paused
+or finished session during the activity lifetime. LIST opens the mission picker.
+This is an in-memory view, not persistence/restoration of mutable world state.
+
 ### 11.5 Simulation controls
 
 - `RUN` advances on the app's normal timer until paused or finished.
-- `STEP` advances exactly one **world tick**, not one completed instruction.
+- While RUN is active, `STEP` first pauses at the current tick without advancing
+  or rebuilding the session. Preserve registers, PC, pending multi-tick
+  instruction, world state, RNG, and event history. Subsequent paused `STEP`
+  presses advance exactly one **world tick**, not one completed instruction.
+- Opening the full event log or instrument inspector pauses the same session.
+  Closing either leaves it paused. `RUN` explicitly resumes from that context.
 - `RESET` reconstructs the initial world from descriptor and firmware.
 - Editing firmware never mutates a run already in progress; restart to load it.
 - No screen tap directly moves, turns, sprays, or shields the rover.
@@ -835,7 +933,8 @@ For every authored mission:
 5. Sweep representative seeds and assert termination under the maximum guard.
 
 The final-state hash input must be canonical and ordered: engine version, tick,
-rover state, row-major terrain/fire arrays, ordered civilians, ordered water
+rover state, row-major terrain, vertical edges, horizontal edges, fire arrays,
+ordered civilians, ordered water
 packets, objective state, and both RNG states. Do not use JVM object hash codes.
 
 ### 13.3 Integration tests
@@ -884,6 +983,22 @@ FIRELINE MVP is functionally complete when:
 ---
 
 ## 15. Post-MVP directions
+
+### Deferred usability follow-ups (evaluation 2026-11-08)
+
+The following remain deferred; the current startup and failure-result behavior
+is intentionally unchanged:
+
+- First-run onboarding: provide an optional commented starter program and a short
+  edit -> step -> observe -> improve introduction. Preserve offline use and
+  never replace user firmware. Evaluate the experience with an empty library.
+- Failure diagnostics: supplement the authoritative failure reason and event
+  tail with a concise, evidence-based explanation of earlier contributing events
+  (for example repeated shots blocked by a wall before TIME_EXPIRED). Derive
+  explanations from recorded run evidence; never invent a cause or change engine
+  outcomes. Keep the full trace available for inspection.
+
+### Other candidates
 
 Candidates, not commitments:
 

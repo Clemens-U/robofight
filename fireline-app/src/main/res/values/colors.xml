@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- LOCKED direction F "Firecall Warm" tokens (DESIGN-FIRELINE.md 2.2b).
+     Single source of truth for FIRELINE color: the app reads these through
+     FirelineTheme instead of re-declaring hex literals in Kotlin. -->
+<resources>
+    <color name="fireline_field">#161718</color>
+    <color name="fireline_panel">#241a17</color>
+    <color name="fireline_panel2">#2a1e1a</color>
+    <color name="fireline_border">#63392f</color>
+    <color name="fireline_gridline">#3a2822</color>
+
+    <color name="fireline_text">#f2d9b0</color>
+    <color name="fireline_text_bright">#fff4dc</color>
+    <color name="fireline_text_dim">#a87f5e</color>
+
+    <color name="fireline_empty">#4a382e</color>
+    <color name="fireline_wall">#8a6d5e</color>
+    <color name="fireline_rover">#ffd23f</color>
+    <color name="fireline_caret">#34ec5b</color>
+
+    <color name="fireline_fire1">#ffb02e</color>
+    <color name="fireline_fire2">#f2921e</color>
+    <color name="fireline_fire3">#e96a2a</color>
+    <color name="fireline_fire4">#e0303c</color>
+
+    <color name="fireline_water">#35d6d6</color>
+    <color name="fireline_refill">#35d6d6</color>
+    <color name="fireline_civilian">#fff1e0</color>
+    <color name="fireline_exit">#00e43c</color>
+    <color name="fireline_fuel">#8d6a1e</color>
+    <color name="fireline_asset">#c77dff</color>
+
+    <color name="fireline_run_fill">#e63946</color>
+    <color name="fireline_run_text">#120a0a</color>
+    <color name="fireline_secondary_fill">#2a1e1a</color>
+    <color name="fireline_secondary_text">#f2d9b0</color>
+</resources>

@@ -1,0 +1,194 @@
+package robofight.isa
+
+/**
+ * RF-8 instruction set — shared by the assembler (encoding) and the VM (decoding).
+ *
+ * Every instruction is exactly 3 bytes:
+ *
+ *   byte 0          : opcode (0..255)
+ *   bytes 1–2 (LE)  : 16-bit operand; interpretation depends on [OperandKind]
+ *
+ * Fixed-size instructions mean labels are trivial: byte offset of line i = i * 3,
+ * so the assembler does not need to know instruction widths to place labels.
+ *
+ * Operand kinds (see [OperandKind] below):
+ *   NONE   — no operand (operand field unused)
+ *   IMM    — 8-bit immediate, bytes 1–2 hold value 0..255 in byte 1, byte 2 = 0
+ *   REG    — operand low nibble = register id (0=A, 1=X, 2=Y)
+ *   ABS    — 16-bit absolute memory address
+ *   REL    — signed 8-bit relative offset (byte 1, two's complement); byte 2 = 0
+ *   PORT   — 8-bit I/O port number (byte 1), byte 2 = 0
+ *   IND    — indirect via X: memory[X] (operand field unused)
+ */
+object ISA {
+    /**
+     * Per-opcode tick cost — how many world ticks an instruction occupies.
+     *
+     * Physical actions take longer than bookkeeping: SHOOT/SHIELD strain the
+     * drive system (3 ticks), MOVE actuates the chassis (2 ticks), everything
+     * else (MOV/ALU/jumps/stack/sensors) is 1 tick.
+     *
+     * Balance invariant (see World.tickOnce cooling gate): a heat-adding op
+     * suppresses cooling for its ENTIRE duration, not just its completion
+     * tick. So 5 back-to-back SHOOTs still reach exactly 100 heat with zero
+     * cooling in between (burst lockout unchanged), a SHOOT+JMP loop still
+     * nets +18 heat per shot, and a locked-out SHOOT collapses to a 1-tick
+     * no-op that cools normally — recovery stays ~10 ticks as before.
+     *
+     * Env side effects fire on the op's FINAL tick. Per
+     * RF8-PLATFORM-SPEC.md §6.1, `SHIELD` is a TWO-tick activation: on its
+     * final tick it arms a five-tick protected window (see World's
+     * SHIELD_DURATION); the window covers five world resolutions and is
+     * decremented only after each resolution.
+     */
+    private val COST = IntArray(256) { 1 }
+    init {
+        COST[0xB0] = 3   // SHOOT
+        COST[0xB5] = 2   // SHIELD (two-tick activation; five-tick duration; spec §6.1)
+        COST[0xB4] = 2   // MOVE
+    }
+    fun cost(opcode: Int): Int = COST[opcode and 0xFF]
+
+    // ---- Operand kinds ----
+    const val NONE = 0
+    const val IMM = 1
+    const val REG = 2
+    const val ABS = 3
+    const val REL = 4
+    const val PORT = 5
+    const val IND = 6
+
+    // ---- I/O ports ($00C0+) ----
+    // Base body ports (0..11) — the legacy name→number view. The full
+    // official allocation (discovery + FIRELINE ports) lives in
+    // PortCatalog (RF8-PLATFORM-SPEC.md §4.3/§5); numbers 0..11 are frozen.
+    val PORT_NAMES: Map<String, Int> = PortCatalog.baseNameToNumber()
+    val PORT_NUMS = PORT_NAMES.values.toTypedArray()
+    const val NUM_PORTS = PortCatalog.BASE_PORTS
+
+    // ---- Register ids (for REG operand) ----
+    const val REG_A = 0
+    const val REG_X = 1
+    const val REG_Y = 2
+
+    // ---- Memory map ----
+    const val DATA_START = 0x0000
+    const val DATA_END = 0x007F
+    const val STACK_TOP = 0x00BF
+    const val IO_BASE = 0x00C0
+    const val PROG_BASE = 0x0100
+    const val PROG_END = 0x03FF
+    const val MEM_SIZE = 0x0400
+    const val INSN_BYTES = 3
+
+    // ---- System zero-page (C64-style) ----
+    // The world owns $0000–$000F of each bot's data RAM and re-writes it every
+    // tick, so a stray firmware write self-heals on the next tick; firmware
+    // should treat the page as read-only. $SYS_TICK..$SYS_TICK+2 holds the
+    // 24-bit tick counter, little-endian (covers the 1M-tick cap, no wrap).
+    const val SYS_PAGE_END = 0x000F
+    const val SYS_TICK = 0x0000
+
+    // ---- Opcode table ----
+    // op -> operand kind
+    private val KIND = IntArray(256) { NONE }
+    // op -> mnemonic (for listings / step log)
+    private val NAME = Array(256) { "???" }
+    private val DEFINED = BooleanArray(256)
+
+    private fun def(code: Int, name: String, kind: Int) {
+        KIND[code] = kind
+        NAME[code] = name
+        DEFINED[code] = true
+    }
+
+    init {
+        // ---- MOV ----
+        def(0x00, "MOV A,#n",  IMM)
+        def(0x01, "MOV A,[a]", ABS)
+        def(0x02, "MOV A,X",   REG)  // reg = X
+        def(0x03, "MOV A,Y",   REG)  // reg = Y
+        def(0x04, "MOV A,(X)", IND)
+        def(0x05, "MOV [a],A", ABS)
+        def(0x06, "MOV (X),A", IND)
+        def(0x07, "MOV X,#n",  IMM)
+        def(0x08, "MOV X,A",   REG)  // reg = A
+        def(0x09, "MOV X,Y",   REG)  // reg = Y
+        def(0x0A, "MOV Y,#n",  IMM)
+        def(0x0B, "MOV Y,A",   REG)  // reg = A
+        def(0x0C, "MOV Y,X",   REG)  // reg = X
+        def(0x0D, "XCH A,X",   NONE)
+        def(0x0E, "XCH A,Y",   NONE)
+        def(0x0F, "XCH A,(X)", IND)
+        def(0x10, "NOP",       NONE)
+
+        // ---- ALU (A = A <op> operand); 5 operand variants each ----
+        // variant offset: 0=#n 1=X 2=Y 3=(X) 4=[a]
+        val aluKinds = intArrayOf(IMM, REG, REG, IND, ABS)
+        for (v in 0..4) {
+            val k = aluKinds[v]
+            def(0x20 + v, "ADD  ${varName(v)}", k)
+            def(0x30 + v, "SUB  ${varName(v)}", k)
+            def(0x40 + v, "MUL  ${varName(v)}", k)
+            def(0x50 + v, "DIV  ${varName(v)}", k)
+            def(0x70 + v, "AND  ${varName(v)}", k)
+            def(0x75 + v, "OR   ${varName(v)}", k)
+            def(0x7A + v, "XOR  ${varName(v)}", k)
+            def(0x82 + v, "CMP  ${varName(v)}", k)
+        }
+        def(0x60, "INC A", NONE); def(0x61, "INC X", NONE); def(0x62, "INC Y", NONE)
+        def(0x63, "DEC A", NONE); def(0x64, "DEC X", NONE); def(0x65, "DEC Y", NONE)
+        def(0x66, "NEG A", NONE); def(0x67, "NOT A", NONE)
+        def(0x68, "TST A", NONE); def(0x69, "TST X", NONE); def(0x6A, "TST Y", NONE)
+
+        // ---- jumps / branches ----
+        def(0x90, "JMP",  ABS)
+        def(0x91, "JZ",   REL); def(0x92, "JNZ", REL); def(0x93, "JC", REL)
+        def(0x94, "JNC",  REL); def(0x95, "JN", REL); def(0x96, "JNN", REL)
+        def(0x97, "JG",   REL); def(0x98, "JGE", REL); def(0x99, "JL", REL)
+        def(0x9A, "JLE",  REL); def(0x9B, "JE", REL); def(0x9C, "JNE", REL)
+
+        // ---- stack / subroutines ----
+        def(0xA0, "PUSH #n", IMM)
+        def(0xA1, "PUSH A",  NONE)
+        def(0xA2, "PUSH X",  NONE)
+        def(0xA3, "PUSH Y",  NONE)
+        def(0xA4, "POP A",   NONE)
+        def(0xA5, "POP X",   NONE)
+        def(0xA6, "POP Y",   NONE)
+        def(0xA7, "CALL",    ABS)
+        def(0xA8, "RET",     NONE)
+
+        // ---- robot I/O ----
+        def(0xB0, "SHOOT",  NONE)
+        def(0xB1, "TURN L", NONE)
+        def(0xB2, "TURN R", NONE)
+        def(0xB3, "TURN #n", IMM)
+        def(0xB4, "MOVE",   NONE)
+        def(0xB5, "SHIELD", NONE)
+        def(0xB6, "WAIT",   NONE)
+        def(0xB7, "IN",     PORT)
+        def(0xB8, "OUT",    PORT)
+    }
+
+    private fun varName(v: Int) = when (v) {
+        0 -> "#n"; 1 -> "X"; 2 -> "Y"; 3 -> "(X)"; else -> "[a]"
+    }
+
+    fun kind(opcode: Int) = KIND[opcode and 0xFF]
+    fun name(opcode: Int) = NAME[opcode and 0xFF]
+    fun defined(opcode: Int) = DEFINED[opcode and 0xFF]
+
+    /**
+     * Resolve an `IN`/`OUT` port operand (RF8-PLATFORM-SPEC.md §4.1):
+     * an official symbol (case-insensitive, every profile's symbols in
+     * every build) or ANY numeric port 0..255 — encodable even when the
+     * runtime does not implement it (read-zero/write-ignore per §4.2).
+     * Unknown symbols and out-of-range numbers are null → assembler error.
+     */
+    fun portNum(name: String): Int? {
+        val n = name.trim().uppercase()
+        PortCatalog.number(n)?.let { return it }
+        return n.toIntOrNull()?.takeIf { it in PortCatalog.NUMERIC_MIN..PortCatalog.NUMERIC_MAX }
+    }
+}

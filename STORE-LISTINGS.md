@@ -1,4 +1,4 @@
-# Store Listings — Opcode Arena (free) / Opcode Arena: The Circuit (paid)
+# Store Listings — Opcode Arena / The Circuit / Opcode FIRELINE
 
 Play Console listing copy per PLAN-PRO §1.2 / §7. Two distinct listings from
 one codebase (product flavors `free` / `pro`; same release commit). Matching
@@ -111,3 +111,59 @@ Five arenas free. A new arena every fight — in The Circuit.
   `app/build/outputs/bundle/proRelease/app-pro-release.aab` → paid listing.
 - Wire format is shared and frozen: `ENGINE_VERSION = 1` in both variants
   (asserted per flavor by `TierParityTest`).
+
+---
+
+## 6. Opcode FIRELINE (free)
+
+- **Package:** `robofight.fireline`
+- **App name:** `Opcode FIRELINE` (15 characters)
+- **First version:** versionCode 1, versionName `0.1`
+- **Category:** Game (Puzzle)
+- **Price:** Free; no ads, subscriptions, in-app purchases or accounts
+
+### Short description (62 / 80 characters)
+
+> Program a fire-response rover. Suppress, navigate, and rescue.
+
+### Full description
+
+```text
+The same little computer. A different job.
+
+Write RF-8 assembly for an autonomous firefighting rover, then send your
+firmware into a deterministic emergency. Your code aims the nozzle, manages
+heat and water, finds a route, rescues civilians, and gets the rover to safety.
+
+Three focused missions build one complete programming challenge:
+
+- NOZZLE CHECK — learn suppression, range, and heat management
+- CORRIDOR — navigate walls, refill water, extinguish the fire, and exit
+- DOWNWIND — read the wind, manage refills, suppress fire, rescue a civilian,
+  and reach safety
+
+Build and debug your solution with:
+
+- A source editor and RF-8 assembler
+- RUN and single-step execution
+- Live registers, sensors, water, heat, and mission telemetry
+- A timestamped event log that explains every rescue, refill, hit, and failure
+- Deterministic missions: the same firmware produces the same run
+- Local firmware files with import and export
+
+This is a programming game, not an action game: there are no driving controls
+while a mission runs. The rover does exactly what your firmware tells it.
+
+Works offline. No ads. No accounts. No analytics. No tracking.
+```
+
+### Listing contact and disclosures
+
+- **Privacy-policy URL:** `https://opcode-fireline.appsystems.at/privacy/`
+- **Support email:** `office@appsystems.at`
+- **Data safety:** use `assets/store/release/fireline/data-safety-en-US.md`
+- **Artwork concepts:** `assets/store/fireline/concepts/`
+
+FIRELINE is a sibling game in the RF-8 family, not an Opcode Arena expansion.
+Its listing must not imply that Arena challenge codes or missions move between
+the games. Plain RF-8 assembly source can be imported and exported.

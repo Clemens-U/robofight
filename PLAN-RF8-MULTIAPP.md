@@ -221,6 +221,21 @@ localize in the familiar module.
 
 ## 6. Phase 2 — make ports the extension mechanism
 
+> ✅ Implemented 2026-11-06 on `codex/port-catalog`: shared `PortCatalog`
+> (`isa/Ports.kt`: 30 official symbols — base 0..11 frozen, discovery
+> `PROFILE`/`PROFILE_REV`/`CAPS`, FIRELINE 16..30; reserved 15/31 numeric-only),
+> assembler accepts numeric ports 0..255 (unknown symbols still errors),
+> disassembly prefers catalog names and falls back to the re-assemblable
+> numeric form, Arena `portIn` states PROFILE/PROFILE_REV/CAPS = 0 explicitly,
+> unknown ports read-zero/write-ignore with no RNG/heat side effects.
+> `PortConformanceTest` covers the §9 conformance list incl. a pinned ISA v1
+> opcode snapshot and MANUAL.md §8.3 ↔ catalog parity. Gate: full matrix green;
+> firmware byte fixtures and base-port tests unchanged.
+> Side finding: the VM dispatch routed only 0x00..0x0F to `mov()`, so defined
+> opcode `NOP` (0x10) falsely faulted ("undefined opcode"); fixed in the same
+> commit and now locked by a per-opcode VM-dispatch conformance check. No
+> shipped firmware used NOP, so no byte fixtures or replay goldens changed.
+
 ### Required code changes
 
 1. Add a shared, data-driven port catalog matching
@@ -324,6 +339,29 @@ reflection, callbacks keyed by strings, or Android dependencies.
 - `rf8-core` contains no import from `robofight.world`, `robofight.challenge`,
   or Android packages.
 
+> ✅ DONE 2026-11-06 on `codex/rf8-core`: `:rf8-core` extracted as a pure
+> Kotlin/JVM module (Kotlin 2.2.10, jvmTarget/Java 11, junit-jupiter-only test
+> deps). Moved byte-identical via `git mv` (100 % rename similarity): `ISA.kt`,
+> `Ports.kt`, `Assembler.kt`, `Disasm.kt`, `Vm.kt` — packages unchanged.
+> `PortConformanceTest` split: machine-layer half →
+> `rf8-core/src/test/.../Rf8CoreConformanceTest.kt` (15 plain JUnit 5 tests,
+> local `NullEnv`; no engine-test-class dependency, no `exitProcess` facade);
+> Arena half (World IN/OUT/RNG/heat purity, PROFILE reads, decode-scan
+> payloads, MANUAL §8.3 parity, undefined-opcode VM fault) stays in
+> `engine/.../PortConformanceTest.kt` (12 checks); `EngineTests.kt` facade
+> unchanged. Deviation from §7.2's literal snippet: `:engine` declares
+> `api(project(":rf8-core"))`, not `implementation` — `Bot : Env` and
+> World/Bot surface core types, and `implementation` broke `:app` compiles
+> (`ArenaView.kt` 'Cannot access Env', `MainActivity.kt` unresolved `robofight.vm`).
+> `:app` still declares only `:engine`. Gates: `--rerun-tasks` matrix
+> `:rf8-core:test :engine:test :app:testFreeDebugUnitTest :app:testProDebugUnitTest
+> :app:assembleFreeDebug :app:assembleProDebug` all green (rf8-core 15/15);
+> firmware byte fixtures green (preset + MYBOT pins untouched); headless
+> 250-fight matrix identical before/after — KO=181, timed-out=69, output md5
+> `e310bc90beaf58d4063cf5da41b5819f` both runs; purity grep
+> `robofight.world|robofight.challenge|android` over `rf8-core/src/` finds
+> nothing. No ISA numbers/kinds/costs changed.
+
 ---
 
 ## 8. Phase 4 — create `:fireline-engine`
@@ -390,6 +428,18 @@ sentinel values, damage, and mission completion.
 - Different seeds can alter spread but not authored static terrain.
 - All port and world acceptance tests from `FIRELINE-DESIGN.md` pass.
 
+> ✅ DONE 2026-11-07 on `codex/fireline-engine`: steps 1-10 landed as ten
+> milestones; `:fireline-engine` stays pure JVM (depends only on `:rf8-core`).
+> The five authored MVP missions (NOZZLE CHECK, CORRIDOR, FIRST RESPONSE,
+> DOWNWIND, HOT ZONE) each carry reference firmware that wins deterministically
+> plus a failing variant with an expected failure reason. 127 engine tests
+> green; full 7-task gate green. Mission economics that the layouts must
+> respect: a burning fuel cell grows +10 per 5-tick spread window, so any
+> firmware needs a shot cadence under ~12.5 ticks to win a grind - the
+> reference solutions park on refill stations with a 6-tick
+> `IN FIRE_LEVEL / JZ / SHOOT / JMP` loop and exploit water packets passing
+> through extinguished cells.
+
 ---
 
 ## 9. Phase 5 — create `:fireline-app`
@@ -451,6 +501,88 @@ port catalog is shared, even though those ports read zero there.
 - A headless result and app-driven result match for the same mission tuple.
 - Accessibility labels and small-screen layout are usable at the existing
   minimum supported API.
+
+### 9.6 Phase 5 execution notes
+
+Milestone checklist for `codex/fireline-app` (one commit per milestone, one gate
+per milestone):
+
+- [x] 1. Module skeleton: `:fireline-app` wiring, manifest, F-palette color
+      tokens, adaptive launcher icon, chrome-only `MainActivity`
+      (`:fireline-app:assembleDebug` green; aapt2 badging reports package
+      `robofight.fireline`, label `FIRELINE`, minSdk 24, launchable activity,
+      zero permissions).
+- [x] 2. Firmware source persistence: pure-Kotlin validation/naming/repository
+      layer plus the FIRELINE-private SQLite store (`fireline.db`). 19 unit
+      tests / 104 assertions green on plain JVM; the SQLite DDL and its
+      `COLLATE NOCASE` uniqueness were additionally verified against a real
+      SQLite engine (the Android SQLite class itself is compile-verified only -
+      no Robolectric in the offline catalog).
+- [x] 3. FILES surface and editor: file cards (bytes + instruction count from
+      the shared assembler), EDIT / `[>]` / COPY / DEL, NEW FILE, the
+      JetBrains Mono editor (13sp body, 1.5 line height, 4-digit gutter, four
+      highlight classes, line-numbered assemble errors that jump), the
+      insertable `; FIRELINE PORTS` block derived from `FirelinePorts`, and SAF
+      import/export (`ACTION_OPEN_DOCUMENT` / `ACTION_CREATE_DOCUMENT`, still
+      zero permissions). 26 unit tests green; `:app:assembleFreeDebug` and
+      `:app:assembleProDebug` stayed UP-TO-DATE, so Arena is untouched. Editor
+      behavior on a device is milestone 7 gate work.
+- [x] 4. MISSION surface: mission picker (the five authored missions),
+      firmware selection, grid and telemetry panel. Picker + firmware
+      selection + run setup header live here; the grid and telemetry panel
+      are delivered in step 5's run-control commit. 11 new unit tests
+      (37 total) green; badges persisted per mission+engine version with
+      the engine's §7.5 ranking as the update rule.
+- [x] 5. Run control: `RUN`, `STEP` (exactly one world tick) and `RESET` over
+      the headless `FirelineRun` path. `MissionSession` drives only
+      `FirelineWorld.tickOnce()` (guard mirrors `runWithGuard`); a JVM test
+      proves tick-by-tick sessions equal `runWithGuard` for all five authored
+      missions incl. final-state hashes. Live 20x20 `FirelineGridView`
+      (DESIGN 4 glyph language incl. amendments A-1/A-2/A-5), telemetry panel
+      from engine ports + `Vm` flags, event panel with tap-open full-log
+      overlay, heat bar with overload threshold, pinned 48dp RUN/STEP/RESET.
+      5 new tests (42 total) green.
+- [x] 6. RESULT surface: `ResultSurface` renders the DESIGN 5.3 wireframe from
+      the stored plain-data `RunSummary` only (12.1; no world state is kept or
+      resurrected): big MISSION COMPLETE / FAILURE banner with the exact
+      `FailureReason` enum chip, mission id/name + tick line, objective `o`/`x`
+      chips, full stat block (ticks, water used/left, shots, HP/HEAT/SHIELD,
+      civilians, burning cells + total intensity, protected intact/lost,
+      firmware bytes/instructions, fingerprint short form `$hex8` = top 32 bits
+      of the engine 64-bit final-state hash), FIRMWARE_FAULT halt + last
+      instruction addendum, WHY block with the persisted event tail tapping open
+      the same scrollable log overlay, and RETRY / EDIT FIRMWARE / MISSION LIST
+      routes (EDIT FIRMWARE jumps straight into the FILES editor for that file).
+      8 new tests (50 total) green, incl. all five reason enums and the
+      fingerprint short form against a real engine hash.
+- [x] 7. Gate close-out: side-by-side install with both Arena packages,
+      offline run, background/rotation resilience, headless vs app result
+      equality for one mission tuple. On-device gate (emulator-5554, Medium
+      Phone): `robofight.android`, `robofight.android.pro` and
+      `robofight.fireline` installed side by side; FILES editor -> SAF
+      export/import roundtrip for `CORRIDOR-REF.ASM` byte-identical (md5
+      verified store -> export -> store); two SAF defects fixed in
+      `fireline-app` (export landed as `NAME.ASM.txt` under the
+      `text/plain` + extensionless-title pairing - now a `exportFileName`
+      title with the generic octet-stream type; the `text/plain` open filter
+      rendered exported `.ASM` items disabled in DocumentsUI - now `*/*`
+      with the store validator as the gate); STEP x 30 matched the headless
+      tick-30 snapshot and the mission 02 run finished at tick 102 with
+      fingerprint `$47e28d84` on both the RESULT surface and the headless
+      runner; HOME/relaunch and rotation recreate a single clean session
+      (no parallel sim, db contents unchanged); RUN/STEP/RESET measured at
+      48dp with content descriptions incl. the grid's live state line, and
+      the run surface stays readable at 720x1280. 51 unit tests green.
+- [x] 8. Post-gate device polish (milestone 8): the shell root pads itself by the system bar insets (`setOnApplyWindowInsetsListener`; edge-to-edge is enforced from targetSdk 35, so the chrome no longer draws under the status bar and the pinned RUN/STEP/RESET bar clears the nav bar; re-dispatched onResume and after rotation), the FILES | MISSION | RESULT tabs are equal thirds of the full row (weight 1 + 4dp gutters), and chrome line spacing is raised (`FirelineTheme.chromeLineSpacingPx` 5dp extra leading, `chromeBlockGapPx` 7dp block gaps, 4dp stat/event row margins across FILES/MISSION/RESULT/run surfaces; editor gutter metrics and grid density math untouched). On-device evidence (emulator-5554): wordmark top y=89 vs the 63px status bar, tabs 31..363 / 373..706 / 716..1049, RUN/STEP/RESET bottom 2311 vs nav bar 2337, same at 720x1280 and after rotation; `testDebugUnitTest` + `assembleDebug` BUILD SUCCESSFUL, 51 tests, 0 failures.
+- [x] 9. Post-gate device polish 2 (milestone 9): the MISSION instrument row is now ONE framed panel (single `panelDrawable` border) holding the RF-8 column, a 1dp vertical separator in the `fireline_border` token, and the TELEMETRY column as equal weighted children (`MissionRunSurface.instrumentRow`); both columns are MATCH_PARENT height so the panel stretches to the taller column and the RF-8 / TELEMETRY headings share one top baseline, and the per-column frames that caused the misaligned double-border look are gone. On-device evidence (emulator-5554, mission 02 CORRIDOR with CORRIDOR-REF.ASM, STEP x 10, TICK 10): panel container bounds [31,1631][1049,1952], RF-8 column [31,1631][539,1952], separator [539,1631][541,1952], TELEMETRY column [541,1631][1049,1952], headings both at y=1652; milestone 8 chrome unaffected (tabs 31..363 / 373..706 / 716..1049 at y 187..238, RUN/STEP/RESET bottom 2311 vs nav bar 2337); `testDebugUnitTest` + `assembleDebug` BUILD SUCCESSFUL, 51 tests, 0 failures.
+
+Locked build facts (do not re-derive): AGP 9.4.1 built-in Kotlin only (no
+`org.jetbrains.kotlin.android`), `jvmTarget` pinned to 11, `namespace` and
+`applicationId` `robofight.fireline`, compileSdk 37 / targetSdk 36 / minSdk 24,
+no flavors, no permissions, `implementation(project(":rf8-core"))` is explicit
+because `:fireline-engine` declares it as `implementation`. All UI color comes
+from `res/values/colors.xml` (DESIGN-FIRELINE 2.2b direction F); Kotlin reads
+those resources through `FirelineTheme` instead of copying hex literals.
 
 ---
 
@@ -515,6 +647,25 @@ The migration is complete only when all are true:
 ---
 
 ## 13. Decisions deliberately deferred
+
+Five-cell water range implemented (2026-11-08): FIRELINE engine 3 counts the
+adjacent cell as distance 1, checks fire at distance 5 before expiring, and never
+reaches distance 6. Other discharge costs, timing, and collision rules are
+unchanged. See FIRELINE-DESIGN.md section 3.6.
+
+Thin-wall follow-up implemented (2026-11-08): FIRELINE engine 2 supports Arena's
+vertical/horizontal edge geometry alongside full-cell blocks. Layout authoring,
+reachability validation, MOVE/AHEAD, water emission/flight, spread, canonical
+hashing, headless/Android rendering, and all five authored missions are updated.
+See FIRELINE-DESIGN.md sections 3.2 and 9 for geometry and compatibility rules.
+
+FIRELINE usability backlog (2026-11-08; see FIRELINE-DESIGN.md section 15):
+
+- [ ] Add optional commented starter firmware and a brief programming-loop
+  introduction for new players. Startup behavior remains unchanged for now.
+- [ ] Add evidence-based failure explanations that retain relevant earlier
+  events, such as repeated blocked shots, alongside the final reason and log.
+  Failure summaries remain unchanged for now.
 
 These are not blockers for starting phases 0-5:
 

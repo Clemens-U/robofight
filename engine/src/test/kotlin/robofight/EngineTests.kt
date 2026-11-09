@@ -12,6 +12,12 @@ import java.io.PrintStream
  *  - ArenaTests.kt — the challenge-code arena suite (§12.1 geometry, §7.5
  *    walls, §6 timed/HP, §7.6 SCATTER, §4.3 binary path) including the
  *    full §12.3 fight matrix (250 headless fights)
+ *  - PortConformanceTest.kt — the Arena half of the port conformance suite
+ *    since the Phase 3 split (§7): Arena-world unknown/discovery-port
+ *    behavior, pinned-code decode scans, MANUAL.md §8.3 parity. The
+ *    machine-layer half moved to :rf8-core as plain JUnit 5 tests
+ *    (Rf8CoreConformanceTest, run by :rf8-core:test — not through this
+ *    facade).
  *  - RegistryGateTest.kt — the P1 two-app gate proof (locked preview for
  *    unregistered 0x10, playable after Arena.registerPro, hard id-range
  *    gate). Runs LAST: it mutates the Arena registry.
@@ -41,7 +47,7 @@ class EngineTests {
             for (facadeName in listOf(
                 "robofight.TestsKt", "robofight.ArenaTestsKt",
                 "robofight.FirmwareFixturesTestKt", "robofight.LegacyEng1FixtureTestKt",
-                "robofight.ShieldTimingTestKt",
+                "robofight.ShieldTimingTestKt", "robofight.PortConformanceTestKt",
                 "robofight.ProArenaNamesTestKt", "robofight.RegistryGateTestKt",
             )) {
                 val facade = Class.forName(facadeName)

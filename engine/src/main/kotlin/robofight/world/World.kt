@@ -100,6 +100,8 @@ class Bot(
     }
 
     // ---- Env (I/O) ----
+    // Unofficial/unimplemented numeric ports read 0 without fault or side
+    // effects (RF8-PLATFORM-SPEC.md §4.2) — the `else` arm must stay pure.
     override fun portIn(port: Int): Int {
         val w = world ?: return 0
         return when (port) {
@@ -115,6 +117,12 @@ class Bot(
             9 -> w.nearestEnemyHp(this)
             10 -> w.nextRand()
             11 -> w.aheadBlocked(this)
+            // Discovery ports (§5.2): Arena IS the compatibility profile 0,
+            // stated explicitly; PROFILE_REV/CAPS stay 0 until Arena adopts
+            // discovery. FIRELINE ports 16..30 fall through to read-zero.
+            12 -> 0   // PROFILE
+            13 -> 0   // PROFILE_REV
+            14 -> 0   // CAPS
             else -> 0
         }
     }
@@ -132,6 +140,8 @@ class Bot(
     }
 
     override fun portOut(port: Int, value: Int) {
+        // Only DIR is writable in the Arena profile; every other numeric
+        // port ignores the write (§4.2 — no state change, no fault).
         if (port == 1) facing = value and 3
     }
 
