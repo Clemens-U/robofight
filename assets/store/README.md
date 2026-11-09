@@ -52,5 +52,5 @@ screenshots are the current 1080×1920 device captures. Upload images are
 24-bit RGB PNGs without alpha; store icons are 32-bit PNGs.
 
 `release/fireline/` contains the Opcode FIRELINE release disclosure draft,
-the selected Helmet Rover 512×512 Play icon, and its 1024×500 feature graphic.
-FIRELINE phone screenshots are tracked separately from the Arena product sets.
+the selected Helmet Rover 512×512 Play icon, its 1024×500 feature graphic, and
+authentic 1080×2400 phone captures under `release/fireline/screenshots/`.
