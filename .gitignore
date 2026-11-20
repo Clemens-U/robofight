@@ -16,6 +16,9 @@ keystore.pass
 .gradle/
 local.properties
 
+# Kotlin Multiplatform IDE/analysis state (created by the KMP wasmJs targets; per-machine)
+.kotlin/
+
 # OS / editor
 .DS_Store
 Thumbs.db
