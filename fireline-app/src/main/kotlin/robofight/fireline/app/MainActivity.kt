@@ -25,11 +25,11 @@ import robofight.fireline.app.mission.BestBadgeStore
 import robofight.fireline.app.mission.FirmwareSelection
 import robofight.fireline.app.mission.MissionRunSurface
 import robofight.fireline.app.mission.MissionSelection
-import robofight.fireline.app.mission.MissionSession
+import robofight.fireline.session.MissionSession
 import robofight.fireline.app.mission.MissionSurface
 import robofight.fireline.app.mission.ResultSurface
 import robofight.fireline.app.mission.RunRecordStore
-import robofight.fireline.app.mission.RunSummary
+import robofight.fireline.session.RunSummary
 import robofight.fireline.app.mission.SharedPreferencesValues
 import robofight.fireline.R
 import robofight.fireline.Mission

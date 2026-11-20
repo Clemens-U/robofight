@@ -10,6 +10,8 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import robofight.fireline.app.FirelineTheme
+import robofight.fireline.session.ResultModel
+import robofight.fireline.session.RunSummary
 
 /**
  * RESULT surface (milestone 6; DESIGN-FIRELINE.md 5.3): big banner

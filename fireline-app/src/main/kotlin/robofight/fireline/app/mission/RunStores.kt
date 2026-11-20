@@ -1,6 +1,7 @@
 package robofight.fireline.app.mission
 
 import android.content.SharedPreferences
+import robofight.fireline.session.RunSummary
 
 /**
  * Tiny key/value seam so the MISSION persistence rules are testable on a plain

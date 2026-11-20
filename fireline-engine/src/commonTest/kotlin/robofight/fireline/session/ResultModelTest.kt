@@ -1,8 +1,8 @@
-package robofight.fireline.app.mission
+package robofight.fireline.session
 
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import robofight.fireline.FailureReason
 import robofight.fireline.FirelineRun
 import robofight.fireline.Missions

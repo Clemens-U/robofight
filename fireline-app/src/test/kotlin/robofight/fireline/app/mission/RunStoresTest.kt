@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import robofight.fireline.FailureReason
 import robofight.fireline.RunStatus
+import robofight.fireline.session.RunSummary
 
 /** MISSION persistence rules on the pure KeyValues seam (no Android here). */
 class RunStoresTest {

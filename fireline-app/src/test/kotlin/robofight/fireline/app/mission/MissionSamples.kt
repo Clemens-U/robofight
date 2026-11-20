@@ -1,5 +1,7 @@
 package robofight.fireline.app.mission
 
+import robofight.fireline.session.RunSummary
+
 import robofight.fireline.FailureReason
 import robofight.fireline.RunStatus
 
@@ -8,6 +10,7 @@ import robofight.fireline.RunStatus
  * real summaries come from `RunSummary.from(world, ...)`). The numbers mirror
  * the DESIGN-FIRELINE.md 5.3 wireframe run so formatting tests compare against
  * the documented layout.
+ * App-side mirror of the pinned `robofight.fireline.session.MissionSamples` fixture (moved to :fireline-engine commonTest with MissionSession/ResultModel): Kotlin internal test fixtures are module-scoped, and MissionPickerModelTest/RunStoresTest test app-module classes, so they keep their own copy of the synthetic wireframe numbers here.
  */
 internal fun runSummarySample(
     status: RunStatus = RunStatus.FAILURE,

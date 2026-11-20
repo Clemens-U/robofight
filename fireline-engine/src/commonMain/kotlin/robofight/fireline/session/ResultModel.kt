@@ -1,8 +1,9 @@
-package robofight.fireline.app.mission
+package robofight.fireline.session
 
 import robofight.fireline.FailureReason
 import robofight.fireline.Missions
 import robofight.fireline.Objectives
+import robofight.isa.decPad
 
 /**
  * RESULT formatting model (DESIGN-FIRELINE.md 5.3): pure text built from a
@@ -21,7 +22,7 @@ object ResultModel {
     fun missionLine(summary: RunSummary): String {
         val name = Missions.byId(summary.missionId)?.name ?: "UNKNOWN MISSION"
         val limit = summary.timeLimit?.toString() ?: "MAX"
-        return "MISSION %02d / %s   TICK %d/%s".format(summary.missionId, name, summary.tick, limit)
+        return "MISSION ${decPad(summary.missionId, 2)} / $name   TICK ${summary.tick}/$limit"
     }
 
     /** Configured objectives with met state: `o` met, `x` unmet (5.3 legend). */

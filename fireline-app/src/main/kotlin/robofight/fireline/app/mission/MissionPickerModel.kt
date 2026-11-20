@@ -4,6 +4,7 @@ import robofight.fireline.Mission
 import robofight.fireline.Missions
 import robofight.fireline.Objectives
 import robofight.fireline.TextGrid
+import robofight.fireline.session.RunSummary
 
 /**
  * One authored mission rendered as a picker card (DESIGN-FIRELINE.md 5.2):

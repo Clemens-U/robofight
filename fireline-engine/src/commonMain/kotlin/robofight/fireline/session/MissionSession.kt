@@ -1,4 +1,4 @@
-package robofight.fireline.app.mission
+package robofight.fireline.session
 
 import robofight.assembler.assemble as rf8Assemble
 import robofight.disasm.Disasm
@@ -14,6 +14,8 @@ import robofight.fireline.RunStatus
 import robofight.fireline.TextGrid
 import robofight.fireline.WATER_MAX
 import robofight.fireline.MAX_HP
+import robofight.isa.decPad
+import robofight.isa.hexPad
 import robofight.vm.Vm
 
 /** Outcome of one STEP press. */
@@ -64,7 +66,7 @@ class MissionSession(val mission: Mission, val firmwareName: String, val firmwar
             return StepOutcome.GUARD_STOPPED
         }
         world.tickOnce()
-        eventLog.add("%03d %s | %s".format(world.tick, world.lastOp, world.lastEvents.joinToString(" · ")))
+        eventLog.add("${decPad(world.tick, 3)} ${world.lastOp} | ${world.lastEvents.joinToString(" · ")}")
         return if (world.finished) StepOutcome.FINISHED else StepOutcome.ADVANCED
     }
 
@@ -115,12 +117,12 @@ class MissionSession(val mission: Mission, val firmwareName: String, val firmwar
             heat = rover.heat,
             shieldTicks = rover.shieldTicksRemaining,
             windLabel = "${TextGrid.dirName(descriptor.windDir)} x${descriptor.windForce}",
-            missionBitsHex = "$%02X".format(world.missionBits()),
+            missionBitsHex = "$" + hexPad(world.missionBits(), 2),
             a = vm.a,
             x = vm.x,
             y = vm.y,
-            spHex = "$%03X".format(vm.sp),
-            pcHex = "$%03X".format(vm.pc),
+            spHex = "$" + hexPad(vm.sp, 3),
+            pcHex = "$" + hexPad(vm.pc, 3),
             flagC = vm.flags and Vm.FLAG_C != 0,
             flagZ = vm.flags and Vm.FLAG_Z != 0,
             flagN = vm.flags and Vm.FLAG_N != 0,

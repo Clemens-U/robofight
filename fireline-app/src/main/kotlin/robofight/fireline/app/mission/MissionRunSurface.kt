@@ -14,6 +14,9 @@ import android.widget.TextView
 import robofight.fireline.app.FirelineTheme
 import robofight.fireline.app.view.FirelineGridView
 import robofight.fireline.app.view.HeatBarView
+import robofight.fireline.session.MissionSession
+import robofight.fireline.session.RunSummary
+import robofight.fireline.session.StepOutcome
 
 /**
  * MISSION run surface (milestone 5; DESIGN-FIRELINE.md 5.2, PLAN 9.2/9.5):

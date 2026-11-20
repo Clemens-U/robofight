@@ -1,4 +1,4 @@
-package robofight.fireline.app.mission
+package robofight.fireline.session
 
 import robofight.fireline.FailureReason
 import robofight.fireline.FirelineResult

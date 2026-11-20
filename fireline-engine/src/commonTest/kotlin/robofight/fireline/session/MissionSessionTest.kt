@@ -1,9 +1,9 @@
-package robofight.fireline.app.mission
+package robofight.fireline.session
 
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import robofight.fireline.FirelinePorts
 import robofight.fireline.FirelineRun
 import robofight.fireline.Missions
@@ -115,6 +115,26 @@ class MissionSessionTest {
         assertTrue(session.eventLog.any { it.contains("FIRE -") })
         // Newest-first for the panel and full-log overlay.
         assertEquals(session.eventLog.last(), session.fullLogNewestFirst().first())
+    }
+
+    @Test
+    fun sessionLogAndHexPaddingKeepTheirShape() {
+        // The session layer renders its own text, so it was moved off
+        // `String.format` (unavailable on wasmJs) onto `robofight.isa.decPad`/
+        // `hexPad`, the same helpers the engine renderer uses (docs/WEB-W1-RECORD.md
+        // 4: "output-identical formatting instead of platform conditionals"). This
+        // pins the shape of those strings on BOTH targets: three zero-padded ticks,
+        // the ` | ` separator the MISSION panel shows, and uppercase three-digit hex.
+        val mission = Missions.byId(2)!!
+        val session = MissionSession(mission, "REFERENCE.ASM", mission.referenceSource)
+        repeat(3) { session.step() }
+        assertEquals("001", session.eventLog[0].substringBefore(" "))
+        assertEquals("003", session.eventLog[2].substringBefore(" "))
+        assertTrue(session.eventLog[2].contains(" | "))
+        val t = session.telemetry()
+        assertTrue(Regex("^\\$[0-9A-F]{3}$").matches(t.pcHex))
+        assertTrue(Regex("^\\$[0-9A-F]{3}$").matches(t.spHex))
+        assertEquals(t.pcHex, t.pcHex.uppercase())
     }
 
     @Test
