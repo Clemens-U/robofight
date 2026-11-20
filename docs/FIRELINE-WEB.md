@@ -1,9 +1,12 @@
 # Opcode FIRELINE in the Browser (web console concept, draft 1)
 
-Status: concept + mockups, 2026-11-19. Nothing here is committed to `main`.
-**The layout is frozen for v1 (§15, owner decision 2026-11-19); the build
-decisions D2-D5 in §12 are still open (a W1 toolchain pre-probe ran
-2026-11-19; its results are in §0 and §3.1).** This doc proposes scope, architecture
+Status: concept, mockups and the W1/W2 build phases, 2026-11-19 to 2026-11-20.
+Nothing here is committed to `main` yet: the build work lives on
+`codex/web-w1-kmp-wasm` and `codex/web-w2-parity`.
+**The layout is frozen for v1 (§15, owner decision 2026-11-19) and all build
+decisions D1-D6 are DECIDED (§12a; D2-D5 decided 2026-11-20, §12b is empty). W1
+and W2 are DONE, recorded in `docs/WEB-W1-RECORD.md` and `docs/WEB-W2-RECORD.md`.
+The next phase is W3, `codex/web-w3-console`.** This doc proposes scope, architecture
 and integration. It does not change any locked spec; where it needs one, it
 files a numbered amendment (see §11).
 
@@ -309,8 +312,9 @@ Hosting options (decision D2, §12):
 | **B: same domain, path** | `opcode-fireline.appsystems.at/play/` | one host, one privacy story, `#play` nav can link there directly, sharing links look like the product | deploy step must not disturb the static landing page |
 | C: embedded in the landing page itself | `.../#play` with the wasm loaded on demand | most seamless | landing page becomes an app shell, slower first paint, harder to keep the static page reviewable |
 
-Recommendation: B for the app, with `#play` on the landing page as the invite
-and a progressive link into `/play/` (i.e. B now, C later if wanted).
+**DECIDED 2026-11-20 (D2): B for the app**, with `#play` on the landing page as
+the invite and a progressive link into `/play/` (i.e. B now, C later if wanted).
+A subdomain is rejected for v1; C stays available after W4 (see §12a).
 
 Hosting facts (owner statement 2026-11-19): `opcode-fireline.appsystems.at` is
 served by IIS on Windows Server 2016. This constrains the deploy task, not the
@@ -414,11 +418,16 @@ status block in the plan.
   sequence reproduced on web (tick 30 field values, mission 02 finish at tick
   102, fingerprint `$47e28d84`), G5 roundtrip with `:fireline-app`, accessibility
   and reduced-motion pass, 48dp-equivalent touch targets on touch screens.
+  **Scope decided 2026-11-20 (D3, D4): all five authored missions, and the full
+  loop including `.asm` import/export and `#run=` share permalinks. Gate G5 is
+  therefore part of the W3 gate, not deferred to W4.**
 - **W4, landing page integration** (`codex/web-w4-integration`).
   `#play` panel, nav entry, hero command rewiring, `/play/` deploy task,
   share permalinks, web privacy page. Gate: landing page static rendering
   unchanged for non-JS readers and for crawlers, Lighthouse-style performance
-  budget, no third-party requests introduced.
+  budget, no third-party requests introduced. **Hosting decided 2026-11-20 (D2):
+  option B, `opcode-fireline.appsystems.at/play/`, with `#play` on the landing
+  page as the invite and a progressive link into `/play/`.**
 - **W5+ (optional)**: permalink -> `FL1-` mission codes, walkthrough content,
   sandbox seed editing, PWA install. Only after W4 is stable.
 
@@ -483,25 +492,48 @@ W4 is small. A rough read: W1 a session or two, W2 a session, W3 the largest
   CONSOLE`, with the panel label `FL:> LIVE CONSOLE // RUNS IN YOUR BROWSER`.
   `Opcode FIRELINE ONLINE` stays rejected because "online" fights the product
   language.
+- **D2 hosting (DECIDED 2026-11-20): option B, same domain under `/play/`.**
+  `opcode-fireline.appsystems.at/play/` carries the console as a static copy,
+  `web.config` in that directory registers the `.wasm` MIME type, and `#play` on
+  the landing page stays a progressive invite (a link plus the frozen panel) that
+  hands off to `/play/` once the engine loads. Consequences: one host, one
+  privacy story, share links read as the product, gzip only (IIS 2016, no brotli
+  module), and the W4 gate is about not disturbing the static landing page rather
+  than about running an app inside it. Option A (subdomain) is rejected: a second
+  host buys isolation this project does not need and doubles the privacy copy.
+  Option C (engine embedded in the landing page) is deferred, not forbidden: it
+  becomes possible after W4 if the first-paint and reviewability gates can still
+  be met.
+- **D3 v1 mission set (DECIDED 2026-11-20): all five authored missions.**
+  They already carry reference and failing firmware, all ten combinations are
+  pinned in the W2 fixture matrix (`docs/web/fixtures/parity_matrix.tsv`), and
+  `Missions.ALL` is compiled into the wasm binary, so five missions cost the same
+  bytes as two. The web console and the Android app therefore present the same
+  five, which removes the content-drift risk in §13. Missions 04 and 05 stay in
+  v1 because they exercise the console rather than just pass: the 147-tick wind
+  solve under a 500-tick guard, and the destructive-fire failure path.
+- **D4 v1 depth (DECIDED 2026-11-20): the full loop.** Editor with line-level
+  assembler errors, run surface, `.asm` import and export, `localStorage`
+  library, cheat sheet, and `#run=` share permalinks (fragment-only, `FLW1-`
+  prefix, reproduction recipe not save game, §8). Import/export is load-bearing:
+  it is gate G5 (browser `.asm` -> `:fireline-app` with identical fingerprint, and
+  the reverse), so **G5 moves into the W3 gate**. If W3 effort pressure appears,
+  cut permalinks first; do not cut import/export, because that is both the
+  cross-container proof and the mitigation for the `localStorage` data-loss risk.
+- **D5 engine route and W3 go (DECIDED 2026-11-20).** Option A (Kotlin
+  Multiplatform -> wasmJs) is confirmed on this machine: W1 proved the real engine
+  compiles to wasmJs and both test targets run the same suites, W2 proved
+  cross-target arithmetic parity (`docs/WEB-W1-RECORD.md`, `docs/WEB-W2-RECORD.md`).
+  `js` stays a documented fallback, and Option B (separate JS engine) stays
+  rejected. The owner's D2/D3/D4 scope decisions of 2026-11-20 authorize W3; W4
+  proceeds only after the W3 gate is met. The remaining unknown is effort, not
+  architecture.
 
 ### 12b. Open
 
-- **D2 hosting**: subdomain, `/play/` path on the existing domain (recommended),
-  or fully embedded in the landing page.
-- **D3 v1 mission set**: all five authored missions (recommended; they already
-  have reference and failing firmware), or mission 01 + 02 only for a smaller
-  first cut.
-- **D4 v1 depth**: full loop including `.asm` import/export and share permalinks
-  (recommended: import/export is the cross-container contract and permalinks are
-  cheap), or editor+run only with import/export deferred to W4.
-- **D5 engine route**: confirm Option A (Kotlin Multiplatform -> wasmJs) as the
-  route to fund, given the known Maven-mirror risk on this machine and the
-  documented fallback order in §3.1. The §0 pre-probe (2026-11-19) retired the
-  Maven-mirror concern on this machine and W1 (2026-11-20, `docs/WEB-W1-RECORD.md`)
-  confirmed the route on the branch: the real engine compiles to wasmJs, both test
-  targets run the same suites, and the committed anchors reproduce in a browser.
-  What remains of D5 is the owner's funding decision for W2/W3, not a technical
-  unknown.
+None. D1-D6 are decided (see 12a). What is still unknown is W3 effort (the shell
+is the largest single piece of the web route) and whether W4 is scheduled after
+the W3 gate.
 
 ## 13. Risks
 
