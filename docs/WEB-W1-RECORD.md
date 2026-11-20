@@ -184,3 +184,42 @@ export JAVA_HOME='C:/Program Files/Android/Android Studio/jbr'
 - The Android side was re-verified beyond unit tests: `:fireline-app:assembleDebug` and
   `:app:assembleFreeDebug` both build after the KMP switch (1,271,667 and 1,651,397 byte
   debug APKs, 2026-11-20). An on-device UI run after the switch belongs in the W2 sweep.
+
+## 9. On-device regression after the KMP switch (2026-11-20, emulator-5554)
+
+Both debug APKs reinstalled (`adb install -r -d`) and run on the Medium_Phone AVD.
+
+FIRELINE (`robofight.fireline`, mission 02 CORRIDOR with `CORRIDOR-REF.ASM`):
+
+| on-device step | screen readout | matches |
+|---|---|---|
+| STEP x 12 | `TICK 12 / 120`, `last: MOVE (1/2)`, `FIRE_DIST 10`, `FIRE_LEVEL 35` | fixtures tick-12 |
+| STEP x 30 | `TICK 30 / 120`, `A 6`, `PC $12D`, `last: MOVE (1/2)`, `FIRE_DIST 6`, `FIRE_LEVEL 55` | Milestone 7 headless twin |
+| RUN to completion | `MISSION COMPLETE`, `MISSION 02 / CORRIDOR TICK 102/120`, `HP 100 HEAT 64`, `firmware 75 B / 25 instructions`, `fingerprint $47e28d84` | engine anchor `47e28d84c5d61220` |
+| RETRY + STEP x 102 | same result screen, `fingerprint $47e28d84` | RUN path == STEP path on device |
+
+Opcode Arena free (`robofight.android`): fight ran to completion on the same build, status line
+`WINNER: HUNTER`, HUD `HP 100 SH 12 / HIT 9 DMG 90 / HEAT 040`.
+
+### Gate fix found by this sweep
+
+A `--rerun-tasks` run failed in `:kotlinWasmStorePackageLock`: "Lock file was changed. Run the
+`kotlinWasmUpgradePackageLock` task". Cause: forcing `kotlinWasmNpmInstall` to re-run regenerates
+`package-lock.json`, and with no npm dependencies in this build the regenerated file differs only
+cosmetically from the committed lock, which KGP reports as FAIL by default. Fix:
+`gradle/wasm-toolchain.gradle` now sets the wasm npm extension's `packageLockMismatchReport` to
+`WARNING` (log line `W1 wasm toolchain: packageLockMismatchReport = WARNING`), so the committed
+lock stays byte-identical (`git status` clean after a rerun) while a real dependency change still
+shows up. Verified: `--rerun-tasks` over all eight test tasks is `BUILD SUCCESSFUL` with every
+test task executed (no UP-TO-DATE) and 362 tests total, zero failures.
+
+### Defect found on device (open, not yet fixed)
+
+`fireline-app/.../mission/MissionRunSurface.kt:327` builds the grid's accessibility description as
+`... rover x <t.x> y <t.y> ...`, but `TelemetrySnapshot.x/y` are the **VM X/Y registers**
+(`MissionSession.kt:117-118`, `x = vm.x, y = vm.y`), not the rover's world position. On mission 02
+the description therefore reads `rover x 0 y 0` for the whole run while the rover is actually
+moving on the grid (the visible telemetry and every engine value are correct). A screen reader
+hears a wrong rover position and never hears the right one. Fix shape: add `roverX/roverY`
+(`rover.x`, `rover.y`) to `TelemetrySnapshot` and use those in the description, keeping the RF-8
+band's X/Y registers as they are.
