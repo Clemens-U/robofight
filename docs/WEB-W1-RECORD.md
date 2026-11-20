@@ -213,13 +213,29 @@ lock stays byte-identical (`git status` clean after a rerun) while a real depend
 shows up. Verified: `--rerun-tasks` over all eight test tasks is `BUILD SUCCESSFUL` with every
 test task executed (no UP-TO-DATE) and 362 tests total, zero failures.
 
-### Defect found on device (open, not yet fixed)
+### Defect found on device, fixed and re-verified (2026-11-20)
 
-`fireline-app/.../mission/MissionRunSurface.kt:327` builds the grid's accessibility description as
+`fireline-app/.../mission/MissionRunSurface.kt` built the grid's accessibility description as
 `... rover x <t.x> y <t.y> ...`, but `TelemetrySnapshot.x/y` are the **VM X/Y registers**
-(`MissionSession.kt:117-118`, `x = vm.x, y = vm.y`), not the rover's world position. On mission 02
-the description therefore reads `rover x 0 y 0` for the whole run while the rover is actually
-moving on the grid (the visible telemetry and every engine value are correct). A screen reader
-hears a wrong rover position and never hears the right one. Fix shape: add `roverX/roverY`
-(`rover.x`, `rover.y`) to `TelemetrySnapshot` and use those in the description, keeping the RF-8
-band's X/Y registers as they are.
+(`MissionSession.kt`, `x = vm.x, y = vm.y`), not the rover's world position. On mission 02 the
+description therefore read `rover x 0 y 0` for the whole run while the rover was moving on the grid
+(the visible telemetry and every engine value were correct). A screen reader heard a wrong rover
+position and never heard the right one.
+
+Fix: `TelemetrySnapshot` now carries `roverX`, `roverY` (`Rover.x/y`) and `roverFacing`
+(`TextGrid.dirName(rover.facing)`) next to the VM register fields, and the grid description reads
+`rover at x 2 y 7 facing S`. The visible bands are untouched (frozen layout, §15 unaffected).
+
+Unit guard: `MissionSessionTest.telemetrySeparatesRoverPositionFromVmRegisters` pins mission 02 at
+tick 12 (`roverX=2, roverY=7, facing S`) and tick 46 (`6, 10, E`) against the committed fixtures in
+`docs/web/fixtures/snapshots.json`, and asserts `roverX/roverY` come from `Rover` while `x/y` equal
+`rover.vm.x/y`. `:fireline-app:testDebugUnitTest` is 52 tests, zero failures.
+
+On device (emulator-5554, reinstalled debug APK), same mission 02 / `CORRIDOR-REF.ASM` run:
+
+| tick | grid `content-desc` | fixture anchor |
+|---|---|---|
+| 0 | `MISSION GRID running mission 02 tick 0 of 120 rover at x 2 y 2 facing E ...` | authored start (2,2) E |
+| 12 | `... tick 12 of 120 rover at x 2 y 7 facing S ... fire distance 10 ...` | `02-ref-t12` x=2 y=7 dir=S |
+| 46 | `... tick 46 of 120 rover at x 6 y 10 facing E ... fire distance 3 ...` | `02-ref-t46` x=6 y=10 dir=E |
+| 102 (RUN) | RESULT card `MISSION COMPLETE`, `TICK 102/120`, `HP 100 HEAT 64`, `firmware 75 B / 25 instructions`, `fingerprint $47e28d84` | unchanged by the fix |

@@ -324,7 +324,7 @@ class MissionRunSurface(
             "MISSION GRID " + (if (session.finished) "finished" else "running") +
                 " mission " + "%02d".format(mission.id) +
                 " tick " + t.tick + " of " + t.timeLimit +
-                " rover x " + t.x + " y " + t.y +
+                " rover at x " + t.roverX + " y " + t.roverY + " facing " + t.roverFacing +
                 " hp " + t.hp + " heat " + t.heat + " water " + t.water +
                 " fire distance " + t.fireDist + " civilians " + t.civCount
         tickLine.text = "TICK ${t.tick} / ${t.timeLimit}"

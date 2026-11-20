@@ -116,4 +116,37 @@ class MissionSessionTest {
         // Newest-first for the panel and full-log overlay.
         assertEquals(session.eventLog.last(), session.fullLogNewestFirst().first())
     }
+
+    @Test
+    fun telemetrySeparatesRoverPositionFromVmRegisters() {
+        // The grid accessibility line used to read `TelemetrySnapshot.x/y`, which are the
+        // VM X/Y registers, so it announced a rover that never moved. Mission 02 pins the
+        // body position at the committed engine anchors (docs/web/fixtures/snapshots.json:
+        // tick 12 x=2 y=7 dir=S, tick 46 x=6 y=10 dir=E).
+        val mission = Missions.byId(2)!!
+        val session = MissionSession(mission, "REFERENCE.ASM", mission.referenceSource)
+
+        repeat(12) { session.step() }
+        val t12 = session.telemetry()
+        assertEquals(12, t12.tick)
+        assertEquals(2, t12.roverX)
+        assertEquals(7, t12.roverY)
+        assertEquals("S", t12.roverFacing)
+
+        while (session.tick < 46 && !session.finished) {
+            session.step()
+        }
+        val t46 = session.telemetry()
+        assertEquals(46, t46.tick)
+        assertEquals(6, t46.roverX)
+        assertEquals(10, t46.roverY)
+        assertEquals("E", t46.roverFacing)
+
+        // The rover fields are the engine body state; X/Y are the firmware's own registers.
+        val rover = session.currentWorld.rover
+        assertEquals(rover.x, t46.roverX)
+        assertEquals(rover.y, t46.roverY)
+        assertEquals(rover.vm.x, t46.x)
+        assertEquals(rover.vm.y, t46.y)
+    }
 }

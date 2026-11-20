@@ -107,6 +107,9 @@ class MissionSession(val mission: Mission, val firmwareName: String, val firmwar
             fireDist = world.sensor(FirelinePorts.FIRE_DIST),
             fireLevel = world.sensor(FirelinePorts.FIRE_LEVEL),
             civCount = world.sensor(FirelinePorts.CIV_COUNT),
+            roverX = rover.x,
+            roverY = rover.y,
+            roverFacing = TextGrid.dirName(rover.facing),
             water = rover.water,
             hp = rover.hp,
             heat = rover.heat,
@@ -159,6 +162,12 @@ data class TelemetrySnapshot(
     val fireDist: Int,
     val fireLevel: Int,
     val civCount: Int,
+    /** Rover body position on the grid (`Rover.x/y`). Deliberately separate from
+     *  the VM X/Y registers below: they are firmware values, not where the rover is. */
+    val roverX: Int,
+    val roverY: Int,
+    /** Compass letter of the rover facing (`TextGrid.dirName(rover.facing)`). */
+    val roverFacing: String,
     val water: Int,
     val hp: Int,
     val heat: Int,
