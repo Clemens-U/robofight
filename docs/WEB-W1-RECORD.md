@@ -239,3 +239,41 @@ On device (emulator-5554, reinstalled debug APK), same mission 02 / `CORRIDOR-RE
 | 12 | `... tick 12 of 120 rover at x 2 y 7 facing S ... fire distance 10 ...` | `02-ref-t12` x=2 y=7 dir=S |
 | 46 | `... tick 46 of 120 rover at x 6 y 10 facing E ... fire distance 3 ...` | `02-ref-t46` x=6 y=10 dir=E |
 | 102 (RUN) | RESULT card `MISSION COMPLETE`, `TICK 102/120`, `HP 100 HEAT 64`, `firmware 75 B / 25 instructions`, `fingerprint $47e28d84` | unchanged by the fix |
+
+## 10. SAF roundtrip and the failing-firmware anchor on device (2026-11-20)
+
+Scope note: the Circuit (pro) APK on device is **out of scope by owner decision** (2026-11-20).
+The two remaining W1 follow-ups were run on emulator-5554 with the debug FIRELINE APK.
+
+### SAF export -> import roundtrip after the KMP switch (byte-verified)
+
+Store read directly out of the app database (`adb exec-out run-as robofight.fireline cat
+databases/fireline.db`, table `files(id, name, content, created, updated)`):
+
+| step | artifact | bytes | md5 |
+|---|---|---|---|
+| before | store row `CORRIDOR-REF.ASM` | 375 | `e80d319c4361b40d7be27971433065fe` |
+| export | `EXPORT .asm` on FILES exports the current selection; DocumentsUI title field kept `CORRIDOR-REF.ASM` and was retyped to `CORRIDOR-RT20.ASM`; saved in `Download/` as a `BIN file` (octet-stream), **no `.txt` suffix** | 375 | `e80d319c4361b40d7be27971433065fe` |
+| import | `IMPORT .asm` picker listed it `enabled=true` (the `*/*` filter fix), app notice `imported CORRIDOR-RT20.ASM`, FILES row `375 B  25 i` | 375 | `e80d319c4361b40d7be27971433065fe` |
+
+All three are byte-identical (`original == exported == reimported`), so neither the KMP engine
+switch nor the store validator changed the firmware text. After the test the two imported rows were
+removed with the app's `DEL` + confirm dialog and the selection was set back to
+`CORRIDOR-REF.ASM`: the store then holds exactly the original `PATROL.ASM` (2228 B,
+`cc13f4653ac3fff29b54290dab387f41`) and `CORRIDOR-REF.ASM` (375 B, `e80d319c…`) rows again (the DB
+*file* bytes differ from the snapshot because SQLite pages were reused).
+
+### Mission 01 `never shoots` = TIME_EXPIRED anchor
+
+Firmware authored from the fixture source (`docs/web/fixtures/snapshots.json`, label
+`01-never-final`): `loop:  WAIT` / `JMP    loop`, pushed to `Download/NEVER.ASM` and imported
+(FILES notice `imported NEVER.ASM`, row `31 B  2 i`; assembled image is 6 B / 2 instructions).
+
+| device readout | fixture anchor (`01-never-t30` / `01-never-final`) |
+|---|---|
+| `MISSION 01 / NOZZLE CHECK`, `firmware: NEVER.ASM  //  SEED 1001 (FIXED)`, `TICK 0 / 60`, `next: WAIT @line 1` | 2 instructions, PC at `loop` |
+| tick 30: `TICK 30 / 60`, `A 0 X 0 Y 0 SP $0BF PC $100`, `last: JMP 256`, `next: WAIT @line 1`, grid `rover at x 2 y 2 facing E` | `pc 0x100`, `instruction WAIT`, `last_op JMP 256`, rover unmoved |
+| tick 60: `MISSION FAILURE TIME_EXPIRED`, RESULT card `MISSION 01 / NOZZLE CHECK TICK 60/60`, `ticks 60  water used 0`, `HP 100 HEAT 0`, `firmware 6 B / 2 instructions`, `FAILURE: TIME_EXPIRED`, `fingerprint $a64c17a9` | tick 60 = timeLimit, FAILURE / TIME_EXPIRED, hash `a64c17a9d85a6f75` |
+
+The failing run also shows the 7.5 explanation fields (reason line, ticks, water used) next to the
+fingerprint, which is what the web RESULT mockup reproduces.
