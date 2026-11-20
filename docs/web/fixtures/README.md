@@ -88,3 +88,56 @@ Two generator runs produced byte-identical JSON (`801b48308c3c3f003cafd417faca49
 - Live water packets in mission 01 exist only on ticks 5, 6, 10, 11, 15, 16; in mission 02
   the pocket cell sits directly ahead of the firing position, so every packet is consumed
   on its spawn tick (`packets` is legitimately empty for all mission-02 snapshots).
+
+---
+
+# W2 parity fixtures (cross-target gates G2/G3/G4/G6)
+
+Separate from the mockup snapshots above: these are the fixtures `:fireline-engine`
+`commonTest` asserts **on both `jvm` and `wasmJs`**, so a browser container inherits the
+engine's determinism instead of re-deriving it (docs/FIRELINE-WEB.md §4, §9 W2).
+
+| file | role |
+|---|---|
+| `ParityMatrix.kt` | the generator (`package fixtures`, `main(args)`; `args[0]` = output dir). Compiles against `:rf8-core` + `:fireline-engine` commonMain. Records: fingerprint matrix + 12-tick golden traces (`FirelineRun.eventTrace`), 64/32-bit arithmetic vectors, `WebInputLimits` probe. Asserts runner == step-by-step per row, and aborts if a firmware fails to assemble. |
+| `parity_matrix.tsv` | 10 rows (5 authored missions x reference + failing firmware): probe tick + mid-run fingerprint, trace hash, final tick / status / failure reason / fingerprint, assembler bytes+instructions. Header comments carry `# commit` and `# engine v`. |
+| `parity_traces.txt` | the 10 golden traces verbatim (12 lines each, 120 lines), with per-scenario `probe=` / `trace_hash=` headers. |
+| `parity_arith.tsv` | 29 arithmetic vectors: engine LCG streams, FNV-1a parameters and hashes, plus Int/Long overflow, shift, remainder, truncation behaviors every container must reproduce. |
+| `limit_probe.tsv` | legal vs oversized source, and `WebInputLimits.prepare` outcomes (oversized and over-cap tick budget refused **before** assembly). |
+| `parity_fixture_gen.py` | reads the TSVs, refuses to write if they contradict each other (trace hash must equal the matrix `trace_hash`, 12 trace lines each, 16-hex digests, all firmware assembling), then writes the JSON fixtures and the pinned Kotlin fixture file. |
+| `parity_matrix.json`, `parity_arith.json`, `parity_traces.json` | the same data for a browser container to check itself against. |
+| `../fireline-engine/src/commonTest/kotlin/robofight/fireline/W2ParityFixtures.kt` | the pinned Kotlin fixtures (`internal` vals), generated - never hand-typed. |
+
+## Build + run the W2 pipeline (from the repo root, bash)
+
+```bash
+JBR="C:/Program Files/Android/Android Studio/jbr/bin/java.exe"
+KJ="C:/Program Files/Android/Android Studio/plugins/Kotlin/kotlinc/lib/kotlin-compiler.jar"
+SL="C:/Program Files/Android/Android Studio/plugins/Kotlin/kotlinc/lib/kotlin-stdlib.jar"
+CLS="$LOCALAPPDATA/Temp/flw2/cls"
+
+"$JBR" -cp "$KJ" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler \
+  rf8-core/src/commonMain/kotlin/robofight/*/*.kt \
+  fireline-engine/src/commonMain/kotlin/robofight/fireline/*.kt \
+  docs/web/fixtures/ParityMatrix.kt -d "$CLS" -nowarn     # grep the output for 'error:'
+
+"$JBR" -cp "$CLS;$SL" fixtures.ParityMatrixKt \
+  "C:/Users/Clemens/Documents/github/robofight/docs/web/fixtures"
+
+python3 docs/web/fixtures/parity_fixture_gen.py          # JSON + W2ParityFixtures.kt
+
+gradle :fireline-engine:jvmTest :fireline-engine:wasmJsTest   # consumes the pinned fixtures
+```
+
+Two `fixtures.ParityMatrixKt` runs must produce byte-identical TSVs (run it twice and
+compare `md5sum`); that is the determinism proof for the recorded values. Engine changes
+that move a fingerprint require a `FIRELINE_ENGINE_VERSION` bump plus regeneration, and
+the record in `docs/WEB-W2-RECORD.md` documents why.
+
+## Fingerprint family used by these fixtures
+
+`FirelineWorld.finalStateHash()` = FNV-1a 64 over `canonicalState()`, with the engine's
+own `FNV_OFFSET_BASIS` (0xCBF29CE484222325, stored as a signed Long) and `FNV_PRIME`
+(0x100000001B3) from `FirelineRules`; rendered with `toULong().toString(16).padStart(16, '0')`.
+The golden-trace hashes reuse exactly those constants and that rendering, so the trace
+digest and the state digest come from one documented family (FIRELINE-DESIGN.md §13.2).

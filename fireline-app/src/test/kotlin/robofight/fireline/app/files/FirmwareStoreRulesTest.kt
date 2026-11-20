@@ -158,4 +158,23 @@ class FirmwareStoreRulesTest {
         val saved = (repo.save("TAB", "MOV\tA,#1") as SaveOutcome.Saved).file
         assertEquals("MOV    A,#1", saved.source)
     }
+
+    @Test
+    fun documentCeilingsAreTheEngineWebInputCeilings() {
+        // W2 gate G6: the Android store and the web input gate refuse the same
+        // documents, so the store ceilings are the engine's WebInputLimits values.
+        assertEquals(robofight.fireline.WebInputLimits.MAX_SOURCE_LINES, FirmwareSource.MAX_SOURCE_LINES)
+        assertEquals(robofight.fireline.WebInputLimits.MAX_SOURCE_BYTES, FirmwareSource.MAX_SOURCE_BYTES)
+        assertEquals(robofight.fireline.MAX_TICKS, robofight.fireline.WebInputLimits.MAX_REQUEST_TICKS)
+        // And both refuse the same two boundary cases.
+        assertEquals(
+            emptyList<String>(),
+            robofight.fireline.WebInputLimits.sourceProblems("MOV A,#1\n"),
+            "the engine gate must accept what the store accepts",
+        )
+        assertTrue(
+            robofight.fireline.WebInputLimits.sourceProblems("A".repeat(FirmwareSource.MAX_SOURCE_BYTES + 1))
+                .any { it.contains("bytes") },
+        )
+    }
 }

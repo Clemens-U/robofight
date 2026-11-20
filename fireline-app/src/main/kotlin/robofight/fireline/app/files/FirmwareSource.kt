@@ -14,11 +14,13 @@ package robofight.fireline.app.files
 object FirmwareSource {
 
     /** 768 program bytes / 3 bytes per instruction = 256 instructions; a
-     *  1200-line ceiling comfortably covers labels, comments and blank lines. */
-    const val MAX_SOURCE_LINES = 1200
+     *  1200-line ceiling comfortably covers labels, comments and blank lines.
+     *  The ceilings are the engine's (`WebInputLimits`) so the Android store and
+     *  the web input gate refuse the same documents. */
+    const val MAX_SOURCE_LINES = robofight.fireline.WebInputLimits.MAX_SOURCE_LINES
 
     /** Character ceiling for a whole source document (UTF-8 encoded). */
-    const val MAX_SOURCE_BYTES = 8192
+    const val MAX_SOURCE_BYTES = robofight.fireline.WebInputLimits.MAX_SOURCE_BYTES
 
     /**
      * Accept/reject reasons. Empty list means the source may be stored.

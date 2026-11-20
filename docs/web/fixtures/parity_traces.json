@@ -1,0 +1,186 @@
+{
+  "engineVersion": 1,
+  "sourceCommit": "d66ef5f8214506120857fd15aaa80c1042e9d4cc",
+  "traces": {
+    "1-reference": {
+      "probeTick": 12,
+      "traceHash": "4f4118286b349619",
+      "lines": [
+        "001 IN port18 | ",
+        "002 JNZ \u2192 265 | ",
+        "003 SHOOT (1/3) | ",
+        "004 SHOOT (2/3) | ",
+        "005 SHOOT (3/3) | PACKET -> 3,2",
+        "006 IN port18 | ",
+        "007 JNZ \u2192 277 | FIRE -25 at 5,2 -> 30",
+        "008 SHOOT (1/3) | ",
+        "009 SHOOT (2/3) | ",
+        "010 SHOOT (3/3) | PACKET -> 3,2",
+        "011 IN port18 | ",
+        "012 JNZ \u2192 289 | FIRE -25 at 5,2 -> 10"
+      ]
+    },
+    "1-failing": {
+      "probeTick": 12,
+      "traceHash": "9f496c19b6af9b46",
+      "lines": [
+        "001 WAIT | ",
+        "002 JMP 256 | ",
+        "003 WAIT | ",
+        "004 JMP 256 | ",
+        "005 WAIT | ",
+        "006 JMP 256 | ",
+        "007 WAIT | ",
+        "008 JMP 256 | ",
+        "009 WAIT | ",
+        "010 JMP 256 | ",
+        "011 WAIT | ",
+        "012 JMP 256 | "
+      ]
+    },
+    "2-reference": {
+      "probeTick": 12,
+      "traceHash": "ceddf1a2fa7d7b10",
+      "lines": [
+        "001 TURN R | ",
+        "002 MOVE (1/2) | ",
+        "003 MOVE (2/2) | ",
+        "004 MOVE (1/2) | ",
+        "005 MOVE (2/2) | ",
+        "006 MOVE (1/2) | ",
+        "007 MOVE (2/2) | ",
+        "008 MOVE (1/2) | ",
+        "009 MOVE (2/2) | ",
+        "010 MOVE (1/2) | ",
+        "011 MOVE (2/2) | ",
+        "012 MOVE (1/2) | "
+      ]
+    },
+    "2-failing": {
+      "probeTick": 12,
+      "traceHash": "88b5c429de62c944",
+      "lines": [
+        "001 MOVE (1/2) | ",
+        "002 MOVE (2/2) | ",
+        "003 JMP 256 | ",
+        "004 MOVE (1/2) | ",
+        "005 MOVE (2/2) | ",
+        "006 JMP 256 | ",
+        "007 MOVE (1/2) | ",
+        "008 MOVE (2/2) | ",
+        "009 JMP 256 | ",
+        "010 MOVE (1/2) | ",
+        "011 MOVE (2/2) | ",
+        "012 JMP 256 | "
+      ]
+    },
+    "3-reference": {
+      "probeTick": 12,
+      "traceHash": "28016f5459a44c4d",
+      "lines": [
+        "001 MOVE (1/2) | ",
+        "002 MOVE (2/2) | ",
+        "003 MOVE (1/2) | ",
+        "004 MOVE (2/2) | ",
+        "005 MOVE (1/2) | ",
+        "006 MOVE (2/2) | CIVILIAN #1 RESCUED at 5,2",
+        "007 MOVE (1/2) | ",
+        "008 MOVE (2/2) | ",
+        "009 MOVE (1/2) | ",
+        "010 MOVE (2/2) | FIRE IGNITES 12,5 floor from 12,4 dir=S chance=60<64 \u00b7 FIRE IGNITES 2,16 floor from 3,16 dir=W chance=48<64",
+        "011 MOVE (1/2) | ",
+        "012 MOVE (2/2) | "
+      ]
+    },
+    "3-failing": {
+      "probeTick": 12,
+      "traceHash": "d31f60893006df8f",
+      "lines": [
+        "001 MOVE (1/2) | ",
+        "002 MOVE (2/2) | ",
+        "003 MOVE (1/2) | ",
+        "004 MOVE (2/2) | ",
+        "005 MOVE (1/2) | ",
+        "006 MOVE (2/2) | CIVILIAN #1 RESCUED at 5,2",
+        "007 TURN R | ",
+        "008 MOVE (1/2) | ",
+        "009 MOVE (2/2) | ",
+        "010 MOVE (1/2) | FIRE IGNITES 12,5 floor from 12,4 dir=S chance=60<64 \u00b7 FIRE IGNITES 2,16 floor from 3,16 dir=W chance=48<64",
+        "011 MOVE (2/2) | ",
+        "012 MOVE (1/2) | "
+      ]
+    },
+    "4-reference": {
+      "probeTick": 12,
+      "traceHash": "9bafb261b891c1c0",
+      "lines": [
+        "001 IN port25 | ",
+        "002 IN port26 | ",
+        "003 MOVE (1/2) | ",
+        "004 MOVE (2/2) | ",
+        "005 IN port18 | ",
+        "006 JZ (skip) | ",
+        "007 SHOOT (1/3) | ",
+        "008 SHOOT (2/3) | ",
+        "009 SHOOT (3/3) | PACKET -> 4,2 \u00b7 FIRE -25 at 4,2 -> 10 \u00b7 REFILL +10",
+        "010 JMP 265 | ",
+        "011 IN port18 | ",
+        "012 JZ (skip) | "
+      ]
+    },
+    "4-failing": {
+      "probeTick": 12,
+      "traceHash": "99752e4c059a058e",
+      "lines": [
+        "001 TURN R | ",
+        "002 MOVE (1/2) | ",
+        "003 MOVE (2/2) | ",
+        "004 JMP 256 | ",
+        "005 TURN R | ",
+        "006 MOVE (1/2) | ",
+        "007 MOVE (2/2) | ",
+        "008 JMP 256 | ",
+        "009 TURN R | ",
+        "010 MOVE (1/2) | ",
+        "011 MOVE (2/2) | ",
+        "012 JMP 256 | "
+      ]
+    },
+    "5-reference": {
+      "probeTick": 12,
+      "traceHash": "317eca23f0149509",
+      "lines": [
+        "001 SHIELD (1/2) | ",
+        "002 SHIELD (2/2) | SHIELD ACTIVE 5",
+        "003 MOVE (1/2) | ",
+        "004 MOVE (2/2) | SHIELD BLOCKS FIRE 100 AT 2,2",
+        "005 MOVE (1/2) | SHIELD BLOCKS FIRE 100 AT 2,2 \u00b7 FIRE IGNITES 1,2 floor from 2,2 dir=W chance=10<64",
+        "006 MOVE (2/2) | SHIELD BLOCKS FIRE 100 AT 3,2",
+        "007 MOVE (1/2) | ROVER FIRE DAMAGE -4 (fire 100)",
+        "008 MOVE (2/2) | ROVER FIRE DAMAGE -4 (fire 100)",
+        "009 MOVE (1/2) | ROVER FIRE DAMAGE -4 (fire 100)",
+        "010 MOVE (2/2) | ROVER FIRE DAMAGE -4 (fire 100)",
+        "011 SHIELD (1/2) | ROVER FIRE DAMAGE -4 (fire 100)",
+        "012 SHIELD (2/2) | SHIELD ACTIVE 5 \u00b7 SHIELD BLOCKS FIRE 100 AT 5,2"
+      ]
+    },
+    "5-failing": {
+      "probeTick": 12,
+      "traceHash": "def56526d10c1cf2",
+      "lines": [
+        "001 MOVE (1/2) | ",
+        "002 MOVE (2/2) | ROVER FIRE DAMAGE -4 (fire 100)",
+        "003 JMP 256 | ROVER FIRE DAMAGE -4 (fire 100)",
+        "004 MOVE (1/2) | ROVER FIRE DAMAGE -4 (fire 100)",
+        "005 MOVE (2/2) | ROVER FIRE DAMAGE -4 (fire 100) \u00b7 FIRE IGNITES 1,2 floor from 2,2 dir=W chance=10<64",
+        "006 JMP 256 | ROVER FIRE DAMAGE -4 (fire 100)",
+        "007 MOVE (1/2) | ROVER FIRE DAMAGE -4 (fire 100)",
+        "008 MOVE (2/2) | ROVER FIRE DAMAGE -4 (fire 100)",
+        "009 JMP 256 | ROVER FIRE DAMAGE -4 (fire 100)",
+        "010 MOVE (1/2) | ROVER FIRE DAMAGE -4 (fire 100)",
+        "011 MOVE (2/2) | ROVER FIRE DAMAGE -4 (fire 100)",
+        "012 JMP 256 | ROVER FIRE DAMAGE -4 (fire 100)"
+      ]
+    }
+  }
+}

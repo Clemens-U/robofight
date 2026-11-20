@@ -398,6 +398,15 @@ status block in the plan.
   failing firmware), arithmetic audit of `Long`/`Int` semantics on wasmJs and
   js, and the `MAX_TICKS` / source-size limit enforcement on the web input
   path. Gate: G1-G3, G6 green on both targets; fingerprint matrix checked in.
+  **DONE 2026-11-20, gate met.** Record: `docs/WEB-W2-RECORD.md`. The matrix is
+  10 rows (5 missions x reference + failing firmware) plus 120 golden trace
+  lines, generated from live engine state by `docs/web/fixtures/ParityMatrix.kt`
+  and pinned by `parity_fixture_gen.py`; 29 arithmetic vectors and the
+  `WebInputLimits` refusals (1200 lines / 8192 bytes / `MAX_TICKS`) are asserted
+  by 19 new `commonTest` tests that run identically on `jvmTest` and
+  `wasmJsTest` (146 engine tests per target, 392 tests green across the
+  close-out matrix). `js` stays a documented fallback: the pinned suites are in
+  `commonTest`, so adding a js target asserts it with no new test code.
 - **W3, web console v1** (`codex/web-w3-console`).
   `:fireline-web` shell: mission picker, editor with line-level assembler
   errors, grid/telemetry/event renderer, `RUN`/`STEP`/`RESET`, result screen,
@@ -499,7 +508,7 @@ W4 is small. A rough read: W1 a session or two, W2 a session, W3 the largest
 | risk | impact | mitigation |
 |---|---|---|
 | KMP/wasm artifacts unreachable through this machine's curated Maven egress | W1 blocked | pre-probed 2026-11-19 (§0) and confirmed in W1: the engine compiles to wasm and both test targets run. What actually had to be worked around was the toolchain's own artifact downloads (node dist, yarn, binaryen), fixed for node and yarn in `gradle/wasm-toolchain.gradle` + `kotlin.js.yarn=false`; binaryen is still unreachable, so the `...Optimize` wasm tasks do not run on this machine (see `docs/WEB-W1-RECORD.md` §4). Fallback order (vendored toolchain, js target, Option B) kept as insurance |
-| `Long` / integer arithmetic drift on wasmJs or js | silent determinism divergence, worst failure mode of the project | no floats in rules/RNG, arithmetic audit in W2, pinned fingerprints (G2/G3), keep wasmJs primary (native i64) and js only as fallback |
+| `Long` / integer arithmetic drift on wasmJs or js | silent determinism divergence, worst failure mode of the project | no floats in rules/RNG, arithmetic audit in W2, pinned fingerprints (G2/G3), keep wasmJs primary (native i64) and js only as fallback. **Audited 2026-11-20 (W2, `docs/WEB-W2-RECORD.md` §5): 0 `Float`/`Double`/`Math`/`kotlin.random` sites in engine `commonMain`, all 64-bit work is the LCG step and the FNV loop, and 29 pinned vectors plus the 10-row matrix and its 120 pinned trace lines are identical on `jvm` and `wasmJs` (19 W2 tests)** |
 | Two UIs drifting from each other over time | player confusion, double maintenance | panel mapping in §6, shared copy, shared cheat sheet text, one mission data source generated once |
 | Landing page turns into an app shell | slower first paint, worse crawlability of a currently clean static page | `/play/` path for the app, static landing page untouched except nav + copy, wasm loaded only on `#play` |
 | Big initial download (few MB wasm) | cold-start friction on mobile | gzip/brotli, long cache, size budget gate in W4, plain HTML mission picker before the engine arrives |
