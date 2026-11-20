@@ -1,0 +1,52 @@
+<!doctype html>
+<!--
+  W1 hello-wasm harness (docs/WEB-W1-RECORD.md, docs/FIRELINE-WEB.md 9 W1).
+
+  Purpose: prove that the REAL FIRELINE engine, compiled to Kotlin/wasmJs, loads in a
+  browser through WebAssembly.instantiateStreaming and prints the committed engine
+  anchors. Copy the four build artifacts next to this file (see README.md in this
+  directory), serve the directory over http:// (module scripts and instantiateStreaming
+  both require a real origin, not file://), and open this page.
+
+  Expected result line: W1 WASM RESULT: ALL ANCHORS OK
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FIRELINE W1 wasm spike</title>
+<style>
+body{background:#16100e;color:#f1e9e2;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;padding:20px;margin:0}
+h1{font-size:14px;letter-spacing:.12em;margin:0 0 10px}
+pre{white-space:pre-wrap;font-size:13px;line-height:1.5;margin:0}
+#status{font-size:12px;opacity:.75;margin-bottom:10px}
+</style>
+</head>
+<body>
+<h1>FL:&gt; W1 WASM SPIKE // REAL ENGINE IN THE BROWSER</h1>
+<div id="status">loading engine...</div>
+<pre id="out"></pre>
+<script>
+// Capture the engine stdout (Kotlin println reaches console.log) into the page, so the
+// harness can read the anchor table from the DOM. Installed before the module import.
+const out = document.getElementById('out');
+const status = document.getElementById('status');
+const lines = [];
+function emit(t){ lines.push(String(t)); out.textContent = lines.join('\n'); }
+const realLog = console.log.bind(console);
+console.log = (...a) => { emit(a.map(x => typeof x === 'string' ? x : String(x)).join(' ')); realLog(...a); };
+const realErr = console.error.bind(console);
+console.error = (...a) => { emit('[console.error] ' + a.map(x => String(x)).join(' ')); realErr(...a); };
+window.addEventListener('error', e => emit('[window.error] ' + e.message));
+
+// Record what the server actually sends for the wasm file: the whole deployment question
+// in one header line (see docs/DEPLOY-IIS-WASM.md section 1).
+fetch('opcode-arena-fireline-engine.wasm', { method: 'HEAD' })
+  .then(r => emit('[wasm Content-Type] ' + (r.headers.get('content-type') || 'none')));
+
+import('./opcode-arena-fireline-engine.mjs')
+  .then(() => { status.textContent = 'module loaded'; })
+  .catch(e => { status.textContent = 'module load failed'; emit('[import error] ' + e); });
+</script>
+</body>
+</html>

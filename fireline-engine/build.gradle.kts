@@ -1,5 +1,5 @@
-// RF-8: FIRELINE world engine — pure Kotlin/JVM library
-// (FIRELINE-DESIGN.md; PLAN-RF8-MULTIAPP.md §8.1).
+// RF-8: FIRELINE world engine — pure Kotlin library (FIRELINE-DESIGN.md;
+// PLAN-RF8-MULTIAPP.md §8.1).
 //
 // Owns the FIRELINE world profile: static layout decoding, rover body state,
 // water packets, dynamic fire + deterministic spread, civilians, objectives,
@@ -8,35 +8,34 @@
 // :engine or any Android module: sharing happens through the shared core, not
 // by making FIRELINE an Arena mode. No Android, filesystem or network deps.
 //
-// Toolchain mirrors rf8-core/build.gradle.kts: Kotlin 2.2.10 via the version
-// catalog, jvmTarget 11 pinned on Kotlin AND Java so both compile tasks agree.
+// W1 (docs/FIRELINE-WEB.md §9): Kotlin Multiplatform (jvm + wasmJs) with the
+// engine in commonMain, so the browser build and the Android build run the
+// identical engine code. Formatting replacements are output-identical (see
+// rf8-core/build.gradle.kts). wasmJsMain holds the W1 hello-wasm spike only —
+// it is not engine behaviour and never reaches the Android targets.
+
+@OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
 plugins {
-    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.multiplatform)
 }
 
 kotlin {
-    compilerOptions {
-        // JVM 11 matches the verified offline build and Android's default
-        // jvmTarget; pin Java to the same target so the two compile tasks agree.
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    jvm {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
     }
-}
+    wasmJs {
+        nodejs()
+        binaries.executable()
+    }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-}
-
-dependencies {
-    implementation(project(":rf8-core"))
-    testImplementation(libs.junit.jupiter)
-    testRuntimeOnly(libs.junit.platform.launcher)
-}
-
-tasks.test {
-    useJUnitPlatform()
-    testLogging {
-        events("passed", "skipped", "failed")
-        showStandardStreams = true
+    sourceSets {
+        commonMain.dependencies {
+            implementation(project(":rf8-core"))
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+        }
     }
 }

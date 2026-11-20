@@ -1,0 +1,50 @@
+// W1 (docs/FIRELINE-WEB.md §9): keep the Kotlin/Wasm toolchain from downloading its own
+// Node.js distribution and its own yarn package manager.
+//
+// Why: both setup tasks resolve an artifact (org.nodejs:node / com.yarnpkg:yarn) through a
+// repository the KGP adds to the project itself. On this machine the curated Maven mirror
+// serves neither, so the build dies in task-graph construction. Turning the downloads off
+// makes the toolchain use what is already installed (Node.js v22 on PATH; this build has no
+// npm dependencies of its own, so no package manager is ever invoked).
+//
+// Why Groovy + duck typing: the spec extensions are registered per project with names built
+// from an internal platform disambiguator, and KGP loads them through its own class loader.
+// Matching them by name or class from a Kotlin DSL script is brittle; matching them by the
+// public `download` property they all inherit from EnvSpec is not.
+// Extension names as registered by KGP 2.2.10 for the wasm targets (observed at runtime on
+// this build): kotlinWasmNodeJs, kotlinWasmNpm, kotlinWasmNodeJsSpec, kotlinWasmYarnSpec,
+// kotlinWasmYarn. The two `*Spec` ones carry the inherited `download` property. The JS-platform
+// names are tried as a fallback so the wiring survives a KGP rename.
+def specs = ["kotlinWasmNodeJsSpec", "kotlinWasmYarnSpec", "kotlinNodeJsSpec", "kotlinYarn"]
+
+def disable = { p ->
+    specs.each { name ->
+        def spec = p.extensions.findByName(name)
+        if (spec == null) {
+            return
+        }
+        try {
+            def prop = spec.download
+            if (prop instanceof org.gradle.api.provider.Property && prop.get() == true) {
+                prop.set(false)
+                logger.lifecycle("W1 wasm toolchain: download disabled for " + p.name + "/" + name)
+            }
+        } catch (MissingPropertyException ignored) {
+            // Not a toolchain spec extension (no `download` property).
+        } catch (RuntimeException ignored) {
+            // Property without a configured value: nothing to turn off.
+        }
+    }
+}
+
+allprojects { p ->
+    p.afterEvaluate { disable(p) }
+}
+
+// The root project's wasm toolchain extensions only appear while a SUBPROJECT is evaluated
+// (KGP applies its root plugins lazily from the target declaration), which is after the root's
+// own afterEvaluate. This pass catches them: projectsEvaluated runs after all evaluation and
+// still before the task graph is built.
+gradle.projectsEvaluated { g ->
+    g.rootProject.allprojects.each { disable(it) }
+}

@@ -2,7 +2,8 @@
 
 Status: concept + mockups, 2026-11-19. Nothing here is committed to `main`.
 **The layout is frozen for v1 (§15, owner decision 2026-11-19); the build
-decisions D2-D5 in §12 are still open.** This doc proposes scope, architecture
+decisions D2-D5 in §12 are still open (a W1 toolchain pre-probe ran
+2026-11-19; its results are in §0 and §3.1).** This doc proposes scope, architecture
 and integration. It does not change any locked spec; where it needs one, it
 files a numbered amendment (see §11).
 
@@ -59,6 +60,30 @@ Warm") and by the live landing page `https://opcode-fireline.appsystems.at/`.
   `failingSources`, which is exactly what a web tutorial needs.
 - Starter firmware contract exists (`FIRELINE-DESIGN.md` 10) and must be
   assembled and exercised against mission 01 in a test.
+- **W1 pre-probe (2026-11-19, throwaway scratch project outside the repo; the
+  repo itself was not modified).** A scratch Kotlin Multiplatform spike pointed
+  `wasmJs` at the real `:rf8-core` + `:fireline-engine` main sources to test
+  exactly the §3.1 toolchain check:
+  - Egress is green. `org.jetbrains.kotlin.multiplatform` plugin marker,
+    `kotlin-stdlib-wasm-js` 2.2.10 and `kotlin-test-wasm-js` all arrive
+    (HTTP 200); `kotlin-stdlib-wasm-js-2.2.10.klib` landed in the `~/.gradle`
+    cache during the probe, and KGP 2.2.10 was already cached from the
+    Android build.
+  - The toolchain runs. The wasmJs target configures and `compileKotlinWasmJs`
+    compiles the real engine sources (KGP 2.2 requires
+    `wasmJs { binaries.executable() }` to expose the executable tasks).
+  - The port audit is bounded: exactly nine wasm-hostile call sites in both
+    main source sets, all display or debug strings. `String.format` (the wasm
+    stdlib does not expose common `String.format`): `rf8-core` `Disasm.kt`
+    (3 sites), `Vm.kt` (1), `fireline` `FirelineResult.kt`, `FirelineRun.kt`,
+    `Mission.kt` (1 each). `String(CharArray)` (rejected by wasm):
+    `fireline/Missions.kt` (2 sites), identical-output replacement
+    `concatToString()`. No arithmetic, RNG, collection or hash site failed.
+    The audit result is nine output-identical mechanical edits, not a port.
+  - `node` v22.23.2 exists on this machine, so later `wasmJsTest` runs can use
+    it instead of downloading KGP's own node distribution.
+  - Hosting ground fact: the landing page host runs Windows Server 2016 with
+    IIS (owner statement 2026-11-19); the consequences are recorded in §7.
 
 ## 1. What the web build actually is (positioning)
 
@@ -180,6 +205,11 @@ app/, fireline-app/           unchanged, keep jvmMain/androidMain source dirs
   order is: (1) vendor the toolchain from an internet-connected machine,
   (2) js target via IR, (3) Option B, explicitly documented as a divergence
   risk with a parity harness.
+  **Update 2026-11-19:** the §0 pre-probe already cleared this check on this
+  machine (the artifacts arrived and the wasm compile ran against the real
+  engine sources). W1 stays a branch, but its gate softens from a kill/branch
+  spike to a confirmation spike; the fallback order above remains documented
+  as insurance and is currently unexercised.
 
 ## 4. Verification strategy (why this one is trustworthy)
 
@@ -282,6 +312,24 @@ Hosting options (decision D2, §12):
 Recommendation: B for the app, with `#play` on the landing page as the invite
 and a progressive link into `/play/` (i.e. B now, C later if wanted).
 
+Hosting facts (owner statement 2026-11-19): `opcode-fireline.appsystems.at` is
+served by IIS on Windows Server 2016. This constrains the deploy task, not the
+architecture:
+
+- IIS does not serve `.wasm` unless the MIME type is registered, so the deploy
+  adds `<staticContent><mimeMap fileExtension=".wasm"
+  mimeType="application/wasm"/></staticContent>` (per-directory `web.config`
+  or server configuration). Without it the wasm fetch fails with 404.3 and
+  `WebAssembly.instantiateStreaming` never runs. This is the only mandatory
+  server-side change.
+- IIS dynamic compression provides gzip; brotli requires a third-party module.
+  gzip is sufficient for the few-MB wasm/JS bundle (§13 size budget).
+- Deployment is a static file copy into `/play/`, which matches option B's
+  cost line: no server-side runtime, no node, no build step on the server,
+  landing page untouched.
+- HTTPS is already the access model (§8); the secure context required by the
+  service worker rides on it.
+
 ## 8. Privacy model for the web build
 
 The shipped privacy posture is a product pillar and the web build must not
@@ -338,6 +386,13 @@ status block in the plan.
   `wasmJsTest`, and produce a hello-wasm page assembled from the real
   assembler. Gate: artifacts reachable on this machine, both test tasks green,
   wasm output loadable in a browser. Kill/branch decision recorded here.
+  **DONE 2026-11-20, gate met, decision: keep Option A and go to W2.** Record:
+  `docs/WEB-W1-RECORD.md` (15 + 127 tests identical on jvm and wasmJs, the
+  committed mission 02 anchors reproduced in wasm, browser load proof plus the
+  wrong-MIME negative control in `docs/web/w1/`). The engine port cost was
+  twelve output-identical formatting sites (nine in main sources, three in
+  suites); the toolchain cost was `gradle/wasm-toolchain.gradle` plus
+  `kotlin.js.yarn=false` in `gradle.properties`.
 - **W2, determinism parity** (`codex/web-w2-parity`).
   Golden trace + fingerprint fixtures for all five missions (reference and
   failing firmware), arithmetic audit of `Long`/`Int` semantics on wasmJs and
@@ -432,17 +487,23 @@ W4 is small. A rough read: W1 a session or two, W2 a session, W3 the largest
   cheap), or editor+run only with import/export deferred to W4.
 - **D5 engine route**: confirm Option A (Kotlin Multiplatform -> wasmJs) as the
   route to fund, given the known Maven-mirror risk on this machine and the
-  documented fallback order in §3.1.
+  documented fallback order in §3.1. The §0 pre-probe (2026-11-19) retired the
+  Maven-mirror concern on this machine and W1 (2026-11-20, `docs/WEB-W1-RECORD.md`)
+  confirmed the route on the branch: the real engine compiles to wasmJs, both test
+  targets run the same suites, and the committed anchors reproduce in a browser.
+  What remains of D5 is the owner's funding decision for W2/W3, not a technical
+  unknown.
 
 ## 13. Risks
 
 | risk | impact | mitigation |
 |---|---|---|
-| KMP/wasm artifacts unreachable through this machine's curated Maven egress | W1 blocked | spike first (`robofight-android-build` recipe already documents the mirror), vendor toolchain from an online machine, js target fallback, Option B last |
+| KMP/wasm artifacts unreachable through this machine's curated Maven egress | W1 blocked | pre-probed 2026-11-19 (§0) and confirmed in W1: the engine compiles to wasm and both test targets run. What actually had to be worked around was the toolchain's own artifact downloads (node dist, yarn, binaryen), fixed for node and yarn in `gradle/wasm-toolchain.gradle` + `kotlin.js.yarn=false`; binaryen is still unreachable, so the `...Optimize` wasm tasks do not run on this machine (see `docs/WEB-W1-RECORD.md` §4). Fallback order (vendored toolchain, js target, Option B) kept as insurance |
 | `Long` / integer arithmetic drift on wasmJs or js | silent determinism divergence, worst failure mode of the project | no floats in rules/RNG, arithmetic audit in W2, pinned fingerprints (G2/G3), keep wasmJs primary (native i64) and js only as fallback |
 | Two UIs drifting from each other over time | player confusion, double maintenance | panel mapping in §6, shared copy, shared cheat sheet text, one mission data source generated once |
 | Landing page turns into an app shell | slower first paint, worse crawlability of a currently clean static page | `/play/` path for the app, static landing page untouched except nav + copy, wasm loaded only on `#play` |
 | Big initial download (few MB wasm) | cold-start friction on mobile | gzip/brotli, long cache, size budget gate in W4, plain HTML mission picker before the engine arrives |
+| IIS on Windows Server 2016 serves `.wasm` as unknown MIME (404.3) | the web console never boots in the browser | `web.config` MIME map as a deploy task (§7 hosting facts); W4 gate HEADs the wasm URL and requires `application/wasm` |
 | Users lose browser firmware when clearing site data | real data loss | prominent export affordance in the editor, `localStorage` quota check, export reminder in the result screen |
 | Scope creep toward accounts/ladders | breaks the privacy pillar the product is built on | §2 "never on web" list treated as a spec gate, not a preference |
 
