@@ -21,7 +21,11 @@ import robofight.fireline.RunStatus
  *  - `docs/WEB-W1-RECORD.md` §9 `STEP x 30` row: `TICK 30 / 120`, `A 6`,
  *    `PC $12D`, `last: MOVE (1/2)`, `FIRE_DIST 6`, `FIRE_LEVEL 55`. Tick 30 is
  *    pinned by that committed device row, not by `snapshots.json`
- *    (docs/WEB-W3-RECORD.md §6 correction 1).
+ *    (docs/WEB-W3-RECORD.md §6 correction 1). The row's `TICK 30 / 120` is the
+ *    Android MISSION wording: the frozen web panel carries the same tick as
+ *    `tick n/limit` on the objectives line plus the `TICK` cell of RF-8 STATE,
+ *    because §15.2 item 2 has no kv row in the world column - the grid stands
+ *    there now (`WorldGridTest`).
  *  - Layout gates: `docs/FIRELINE-WEB.md` §15.2 / §15.4 / §15.7 and
  *    `docs/web/verify_layout_v1.py` (band cell lists, single-occurrence rule,
  *    one source pane, no VITALS inside TELEMETRY, house no-em/en-dash copy rule).
@@ -125,7 +129,10 @@ class ConsoleRenderTest {
 
         assertTrue(text.contains("MISSION 02 / CORRIDOR // TICK 30"),
             "prompt line shows the live tick (§15.2 item 1)")
-        assertTrue(text.contains("TICK 30 / 120"), "world readout `TICK n / limit` (WEB-W1-RECORD §9 STEP x 30)")
+        assertTrue(text.contains("tick 30/120"),
+            "objectives line carries the live tick in the golden master's own wording (`tick n/limit`, " +
+                "gen_web_mockups objectives_html); the world column's `TICK n / limit` kv row was the shell " +
+                "placeholder for the grid and §15.2 item 2 has no such row - the grid replaced it")
         assertTrue(text.contains("A 6"), "RF-8 STATE A at tick 30 (WEB-W1-RECORD §9: A 6)")
         assertTrue(text.contains("PC $12D"), "RF-8 STATE PC at tick 30 (WEB-W1-RECORD §9: PC $12D)")
         assertTrue(text.contains("MOVE (1/2)"), "LAST OP at tick 30 (WEB-W1-RECORD §9: last: MOVE (1/2))")
@@ -142,7 +149,9 @@ class ConsoleRenderTest {
         assertTrue(html.contains("<div class=\"fcell\"><span>OP TICKS LEFT</span><b>1</b></div>"),
             "MOVE (1/2) is still in flight at tick 30 (Vm.lastOp position, not the ISA cost table)")
         assertTrue(html.contains("<div class=\"fcell\"><span>TICK</span><b>30</b></div>"), "TICK cell")
-        assertTrue(text.contains("ROVER at x"), "world readout carries the rover state (MissionRunSurface wording)")
+        assertTrue(html.contains("<div class=\"grid\">"), "world column renders the 20x20 grid in place of the old kv readout (§15.2 item 2)")
+        assertTrue(html.indexOf("class=\"legend\"") < html.indexOf("<h4 style=\"margin-top:.7rem\">EVENT LOG"),
+            "the symbol legend sits between grid and EVENT LOG (§15.2 item 2)")
         assertFalse(text.contains("MISSION SUCCESS"), "nothing finished at tick 30 (snapshots 02-ref-t46 is mid-run)")
 
         // Control case: at fixture-pinned tick 46 the op in flight is `JMP 286`,

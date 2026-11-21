@@ -28,13 +28,17 @@ import robofight.isa.decPad
  * `MissionSession` state with the same words.
  *
  * Deliberate omissions of this shell step (recorded in docs/WEB-W3-RECORD.md):
- * the 20x20 world grid and the symbol legend (their glyph and layer rules are
- * §15.3/§15.6 geometry acceptance, and re-implementing them here would be a
- * second glyph authority); the `SPEED`/`PANIC` row, the share `LINK`, `COPY`
- * and `DOWNLOAD .ASM` (no pacing timer and no `localStorage`/`#run=` permalink
- * until the next W3 step); the hero, `FL:> RELEASE STATUS`, the four-cell strip,
+ * the `SPEED`/`PANIC` row, the share `LINK`, `COPY` and `DOWNLOAD .ASM` (no
+ * pacing timer and no `localStorage`/`#run=` permalink until the next W3 step);
+ * the hero, `FL:> RELEASE STATUS`, the four-cell strip,
  * the privacy block and the footer chips (§15.2 items 8-10 are landing-page
- * framing, not the console panel).
+ * framing, not the console panel). The 20x20 world grid and its symbol legend
+ * are NOT omissions any more: `WorldGrid` renders them from the engine's own
+ * `TextGrid` / `FirelineWorld` reads, which is also why `ConsoleRender` never
+ * derives a glyph itself. The `kv` readout that stood in place of the grid in
+ * the first shell step is gone: `TICK` already appears on the prompt line, the
+ * titlebar, the objectives line and the RF-8 STATE band, and the rover position
+ * now appears in the grid itself plus the `X`/`Y` cells.
  */
 object ConsoleRender {
 
@@ -160,23 +164,18 @@ object ConsoleRender {
         return "<div class=\"objline\">" + (chips + tickChip).joinToString("&nbsp;&nbsp;") + "</div>"
     }
 
-    /** World column: `WIND` line (authored mission values from `MissionRow`), a
-     *  `kv` readout of the engine's own tick and rover state in place of the
-     *  grid, then the EVENT LOG. */
-    private fun worldColumn(run: ConsoleRun, row: MissionRow): String {
-        val t = run.telemetry()
-        return "<div class=\"pairworld\">" +
+    /** World column of §15.2 item 2 in the frozen order: the `WIND` line
+     *  (authored mission values from `MissionRow`), the 20x20 world grid, the
+     *  symbol legend, then the EVENT LOG. Every cell glyph comes from
+     *  `TextGrid.glyphAt` over the session's own world (`WorldGrid`). */
+    private fun worldColumn(run: ConsoleRun, row: MissionRow): String =
+        "<div class=\"pairworld\">" +
             "<div class=\"wind\">WIND " + escapeHtml(row.windLabel) + "&nbsp;&nbsp;FORCE " + row.windForce + "</div>" +
-            kvTable(
-                listOf(
-                    "TICK" to (t.tick.toString() + " / " + t.timeLimit),
-                    "ROVER" to ("at x " + t.roverX + " y " + t.roverY + " facing " + t.roverFacing),
-                ),
-            ) +
+            WorldGrid.gridHtml(run.currentWorld) +
+            WorldGrid.legendHtml() +
             "<h4 style=\"margin-top:.7rem\">EVENT LOG</h4>" +
             "<ul class=\"events\" id=\"" + ID_EVENTS + "\">" + eventLog(run) + "</ul>" +
             "</div>"
-    }
 
     /**
      * `NNN <op> | <events>` lines exactly as the engine wrote them

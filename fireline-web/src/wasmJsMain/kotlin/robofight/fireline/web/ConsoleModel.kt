@@ -4,6 +4,7 @@ import robofight.fireline.FailureReason
 import robofight.fireline.FirelineResult
 import robofight.fireline.FirelinePorts
 import robofight.fireline.FirelineRun
+import robofight.fireline.FirelineWorld
 import robofight.fireline.Mission
 import robofight.fireline.Missions
 import robofight.fireline.Objectives
@@ -216,6 +217,15 @@ class ConsoleRun(val mission: Mission, val session: MissionSession) {
 
     /** One tick's readout, straight from the engine's accessors. */
     fun telemetry(): TelemetrySnapshot = session.telemetry()
+
+    /**
+     * Read handle on the world the session owns (`MissionSession.currentWorld`),
+     * for `WorldGrid`: terrain, fire, rover position and facing, civilians and
+     * packets are read through `FirelineWorld` / `TextGrid` exactly as the
+     * Android `FirelineGridView` reads them. The render layer never copies or
+     * mutates it.
+     */
+    val currentWorld: FirelineWorld get() = session.currentWorld
 
     /** Full engine snapshot (mid-run diagnostic, post-finish authoritative). */
     fun snapshot(): FirelineResult = session.result()

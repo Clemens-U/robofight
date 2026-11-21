@@ -238,11 +238,87 @@ to `text/javascript`, which is what `docs/DEPLOY-IIS-WASM.md` already requires f
 `Content-Type: application/wasm` is mandatory for streaming instantiation, and that doc records
 the exact browser failure when the file is served as `application/octet-stream`.
 
-## 8. Next step
+## 8. Step 5: the 20x20 world grid and the symbol legend
 
-Close the frozen-layout gaps in `:fireline-web`: the 20x20 grid plus symbol legend from
-`TextGrid.glyphAt` on `session.currentWorld` (400 `.cell` nodes, glyph and layer rules from the
-engine, not re-derived), then the editor, `localStorage` library, `.asm` import/export and
-`#run=` permalinks. Gate G5 (`.asm` roundtrip against `:fireline-app`) and G4 (the tick-30 and
-tick-102 field values, proven on device and now also in the browser) are the W3 acceptance pair;
-W4 hosting comes after.
+`WorldGrid.kt` (new, 164 lines) renders the world column of `§15.2` item 2 in the frozen order
+`WIND` line, grid, legend, `EVENT LOG`, inside `ConsoleRender.renderConsoleHtml`
+(`ConsoleRender.kt` `worldColumn`, now 331 lines). No engine change and no missing accessor: the
+glyph authority is `TextGrid.glyphAt(world,x,y)` (layer order rover > civilian > packet > fire >
+terrain) with `TextGrid.fireGlyph(intensity)` for the fire bands, and the colour classes come from
+`FirelineWorld.terrainAt(x,y)` / `fireAt(x,y)` - the same reads and the same branch order
+`FirelineGridView.drawCell` uses (`fireline-app/.../FirelineGridView.kt:128-205`), so browser and
+Android describe the same cell with the same symbol. `ConsoleRun` gained one forwarding read,
+`currentWorld` (`MissionSession.currentWorld`); `Main.kt` and `console.html` did not change - the
+`.grid`, `.cell`, `.ruler`, `.nose` and `.legend` chrome CSS was already carried verbatim from the
+golden master.
+
+Markup is copied from the executable source of the frozen layout (`grid_html()` and `LEGEND` in
+`docs/web/gen_web_mockups.py`): `corner` + 20 column rulers + 20 row rulers,
+`<span class="cell CLASS" STYLE>GLYPH</span>`, `<i class="nose">caret</i>` in the rover cell, the
+idle-floor `font-size:8px;opacity:.75` and burning `font-weight:bold` styles, and the ten legend
+items byte-for-byte (same classes, wording and HTML entities). Grid geometry is stated as
+arithmetic over `GRID` (`GRID_ROW_COUNT = GRID + 1` for the 21st ruler row,
+`DESKTOP_GRID_HEIGHT_PX = 21 * 15 + 2 = 317`, `NARROW_PANE_HEIGHT_PX = 21 * 11 + 1 = 232`) instead
+of magic numbers; the pixel values themselves live in the frozen chrome CSS.
+
+Tests: `WorldGridTest.kt` (new, 400 lines, 8 tests, `wasmJsTest` in Node) asserts 400
+`class="cell ` nodes in the world column, the wind/grid/legend/event-log index order, the legend
+once and never in the firmware column or a band, the rover cell at
+`telemetry().roverY * 20 + roverX` carrying `TextGrid.ROVER_GLYPH` plus the caret of
+`roverFacing`, the STEP sequence moving the rover cell to the new telemetry coordinate, terrain
+cells `(3,2)`, `(9,9)`, `(8,10)`, `(11,10)` and a scanned floor cell rendering what
+`TextGrid.glyphAt` plus the engine's public `terrainGlyph` produce for the same coordinates, and every burning cell
+rendering `TextGrid.fireGlyph(world.fireAt(x,y))`. Committed anchors used: `snapshots.json`
+`02-ref-t46` (rover 6,10 facing E, pocket fire intensity 70 at 9,10 -> glyph 3), `§14.1` grid
+parity (400 cells, 26 walls, 2 refills, 1 exit, 1 rover, 1 burning cell at tick 46), and
+`Step1LayoutRoverPortsTest.kt` for the layout-decode discipline (authored level '1' = 25).
+
+Deliberate deviation, stated because it changed an existing green assertion: the first shell step
+put a `kv` row `TICK n / limit` + `ROVER at x n y n facing L` in the world column as the grid's
+placeholder. `§15.2` item 2 has no such row, so the grid replaced it, and
+`ConsoleRenderTest.mission02RenderAtTick30ShowsTheCommittedStepByStepReadout` now asserts the tick
+in the golden master's own wording (`tick 30/120` on the objectives line, plus the existing `TICK`
+band cell) instead of the Android MISSION wording `TICK 30 / 120`. The mission 02 STEP test also
+documents that `ISA.cost` gives TURN 1 tick and MOVE 2 ticks with the world effect on the final
+tick, so STEP 1 of CORRIDOR-REF turns the rover in place and STEP 3 moves it - "one STEP moves the
+rover" is not true for this mission's authored first op, and the test asserts facing-change and
+position-change separately instead of pretending.
+
+Chrome verification (`:fireline-web:wasmJsNodeDevelopmentLibraryDistribution`, served over the
+local http server that maps `.wasm` to `application/wasm`, `console.html` at a 1312 px viewport,
+then at 420 px):
+- `document.querySelectorAll('.cell').length` = 400 (was 0); 1 `.grid`, 1 `.legend`, 40 `.ruler`.
+- World column children in order: `wind`, `grid`, `legend`, `h4` (EVENT LOG), `events`.
+- Rover cell before STEP: index 42 (`2 * 20 + 2`), text `R▸`. After 1 STEP: index 42, `R▾` (TURN R,
+  facing caret changed with `roverFacing`). After 2 STEPS: index 42, `R▾` (MOVE (1/2) in flight).
+  After 3 STEPS: index 62 (`3 * 20 + 2`), `R▾` - the moved rover sits at the new coordinate.
+- Legend visible (10 `<b>` items, full mockup wording incl. `1..24 / 25..49 / 50..74 / 75..100` and
+  the layer-order line).
+- Grid at 1312 px: 332 x 317 px (`gridTemplateColumns` = 30px + 20 x 15px, 21 rows of 15px, cell
+  box 15.0 x 15.0), firmware pane 316 px, grid-bottom minus pane-bottom = 0.14 px (flush pairing
+  within 2 px, `§15.3`), world and firmware columns share top 513.28 px, RUN/STEP/RESET 74.0 /
+  74.0 / 80.4 x 49.0 px (>= 49 px gate).
+- Grid at 420 px: 246 x 233 px, 11 px cells, 24 px ruler column, pane 232 px (`21 * 11 + 1`),
+  400 cells still.
+- No horizontal overflow at either width: `scrollWidth == clientWidth` (1297 == 1297 at 1312 px,
+  405 == 405 at 420 px).
+- Cosmetic note: the idle-floor dot renders `#4a382e` on the `#2a1e1a` grid backdrop and is almost
+  invisible at 15 px. That is the mockup's own look and the documented `§14.2` empty-cell-dot
+  exemption (1.46, decorative); it was not retuned.
+
+Close-out matrix (`--rerun-tasks`, `BUILD SUCCESSFUL`, 160 tasks, counts read from the per-target
+XMLs): `:rf8-core:jvmTest` 15/0/0, `:rf8-core:wasmJsTest` 15/0/0, `:fireline-engine:jvmTest`
+164/0/0, `:fireline-engine:wasmJsTest` 164/0/0, `:fireline-web:wasmJsTest` 24/0/0 (8 `ConsoleModel`
++ 8 `ConsoleRender` + 8 `WorldGrid`), `:app:testFreeDebugUnitTest` 3/0/0,
+`:app:testProDebugUnitTest` 9/0/0, `:fireline-app:testDebugUnitTest` 39/0/0,
+`:fireline-app:assembleRelease -x lintVitalRelease` green. Total 433 tests, 0 failures, 0 errors
+(425 before this step plus the 8 new grid tests). `docs/web/verify_layout_v1.py` still reports
+22 checks, 0 failed against the unchanged golden master.
+
+## 9. Next step
+
+Close the remaining frozen-layout gaps in `:fireline-web`: the editor, the `localStorage` library,
+`.asm` import/export and `#run=` permalinks, plus the `SPEED`/`PANIC` row and the
+`LINK`/`COPY`/`DOWNLOAD .ASM` control-block entries. Gate G5 (`.asm` roundtrip against
+`:fireline-app`) and G4 (the tick-30 and tick-102 field values, proven on device and now also in
+the browser) are the W3 acceptance pair; W4 hosting comes after.
