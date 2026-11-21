@@ -186,7 +186,12 @@ data class RunSummary(
             val scalar = LinkedHashMap<String, String>()
             val events = ArrayList<String>()
             for (line in text.split('\n')) {
-                if (line.isEmpty()) continue
+                // encode() ends with a newline, and the Android preferences XML writer
+                // appends the next element's indentation inside a value that ends with
+                // one, so a stored summary can come back with a trailing whitespace-only
+                // line. It is storage padding, not content: skip it, keep rejecting
+                // anything else that is not a `key=value` line.
+                if (line.all { it.isWhitespace() }) continue
                 val eq = line.indexOf('=')
                 if (eq <= 0) return null
                 val key = line.substring(0, eq)

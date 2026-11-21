@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FIRELINE mockup P - MISSION 02 / CORRIDOR tick 46</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin:0; padding:18px; background:#0f1011; color:#e8e2d9;
+    font-family:"IBM Plex Mono","JetBrains Mono",ui-monospace,Consolas,monospace;
+    font-size:12px; line-height:1.45;
+  }
+  .col { width:426px; padding:18px 18px 12px; background:var(--field); color:var(--text); }
+  .px { font-family:"Press Start 2P","IBM Plex Mono",ui-monospace,monospace; }
+  .caption { color:var(--dim); font-size:10px; margin-bottom:10px; letter-spacing:.04em; }
+  header { display:flex; justify-content:space-between; align-items:baseline;
+    border-bottom:1px solid var(--border); padding-bottom:8px; }
+  .wordmark { font-size:13px; letter-spacing:.08em; color:var(--bright); }
+  .tagline { color:var(--dim); font-size:9px; letter-spacing:.06em; }
+  nav { display:flex; gap:14px; margin:8px 0 12px; font-size:10px; letter-spacing:.12em; }
+  nav a { color:var(--dim); text-decoration:none; }
+  nav a.on { color:var(--text); border-bottom:2px solid var(--btn-run); padding-bottom:3px; }
+  section { border:1px solid var(--border); background:var(--panel);
+    padding:10px 12px; margin-bottom:10px; }
+  .mh { display:flex; justify-content:space-between; align-items:baseline; }
+  .mh .id { font-size:11px; color:var(--bright); letter-spacing:.06em; }
+  .mh .fw { color:var(--dim); font-size:10px; }
+  .brief { color:var(--dim); font-size:10px; margin-top:4px; max-width:390px; }
+  .objline { margin-top:6px; font-size:10px; letter-spacing:.05em; }
+  .ok { color:var(--exit); } .pend { color:var(--dim); }
+  .grid { display:grid; grid-template-columns:repeat(20, 18px); grid-auto-rows:18px;
+    background:var(--panel2); border:1px solid var(--gridline); justify-content:center;
+    margin-top:2px; }
+  .cell { display:flex; align-items:center; justify-content:center;
+    font-size:11px; border:1px solid var(--gridline); }
+  .cell.e { font-size:8px; opacity:.8; }
+  .cell.w { font-size:16px; line-height:1; }
+  .cell.rover { font-weight:bold; font-size:13px; position:relative; }
+  .cell.rover::after { position:absolute; font-size:8px; line-height:1; }
+  .cell.rover.nose-e::after { content:"\25B8"; right:1px; top:50%; transform:translateY(-50%); color:var(--nose); }
+  .legend { display:flex; flex-wrap:wrap; gap:4px 12px; font-size:9px;
+    color:var(--dim); margin-top:8px; }
+  .legend b { font-weight:normal; }
+  .cols { display:flex; gap:10px; }
+  .cols section { flex:1; margin-bottom:0; }
+  h4 { margin:0 0 6px; font-size:9px; letter-spacing:.14em; color:var(--dim);
+    font-weight:normal; }
+  table { border-collapse:collapse; width:100%; font-size:11px; }
+  td { padding:1px 4px; }
+  td.k { color:var(--dim); } td.v { color:var(--bright); text-align:right;
+    font-variant-numeric:tabular-nums; }
+  .vm td { font-family:"IBM Plex Mono",ui-monospace,monospace; }
+  .vm tr.now td { color:var(--bright); background:var(--panel2); }
+  .vm tr.now td.pc::before { content:">"; color:var(--btn-run); }
+  .flags { font-size:10px; color:var(--dim); margin-top:6px; }
+  .events li { list-style:none; padding:2px 0 2px 8px; font-size:10px; color:var(--dim);
+    border-left:2px solid transparent; }
+  .events li.newest { color:var(--bright); border-left-color:var(--btn-run); }
+  .events li .t { color:var(--dim); opacity:.65; margin-right:8px; }
+  .controls { display:flex; gap:8px; }
+  .btn { flex:1; text-align:center; padding:14px 0; font-size:11px;
+    letter-spacing:.14em; border:1px solid var(--border); background:var(--btn);
+    color:var(--btn_text_alt); }
+  .btn.run { background:var(--btn_run); color:var(--btn_text); border-color:var(--btn_run);
+    font-weight:bold; }
+  footer { display:flex; flex-wrap:wrap; gap:4px 10px; font-size:9px;
+    color:var(--dim); border-top:1px solid var(--border); padding-top:8px; }
+  .chip { display:inline-flex; align-items:center; gap:5px; }
+  .chip i { width:10px; height:10px; display:inline-block; border:1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="col" style="--field:#161718; --panel:#1b2021; --panel2:#202627; --border:#2e3739; --gridline:#232b2d; --text:#34ec5b; --bright:#eaff93; --dim:#2f9e46; --exit:#00e43c; --nose:#eaff93; --wall:#6f767a; --rover:#34ec5b; --water:#00e8d8; --refill:#00e8d8; --civ:#fcfcfc; --fuel:#a07818; --prot:#fc00bc; --btn-run:#34ec5b; --btn:#232a2c; --btn_text:#0c1310; --btn_text_alt:#cfe8d4;">
+<div class="caption px">P - Phosphor Terminal&nbsp;&nbsp;MISSION run screen&nbsp;&nbsp;tick 46 of 120&nbsp;&nbsp;(house-first: Arena phosphor chrome, warm fire ramp, steel walls)</div>
+<header>
+  <div>
+    <div class="wordmark px">OPCODE FIRELINE</div>
+    <div class="tagline px">THE SAME LITTLE COMPUTER. A DIFFERENT JOB.</div>
+  </div>
+  <div class="px" style="font-size:9px; color:var(--dim);">RF-8</div>
+</header>
+<nav class="px"><a>FILES</a><a class="on">MISSION</a><a>RESULT</a></nav>
+
+<section>
+  <div class="mh"><span class="id px">MISSION 02 / CORRIDOR</span>
+  <span class="fw px">CORRIDOR-REF.ASM&nbsp;&nbsp;seed 2002&nbsp;&nbsp;wind W 0</span></div>
+  <div class="brief">"The wall in front of you is not negotiable. Turn, walk, shoot
+    what burns ahead, then reach the exit."</div>
+  <div class="objline px"><span class="ok">EXTINGUISH_ALL done</span>&nbsp;&nbsp;
+    <span class="pend">REACH_EXIT pending</span>&nbsp;&nbsp;<span class="pend">tick 46/120</span></div>
+</section>
+
+<section>
+  <div class="grid px"><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell w" style="color:#6f767a">█</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell rover nose-e" style="color:#34ec5b">R</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell r" style="color:#00e8d8">W</span><span class="cell x" style="color:#00e43c">E</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell w" style="color:#6f767a">█</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+<span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span><span class="cell e" style="color:#3a4a42">·</span>
+</div>
+  <div class="legend px">
+    <b><span style="color:var(--wall)">&#x2588;</span> wall</b>
+    <b><span style="color:var(--rover);font-weight:bold">R</span><span style="color:var(--nose)">&#x25B8;</span> rover + facing (A-1 caret when facing cell occupied)</b>
+    <b><span style="color:#f8d878">1</span><span style="color:#f8b800">2</span><span style="color:#fc9838">3</span><span style="color:#fc0040">4</span> fire intensity</b>
+    <b><span style="color:var(--water)">*</span> packet</b>
+    <b><span style="color:var(--refill)">W</span> refill</b>
+    <b><span style="color:var(--exit)">E</span> exit</b>
+    <b><span style="color:var(--civ)">C</span> civ</b>
+    <b><span style="color:var(--fuel)">F</span> fuel</b>
+    <b><span style="color:var(--prot)">P</span> asset</b>
+  </div>
+</section>
+
+<div class="cols">
+  <section>
+    <h4 class="px">RF-8 STATE</h4>
+    <table class="vm">
+      <tr><td class="k">A</td><td class="v">0</td><td class="k">SP</td><td class="v">00</td></tr>
+      <tr><td class="k">X</td><td class="v">08</td><td class="k">PC</td><td class="v">0014</td></tr>
+      <tr><td class="k">Y</td><td class="v">10</td><td class="k">FLAGS</td><td class="v">Z=1 N=0 C=0</td></tr>
+    </table>
+    <table class="vm" style="margin-top:6px">
+      <tr><td class="pc">0013</td><td>IN&nbsp;&nbsp;&nbsp;FIRE_LEVEL</td></tr>
+      <tr class="now"><td class="pc">0014</td><td>JZ&nbsp;&nbsp;&nbsp;&nbsp;exit_</td></tr>
+      <tr><td class="pc">0015</td><td>SHOOT</td></tr>
+      <tr><td class="pc">0016</td><td>...</td></tr>
+    </table>
+    <div class="flags px">JZ taken: A=0, no fire target remains</div>
+  </section>
+  <section>
+    <h4 class="px">TELEMETRY (PORTS 16-30)</h4>
+    <table>
+      <tr><td class="k px">FIRE_DIST</td><td class="v">0</td></tr>
+      <tr><td class="k px">FIRE_LEVEL</td><td class="v">0</td></tr>
+      <tr><td class="k px">CIV_COUNT</td><td class="v">0</td></tr>
+      <tr><td class="k px">WATER / HP / HEAT</td><td class="v">90 / 100 / 20</td></tr>
+      <tr><td class="k px">SHIELD</td><td class="v">-</td></tr>
+      <tr><td class="k px">WIND</td><td class="v">W 0</td></tr>
+      <tr><td class="k px">MISSION</td><td class="v">$02</td></tr>
+    </table>
+  </section>
+</div>
+
+<section style="margin-top:10px">
+  <h4 class="px">EVENTS</h4>
+  <ul class="events" style="margin:0;padding:0">
+    <li class="newest"><span class="t">46</span>FIRE -25 at 9,10 -> 0</li>
+<li class=""><span class="t">45</span>REFILL +10</li>
+<li class=""><span class="t">44</span>REFILL +10</li>
+<li class=""><span class="t">43</span>PACKET SPENT WALL 12,10</li>
+  </ul>
+</section>
+
+<div class="controls" style="margin-top:10px">
+  <div class="btn run px">RUN</div>
+  <div class="btn px">STEP</div>
+  <div class="btn px">RESET</div>
+</div>
+
+<footer>
+  <span class="chip"><i style="background:#161718"></i>field #161718</span> <span class="chip"><i style="background:#1b2021"></i>panel #1b2021</span> <span class="chip"><i style="background:#2e3739"></i>border #2e3739</span> <span class="chip"><i style="background:#34ec5b"></i>chrome #34ec5b</span> <span class="chip"><i style="background:#eaff93"></i>value #eaff93</span> <span class="chip"><i style="background:#2f9e46"></i>dim #2f9e46</span> <span class="chip"><i style="background:#6f767a"></i>wall #6f767a</span> <span class="chip"><i style="background:#34ec5b"></i>rover #34ec5b</span> <span class="chip"><i style="background:#f8d878"></i><i style="background:#f8b800"></i><i style="background:#fc9838"></i><i style="background:#fc0040"></i><span style="margin-left:4px">fire 1-4</span></span> <span class="chip"><i style="background:#00e8d8"></i>water #00e8d8</span> <span class="chip"><i style="background:#a07818"></i>fuel #a07818</span> <span class="chip"><i style="background:#fc00bc"></i>asset #fc00bc</span> <span class="chip"><i style="background:#00e43c"></i>exit #00e43c</span>
+</footer>
+</div>
+</body>
+</html>
