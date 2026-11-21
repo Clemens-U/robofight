@@ -8,7 +8,7 @@ package robofight.fireline
  *  - on its creation tick it checks ONLY its spawn cell (it does not also
  *    advance a second cell that tick);
  *  - on later ticks it advances one cell during water resolution (step 8);
- *  - a wall or the grid boundary consumes it;
+ *  - a wall, an edge wall or the grid boundary consumes it;
  *  - the first burning cell it contacts loses [PACKET_FIRE_REDUCE] intensity
  *    and the packet is consumed (intensity floors at 0);
  *  - maximum life is [PACKET_LIFE] water-resolution steps, counting the tick it
@@ -36,6 +36,15 @@ class WaterPacket(
             val ny = y + dirDy(dir)
             if (!inBounds(nx, ny)) {
                 world.addEvent("PACKET SPENT BOUNDARY $x,$y")
+                return false
+            }
+            if (world.edgeBetween(x, y, nx, ny)) {
+                // PLAN-EDGE-WALLS.md §3 gate 4: the Arena absorbs a projectile
+                // that runs into an edge wall (`World.kt:432`: "absorbed by an
+                // edge wall or block", via `Arena.kt:84-85`), so the FIRELINE
+                // blocked step consumes the packet at the edge rather than
+                // leaving it parked on its current cell.
+                world.addEvent("PACKET SPENT EDGE $nx,$ny")
                 return false
             }
             if (world.terrainAt(nx, ny) == TERRAIN_WALL) {

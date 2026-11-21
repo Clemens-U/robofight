@@ -114,6 +114,19 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
     fun terrainRowMajor(): IntArray = terrain.copyOf()
     fun fireRowMajor(): IntArray = fire.copyOf()
 
+    /**
+     * Row-major defensive copies of the layout's thin edge walls for the
+     * renderers of PLAN-EDGE-WALLS.md steps E3/E4, the same pattern
+     * [terrainRowMajor] and [fireRowMajor] use. Static layout state: walls are
+     * NOT part of [canonicalState], so they never move a committed fingerprint
+     * (PLAN-EDGE-WALLS.md §4).
+     */
+    fun wallVertRowMajor(): BooleanArray = layout.wallVertRowMajor()
+    fun wallHorizRowMajor(): BooleanArray = layout.wallHorizRowMajor()
+
+    /** True when an edge wall lies between two 4-adjacent cells (`Arena.kt:74-80`). */
+    fun edgeBetween(ax: Int, ay: Int, bx: Int, by: Int): Boolean = layout.wallBetween(ax, ay, bx, by)
+
     internal fun addEvent(text: String) { events.add(text) }
     internal fun noteDryShot() { addEvent("WATER EMPTY") }
 
@@ -175,14 +188,24 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
     }
 
     /** §3.6: created on the SHOOT completion tick in the cell in front of the
-     *  rover, when that cell is in bounds and not blocked by a wall. Walls and
-     *  the boundary consume a packet; civilians, exits, refills and the rover
-     *  do not. */
+     *  rover, when that cell is in bounds, not separated from the rover by an
+     *  edge wall, and not blocked by a wall. Walls and the boundary consume a
+     *  packet; civilians, exits, refills and the rover do not. */
     internal fun spawnWaterPacket(shooter: Rover) {
         val x = shooter.x + dirDx(shooter.facing)
         val y = shooter.y + dirDy(shooter.facing)
         if (!inBounds(x, y)) {
             addEvent("PACKET BLOCKED BOUNDARY")
+            return
+        }
+        // PLAN-EDGE-WALLS.md §3 gate 3: the Arena never materializes a shot that
+        // would spawn through an edge wall (`World.kt:359-363` "it can't spawn
+        // through an edge wall or into a block", via `Arena.kt:84-85`). The
+        // discharge still costs its water, heat and ticks; only the packet is
+        // refused. Checked before the terrain wall because `Arena.kt:84-85`
+        // evaluates `wallBetween` first.
+        if (layout.wallBetween(shooter.x, shooter.y, x, y)) {
+            addEvent("PACKET BLOCKED EDGE $x,$y")
             return
         }
         if (terrainAt(x, y) == TERRAIN_WALL) {
@@ -466,11 +489,18 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
 
     internal fun angleTo(x: Int, y: Int): Int = turnDeltaTo(rover.facing, rover.x, rover.y, x, y)
 
-    /** §6.2 `AHEAD`: 1 for boundary/wall/protected asset ahead; civilians and fire do not block. */
+    /**
+     * §6.2 `AHEAD`: 1 for boundary, wall cell, protected asset or an edge wall
+     * ahead; civilians and fire do not block. One sentinel value for every
+     * blocked read, so firmware cannot tell a thin wall from a wall cell or the
+     * grid border. PLAN-EDGE-WALLS.md §3 gate 2 mirrors `World.kt:288`
+     * (`if (layout.stepBlocked(b.px, b.py, nx, ny)) return 1`).
+     */
     fun aheadBlocked(): Int {
         val nx = rover.x + dirDx(rover.facing)
         val ny = rover.y + dirDy(rover.facing)
         if (!inBounds(nx, ny)) return 1
+        if (layout.wallBetween(rover.x, rover.y, nx, ny)) return 1   // edge wall (Arena.kt:74-80)
         return if (terrainPassable(terrainAt(nx, ny))) 0 else 1
     }
 
