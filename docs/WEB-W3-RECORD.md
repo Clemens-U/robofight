@@ -7,7 +7,9 @@ Date: 2026-11-20 to 2026-11-21. Plan: `docs/FIRELINE-WEB.md` §9 W3, gates §4 G
 layer out of `:fireline-app` into the shared engine so the browser console and the MISSION
 screen cannot drift apart. Step 2 proved on a device that the shipped Android behaviour is
 unchanged, against the committed W2 fixtures, and it found one pre-existing defect that is
-now fixed. The `:fireline-web` console shell is the next step, not this one.
+now fixed. The `:fireline-web` module scaffold (step 3) is in place: a wasmJs-only data layer plus an
+8-test wasm gate pinned to the committed fixtures. The interactive console shell is the next
+step, not this one.
 
 ---
 
@@ -94,6 +96,8 @@ but the tolerant decoder is now shared, so the browser cannot be stricter than t
 decode tests), `:app` 3 free + 9 pro, `:fireline-app` 39. Total 409 tests, 0 failures, 0
 errors, with `--rerun-tasks`. `:fireline-app:assembleRelease` needs `-x lintVitalRelease`
 offline (the lint artifact is not in the mirror). Release APK 945,944 B, debug APK 1,371,870 B.
+After step 3 the same matrix plus `:fireline-web:wasmJsTest` gives 417 tests (160 executed
+tasks), still zero failures and zero errors.
 
 ## 5. Method notes worth keeping
 
@@ -116,9 +120,62 @@ offline (the lint artifact is not in the mirror). Release APK 945,944 B, debug A
   51 px (19.4 dp) there while the run-bar buttons measure their real 126 px (48.0 dp). The
   run-bar numbers are the ones the 48 dp gate uses.
 
-## 6. Next step
+## 6. Step 3: the `:fireline-web` wasm module scaffold
 
-The `:fireline-web` module: mission picker, editor, run surface, `.asm` import/export, the
-`localStorage` library and `#run=` share permalinks, all on the session layer this record
-lifted. Gate G5 (`.asm` roundtrip against `:fireline-app`) and G4 (the tick-30 and tick-102
-field values, now also proven on device) are the W3 acceptance pair; W4 hosting comes after.
+New module `:fireline-web` (`fireline-web/build.gradle.kts`, `settings.gradle.kts` include),
+`wasmJs` only: it has no `jvm` target because nothing on the JVM consumes it, and it uses
+`binaries.library()` because there is no wasm `main()` yet (the shell entry point is the next
+step). Artifacts come from `:fireline-web:wasmJsNodeDevelopmentLibraryDistribution`:
+`build/dist/wasmJs/developmentLibrary/opcode-arena-fireline-web.wasm` 1,283,685 B (unoptimized
+dev library, plus 12,118 B `.uninstantiated.mjs`, 214 B `.mjs`, 5,150 B `custom-formatters.js`).
+Host constraint, not a defect: `build`/`assemble` of any wasm module fails here at
+`kotlinWasmBinaryenSetup` because `com.github.webassembly:binaryen` is unreachable offline;
+`:fireline-engine:assemble` fails identically.
+
+`ConsoleModel.kt` holds the presentation-free layer: `MissionRow` picker cards built from
+`Missions.ALL` (id, title, briefing, objective labels in engine order, seed, `timeLimit`,
+`tickLimit`, wind label and force, starting water, best-run label), and `ConsoleRun`, a driver
+that owns nothing: every accessor either forwards to `MissionSession` or formats what the
+engine produced (`logTail` forwards `session.fullLogNewestFirst()`, `fingerprintHex` is
+`ResultModel.fingerprintShort`, `run()` is defined as repeated `session.step()`). No DOM, HTML
+or JS interop in this file, which is exactly what §13 asks for.
+
+`ConsoleModelTest.kt` (wasmJs, 8 tests, 84 assertions) cites its fixture provenance in every
+assertion message. Values observed in wasm:
+
+| Case | Live wasm value | Fixture source |
+| --- | --- | --- |
+| Mission 02 reference run | tick 102, `SUCCESS`, last `MOVE (2/2)`, `$47e28d84` (full `47e28d84c5d61220`), FIRE_DIST 0, FIRE_LEVEL 0, 75 B / 25 insns, log tail `102 MOVE (2/2) | MISSION SUCCESS` | `snapshots.json 02-ref-final`, matrix row `2-reference` |
+| Mission 01 `never shoots` | tick 60, `FAILURE` / `TIME_EXPIRED`, last `JMP 256`, `$a64c17a9` (`a64c17a9d85a6f75`), 6 B / 2 insns, `a 0`, SP `$0BF`, PC `$100` | `snapshots.json 01-never-final`, matrix row `1-failing` |
+| Mission 02 stopped at tick 30 | last `MOVE (1/2)`, `A 6`, SP `$0BF` (191), PC `$12D` (301), FIRE_DIST 6, FIRE_LEVEL 55, log line `030 MOVE (1/2) | ` from three independent paths | `docs/WEB-W1-RECORD.md` §9 `STEP x 30` row (see correction 1) |
+| Mission 02 stopped at tick 46 | last `JMP 286`, `A 4`, PC `$11E` (286), SP `$0BF`, FIRE_DIST 3, FIRE_LEVEL 70, state hash `e9226853d9b3eb4d` | `snapshots.json 02-ref-t46` (fully fixture-pinned mid-run point) |
+| All five picker best labels | ticks 17 / 102 / 38 / 147 / 45, `$198645dc`, `$47e28d84`, `$0cf3b083`, `$dd669e73`, `$a7836db7`, firmware 102 B/34, 75/25, 72/24, 105/35, 111/37 | matrix rows `1..5-reference` |
+| Driver equivalence | `ConsoleRun.run()` equals `FirelineRun.runWithGuard` for all five missions, reference and every documented failing firmware, with the authored failure reasons; `reset()` replays to 102 / `$47e28d84` | live engine, cross-checked against the headless authority path |
+
+Two corrections that save the next step from a wrong premise:
+
+1. **Tick 30 is not fixture-pinned.** `parity_traces` covers ticks 1 through 12 only, so the
+   committed tick-30 anchor is the `STEP x 30` row of `docs/WEB-W1-RECORD.md` §9: `A 6`,
+   `PC $12D`, `FIRE_DIST 6`, `FIRE_LEVEL 55`. A plan line claiming `A 0` / `PC 285` at tick 30
+   is wrong, and 285 cannot even be a mission-02 address (mission 02 addresses are 256 + 3k, so
+   283 or 286). Use tick 46 when a mid-run assertion must be pinned to `snapshots.json`.
+2. **The console's method names are not `MissionSession`'s.** `MissionSession` exposes
+   properties `status`, `tick`, `failureReason`, `finished`, `guardReached` and functions
+   `step()`, `reset()`, `telemetry()`, `result()`, `summary()`, `currentEvents()`,
+   `fullLogNewestFirst()`; the engine status types are `RunStatus` and `FailureReason`, there is
+   no `MissionStatus` enum and no `MissionSession.logLine`/`fingerprintHex`. The shell must use
+   `ConsoleRun`/`ResultModel` for those names.
+
+Gaps this scaffold leaves for the shell step: `ConsoleModel.bestRunOf` computes the *authored
+reference* best headlessly at card build time (five full runs), which is a placeholder for the
+user's own stored best runs once the `localStorage` library exists; there is no wasm `main()`
+or DOM yet; and `:fireline-web` needs `implementation(project(":rf8-core"))` written out
+because `:fireline-engine` depends on it as `implementation`, not `api`.
+
+## 7. Next step
+
+The interactive console shell in `:fireline-web`: wasm entry point plus mission picker, editor,
+run surface, `.asm` import/export, the `localStorage` library and `#run=` share permalinks, all
+on the session layer this record lifted. Gate G5 (`.asm` roundtrip against `:fireline-app`) and
+G4 (the tick-30 and tick-102 field values, now also proven on device) are the W3 acceptance
+pair; W4 hosting comes after.
