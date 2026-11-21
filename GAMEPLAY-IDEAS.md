@@ -63,6 +63,12 @@ carry these — they are new *cell/edge behaviors*, not new geometry systems.
 Fights reshape the arena; MAZE becomes survivable for aggressive bots.
 *Impact: M · Effort: S/M.*
 
+**Edge walls in FIRELINE (proposed, not an idea anymore).** FIRELINE's world has
+only whole-cell terrain, so it cannot express the second terrain kind the Arena
+already ships. Scope, code sites, authoring form, version policy and open
+decisions are written up in `PLAN-EDGE-WALLS.md`. *Impact: M–L (it opens mission
+design the five MVP layouts cannot do) · Effort: M.*
+
 **Hazard & item tiles.** Spike tiles (damage on entry), **coolant vents**
 (step on → heat drops fast — turns heat economy into a *positioning* game),
 repair cells (one-time +HP). Cheap, and they make arena choice matter
