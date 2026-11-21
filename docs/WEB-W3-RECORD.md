@@ -3,13 +3,15 @@
 Branch: `codex/web-w3-console` (from `codex/web-w2-parity` HEAD `ffafe02`).
 Date: 2026-11-20 to 2026-11-21. Plan: `docs/FIRELINE-WEB.md` §9 W3, gates §4 G4 and G5.
 
-**Status of this record: W3 steps 1 and 2 are DONE.** Step 1 lifted the mission session
+**Status of this record: W3 steps 1 to 4 are DONE.** Step 1 lifted the mission session
 layer out of `:fireline-app` into the shared engine so the browser console and the MISSION
 screen cannot drift apart. Step 2 proved on a device that the shipped Android behaviour is
 unchanged, against the committed W2 fixtures, and it found one pre-existing defect that is
-now fixed. The `:fireline-web` module scaffold (step 3) is in place: a wasmJs-only data layer plus an
-8-test wasm gate pinned to the committed fixtures. The interactive console shell is the next
-step, not this one.
+now fixed. Step 3 added the `:fireline-web` wasm module scaffold (data layer plus its fixture
+gate). Step 4 added the console shell: a pure render layer, the wasm entry point and a harness
+page, verified in Chrome against the built wasm. The matrix stands at 425 tests, zero failures.
+Still open for W3: the 20x20 world grid and its symbol legend, the editor, the `localStorage`
+library, `.asm` import/export and `#run=` permalinks (gate G5).
 
 ---
 
@@ -172,10 +174,75 @@ user's own stored best runs once the `localStorage` library exists; there is no 
 or DOM yet; and `:fireline-web` needs `implementation(project(":rf8-core"))` written out
 because `:fireline-engine` depends on it as `implementation`, not `api`.
 
-## 7. Next step
+## 7. Step 4: the console shell (render layer, wasm entry point, harness page)
 
-The interactive console shell in `:fireline-web`: wasm entry point plus mission picker, editor,
-run surface, `.asm` import/export, the `localStorage` library and `#run=` share permalinks, all
-on the session layer this record lifted. Gate G5 (`.asm` roundtrip against `:fireline-app`) and
-G4 (the tick-30 and tick-102 field values, now also proven on device) are the W3 acceptance
-pair; W4 hosting comes after.
+Files (all in `:fireline-web`): `ConsoleRender.kt` 332 lines (pure render layer),
+`Main.kt` 90 lines (wasm entry point, DOM wiring only), `console.html` 202 lines (harness page,
+frozen chrome inline, loads the built `.mjs`), `ConsoleRenderTest.kt` 257 lines (8 wasm tests),
+and `ConsoleModel.kt` grown by 82 lines (349 total) for `sourceLines`, `readoutPorts`,
+`objectiveChips`, `runStats`, `opTicksLeft`, `vmFault`.
+
+`ConsoleRender.renderConsoleHtml(model, runOrNull)` returns the console HTML as a String. Its
+band cell lists are byte-equal to `VM_CELLS` / `TELEMETRY_CELLS` in `docs/web/verify_layout_v1.py`
+and a test re-asserts them; the escape rule matches `escape()` in `docs/web/gen_web_mockups.py`
+(`&` first, then `<`, `>`, `"`); the `next:`/`exec:` preview, `TICK n / limit` and
+`ROVER at x n y n facing L` reuse the shipped `MissionRunSurface` wording. The entry point
+contains no mission logic: it assigns the string to containers and wires
+`fl-btn-run|step|reset` and the five card buttons to `ConsoleRun.run()/step()/reset()`.
+
+Wording fact found while doing this: the frozen golden master uses two different mission
+labels, `MISSION 02://CORRIDOR` in the console titlebar (`gen_web_mockups.py:675`) and
+`MISSION 02 / CORRIDOR` in the `FL:> LIVE MONITOR` prompt line. Both are in
+`fl-web-5-playable-landing.html`, so the shell renders both, in those two places. That is not a
+divergence to fix, it is the frozen layout's own pair.
+
+Three failures appeared first; all three were test-authoring errors except one real wording
+gap. The diagnosis method was to dump the actual rendered HTML from inside the wasm test:
+asserting `ROVER at x` against raw markup fails because label and value are separate `<td>`s
+(assert against tag-stripped text instead); the titlebar was genuinely missing the frozen
+`://` colon (fixed in the render); and an inverted `assertFalse(html.contains("class=\"btn"))`
+matched the correct buttons (assert instead: no `<a class="btn"` and exactly three
+`<button type="button" class="btn …">`). One copy divergence was fixed too: an empty event log
+now renders `no event on this tick`, matching the mockup's fallback verbatim.
+
+Verification done here (own browser session against a local http server that serves `.wasm` as
+`application/wasm`, because `file://` refuses the dynamic import of the `.mjs`): `#fl-shell`
+renders 8 children; prompt reads `FL:> LIVE MONITOR // MISSION 02 / CORRIDOR // TICK 0`; three
+real clicks on `fl-btn-step` give `... TICK 3` with the log head `003 MOVE (2/2) |`,
+`002 MOVE (1/2) |`, `001 TURN R |`; `RUN` gives `MISSION SUCCESS` and `fingerprint $47e28d84`;
+the picker renders 5 `article.mcard` titled `MISSION 01 / NOZZLE CHECK` .. `MISSION 05 / HOT
+ZONE` carrying `$198645dc`, `$47e28d84`, `$0cf3b083`, `$dd669e73`, `$a7836db7`; at a 755 px
+viewport the firmware pane measures 232 px (the frozen `21 * 11 + 1` narrow-width lock) with
+`scrollWidth == clientWidth`, i.e. no horizontal overflow.
+
+What this step does not have yet, and what the next step must add: the 20x20 world grid and its
+symbol legend (`§15.2` item 2, `verify_layout_v1.py` checks "15.6 grid renders 400 cells";
+`document.querySelectorAll('.cell').length` is 0 in the current shell), the `SPEED`/`PANIC` row,
+the `LINK`/`COPY`/`DOWNLOAD .ASM` share block, the editor, the `localStorage` library and
+`#run=` permalinks (gate G5).
+
+Correction to a wrong premise from the shell step: it reported the grid as blocked because
+"`FirelineWorld.terrain`/`fire` are private and nothing exposes per-cell state". That is not
+true. The engine already exposes `terrainAt(x,y)`, `fireAt(x,y)`, `terrainRowMajor()`,
+`fireRowMajor()` (defensive copies) and the shared glyph authority `TextGrid.glyphAt(world,x,y)`
+plus `TextGrid.render(world)` (`fireline-engine/.../TextGrid.kt:25,32`), and the Android grid
+view already builds its cells exactly that way (`fireline-app/.../view/FirelineGridView.kt:131,
+158` reading `w.terrainAt`/`w.fireAt`/`TextGrid.glyphAt`). The web grid is therefore web-layer
+work on the existing shared API, no engine change needed.
+
+Useful toolchain fact: in Kotlin/Wasm a Kotlin lambda passed into a `js(...)` snippet marshals
+to a JS event handler (proven in Chrome and in Node), so the shell needs neither a browser
+facade library nor any npm package. And `file://` cannot load the module (Chrome refuses the
+dynamic import); the console needs a server that maps `.wasm` to `application/wasm` and `.mjs`
+to `text/javascript`, which is what `docs/DEPLOY-IIS-WASM.md` already requires for hosting:
+`Content-Type: application/wasm` is mandatory for streaming instantiation, and that doc records
+the exact browser failure when the file is served as `application/octet-stream`.
+
+## 8. Next step
+
+Close the frozen-layout gaps in `:fireline-web`: the 20x20 grid plus symbol legend from
+`TextGrid.glyphAt` on `session.currentWorld` (400 `.cell` nodes, glyph and layer rules from the
+engine, not re-derived), then the editor, `localStorage` library, `.asm` import/export and
+`#run=` permalinks. Gate G5 (`.asm` roundtrip against `:fireline-app`) and G4 (the tick-30 and
+tick-102 field values, proven on device and now also in the browser) are the W3 acceptance pair;
+W4 hosting comes after.

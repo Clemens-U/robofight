@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OPCODE FIRELINE // BROWSER CONSOLE (W3 SHELL)</title>
+<!--
+  W3 console harness (docs/WEB-W3-RECORD.md shell step, docs/FIRELINE-WEB.md 15 frozen layout).
+  Self-contained: the CSS below is copied verbatim from the frozen golden master
+  docs/web/fl-web-5-playable-landing.html (15.1 canonical artifact). No external assets,
+  no webfonts, no npm, no framework - the only thing this page loads is the built
+  Kotlin/Wasm library at the bottom.
+  Build it first:
+    gradle --offline :fireline-web:wasmJsNodeDevelopmentLibraryDistribution
+-->
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:18px;background:#0b0806;color:#f2d9b0;
+  font:13px/1.55 "Courier New",Courier,monospace;text-shadow:0 0 7px rgba(242,146,30,.12)}
+body:before{content:"";position:fixed;inset:0;z-index:20;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0,rgba(0,0,0,.16) 1px,transparent 1px,transparent 4px)}
+a{color:#35d6d6;text-decoration:none}
+.meta{max-width:1312px;margin:0 auto 10px;color:#b38362;font-size:12px}
+.meta b{color:#fff4dc;font-weight:normal}
+.page{--field:#100b09;--screen:#16100e;--panel:#211512;--panel2:#2a1e1a;--line:#6c372c;
+  --text:#f2d9b0;--bright:#fff4dc;--dim:#b38362;--yellow:#ffd23f;--orange:#f2921e;--red:#e63946;
+  --cyan:#35d6d6;--green:#34ec5b;--wall:#8a6d5e;--empty:#4a382e;--fuel:#8d6a1e;--civ:#fff1e0;
+  --prot:#c77dff;--f1:#ffb02e;--f2:#f2921e;--f3:#e96a2a;--f4:#e0303c;
+  width:min(1312px,100%);margin:0 auto;padding:1.2rem 1.2rem 2rem;background:var(--field);color:var(--text)}
+.page.narrow{width:min(426px,100%)}
+.topline{color:var(--yellow);font-size:13px}
+.right{float:right}
+.rule{border:0;border-top:1px solid var(--line);margin:1rem 0}
+.nav{display:flex;flex-wrap:wrap;gap:.4rem 1.2rem;margin:.8rem 0 1.6rem;font-size:13px}
+.nav a{color:var(--dim)}
+.nav a:before{content:"["}.nav a:after{content:"]"}
+.nav a.on{color:var(--bright)}
+.nav a.on:before{content:">["}.nav a.on:after{content:"]<"}
+.eyebrow{color:var(--orange);letter-spacing:.12em;font-size:12px}
+h1{margin:.3rem 0 .8rem;color:var(--bright);font-size:44px;line-height:.95;letter-spacing:-.04em;font-weight:normal}
+h1 span{display:block;color:var(--yellow);font-size:.34em;letter-spacing:.02em;margin-top:.6rem}
+h2{margin:0 0 .5rem;color:var(--bright);font-size:20px;letter-spacing:.02em;font-weight:normal}
+h4{margin:0 0 .4rem;color:var(--dim);font-size:11px;letter-spacing:.14em;font-weight:normal}
+.lede{color:var(--text);max-width:60ch}
+.prompt{color:var(--yellow);margin:1rem 0}
+.command{display:inline-block;border:1px solid var(--line);padding:.5rem .8rem;color:var(--bright);
+  background:var(--panel);margin:.3rem .4rem .3rem 0;font-size:13px}
+.command.primary{background:var(--red);border-color:var(--red);color:#120a0a}
+.command.secondary{color:var(--text)}
+.panel{border:1px solid var(--line);background:var(--panel);padding:1rem 1.1rem;margin:0 0 1rem}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem}
+.row.wide-left{grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr)}
+.console{border:1px solid var(--line);background:var(--screen);margin:0 0 1rem}
+.titlebar{display:flex;justify-content:space-between;gap:1rem;border-bottom:1px solid var(--line);
+  padding:.45rem .8rem;color:var(--dim);font-size:12px;letter-spacing:.06em}
+.titlebar b{color:var(--bright);font-weight:normal}
+.consolebody{padding:.8rem}
+.mhead{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.4rem 1rem;
+  border-bottom:1px solid var(--line);padding:0 0 .5rem;margin-bottom:.6rem}
+.mid{color:var(--bright);letter-spacing:.06em}
+.brief{color:var(--dim);font-size:12px;max-width:62ch;margin-top:.25rem}
+.mparams{color:var(--dim);font-size:12px;text-align:right}
+.objline{font-size:12px;letter-spacing:.04em;margin:.4rem 0 .2rem}
+.ok{color:var(--green)}.pend{color:var(--dim)}.bad{color:var(--red)}
+.wind{color:var(--cyan);font-size:12px;margin-bottom:.35rem}
+.grid{display:grid;grid-template-columns:30px repeat(20,15px);grid-auto-rows:15px;
+  background:var(--panel2);border:1px solid var(--line);width:max-content}
+.cell{display:flex;align-items:center;justify-content:center;font-size:12px;
+  border:1px solid rgba(108,55,44,.35);position:relative}
+.ruler,.corner{color:var(--dim);font-size:9px;display:flex;align-items:center;justify-content:center}
+.corner:before{content:"y/x"}
+.cell.rover{color:var(--yellow);font-weight:bold;font-size:13px}
+.cell.rover .nose{position:absolute;font-size:8px;font-style:normal;color:var(--green)}
+.cell.wall{color:var(--wall);font-size:14px}
+.cell.refill{color:var(--cyan)}.cell.exit{color:var(--green)}.cell.fuel{color:var(--fuel)}
+.cell.civ{color:var(--civ)}.cell.prot{color:var(--prot)}
+.cell.packet{color:var(--cyan)}
+.cell.fire1{color:var(--f1)}.cell.fire2{color:var(--f2)}.cell.fire3{color:var(--f3)}.cell.fire4{color:var(--f4)}
+.cell.empty{color:var(--empty)}
+.legend{display:flex;flex-wrap:wrap;gap:.2rem 1rem;font-size:11px;color:var(--dim);margin-top:.6rem}
+.legend b{font-weight:normal}
+.wall{color:var(--wall)}.rover{color:var(--yellow)}.nose-txt{color:var(--green)}
+.refill,.packet{color:var(--cyan)}.exit{color:var(--green)}.civ{color:var(--civ)}
+.fuel{color:var(--fuel)}.prot{color:var(--prot)}
+.fire1{color:var(--f1)}.fire2{color:var(--f2)}.fire3{color:var(--f3)}.fire4{color:var(--f4)}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem;margin-top:.8rem}
+.kv{border-collapse:collapse;width:100%;font-size:12px}
+.kv td{padding:1px 4px}
+.kv td.k{color:var(--dim);white-space:nowrap}
+.kv td.v{color:var(--bright);text-align:right;font-variant-numeric:tabular-nums}
+pre.source{margin:0;font-family:"Courier New",Courier,monospace;font-size:12px;line-height:1.5;
+  background:var(--panel);border:1px solid var(--line);padding:.5rem .6rem;overflow-x:auto}
+pre.source span{display:block;white-space:pre}
+pre.source u{color:var(--dim);text-decoration:none;margin-right:.5rem}
+pre.source span.now{color:var(--bright);background:var(--panel2)}
+pre.source span.now u{color:var(--red)}
+.asmerr{color:var(--red);font-size:12px;margin-top:.4rem}
+.flags{color:var(--dim);font-size:12px;margin-top:.4rem}
+ul.events{margin:0;padding:0;list-style:none}
+ul.events li{padding:2px 0 2px 8px;border-left:2px solid transparent;font-size:12px;color:var(--dim)}
+ul.events li u{color:var(--dim);opacity:.7;margin-right:.6rem;text-decoration:none}
+ul.events li.newest{color:var(--bright);border-left-color:var(--red)}
+.statusbar{border:1px solid var(--line);background:var(--panel);padding:.6rem .8rem;margin:0 0 1rem;
+  display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:.6rem 1rem;align-items:center}
+.statusbar .vitals,.statusbar .finger{font-size:12px;color:var(--dim)}
+.statusbar b{color:var(--yellow);font-weight:normal}
+.controls{display:flex;gap:.5rem}
+.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);
+  font:inherit;font-size:13px;letter-spacing:.12em;padding:.85rem 1.3rem;min-width:74px}
+.btn.run{background:var(--red);border-color:var(--red);color:#120a0a}
+code{color:var(--bright);font-family:inherit;word-break:break-all}
+.mini{font-size:12px;margin-left:.5rem}
+.finger{font-variant-numeric:tabular-nums}
+.missions{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem}
+.mcard{border:1px solid var(--line);background:var(--panel);padding:.8rem .9rem}
+.mcard h3{margin:0 0 .35rem;font-size:15px;color:var(--bright);font-weight:normal;letter-spacing:.05em}
+.mcard p{margin:0 0 .5rem;color:var(--text);font-size:12px}
+.mcard .meta2{font-size:11px;color:var(--dim);letter-spacing:.04em;margin-bottom:.6rem}
+.badge{font-size:11px;letter-spacing:.1em;padding:.15rem .45rem;border:1px solid var(--line)}
+.badge.done{color:var(--green);border-color:var(--green)}
+.badge.fail{color:var(--red);border-color:var(--red)}
+.badge.new{color:var(--yellow);border-color:var(--yellow)}
+.banner{border:1px solid var(--line);padding:.8rem 1rem;margin-bottom:1rem;font-size:18px;letter-spacing:.05em}
+.banner.fail{border-color:var(--red);color:var(--bright);background:rgba(230,57,70,.12)}
+.banner.ok{border-color:var(--green);color:var(--bright);background:rgba(52,236,91,.10)}
+.status4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);margin:1rem 0}
+.status4 div{padding:.6rem .8rem;font-size:12px;color:var(--text);border-right:1px solid var(--line)}
+.status4 div:last-child{border-right:0}
+.status4 b{display:block;color:var(--yellow);font-weight:normal;letter-spacing:.1em;font-size:11px}
+.cta{border:1px solid var(--line);background:var(--panel);padding:.9rem 1.1rem;margin:1rem 0}
+.cta strong{color:var(--bright);font-weight:normal;display:block;margin:.25rem 0}
+footer{border-top:1px solid var(--line);padding-top:.7rem;margin-top:1rem;font-size:11px;color:var(--dim)}
+.chip{display:inline-flex;align-items:center;gap:5px;margin-right:2px}
+.chip i{width:10px;height:10px;display:inline-block;border:1px solid var(--line)}
+.provenance{margin-top:.5rem;font-size:11px}
+.privacy{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:1rem}
+.privacy ul{margin:0;padding-left:1.1rem;color:var(--dim);font-size:12px}
+.small{color:var(--dim);font-size:12px}
+/* paired run surface: world on the left, firmware you wrote on the right */
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,1.1fr);gap:1.2rem;
+  align-items:stretch;margin-top:.5rem}
+.pairworld h4,.pairfirm h4{margin-bottom:.5rem}
+.pairfirm pre.source{max-height:none;height:var(--src-height,none);overflow:auto}
+.pairfirm .asmnote{margin-top:.5rem}
+.fcell em{font-style:normal;opacity:.7}
+/* full-width horizontal readout fields: one bordered band, label + value per cell */
+.fields{border:1px solid var(--line);background:var(--panel);padding:.45rem .6rem;margin:0 0 .8rem}
+.fields h4{margin-bottom:.4rem}
+.frow{display:flex;flex-wrap:wrap;gap:4px}
+.fcell{flex:1 1 118px;border:1px solid var(--line);background:var(--field);
+  padding:3px 6px;display:flex;flex-direction:column;gap:1px;min-width:0}
+.fcell span{font-size:9.5px;letter-spacing:.05em;color:var(--dim);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.fcell b{font-size:13px;font-weight:normal;color:var(--bright);font-variant-numeric:tabular-nums;
+  word-break:break-word}
+.fields .legend{margin-top:.4rem}
+/* every control needed to run a firmware, in one block under the firmware column:
+   a run row (commands) and a machine row (speed, state, share/download) */
+.consolecontrols{margin-top:.7rem}
+.consolecontrols .runrow{display:flex;flex-wrap:wrap;gap:.5rem}
+.consolecontrols .runrow .btn{font-size:14px;padding:0 14px;min-height:49px}
+.consolecontrols .inforow{display:flex;flex-wrap:wrap;gap:.5rem 1.2rem;align-items:center;
+  margin-top:.5rem;font-size:12px;color:var(--dim)}
+.consolecontrols .inforow b{color:var(--yellow);font-weight:normal}
+.consolecontrols .chip.on{background:var(--yellow);color:#1a1005;border-color:var(--yellow)}
+.consolecontrols code{font-size:11.5px;word-break:break-all}
+.consolecontrols .inforow > .link{flex:1 1 100%}
+@media(max-width:900px){.pair{grid-template-columns:minmax(0,1fr)}
+  .pairfirm pre.source{height:calc(21 * 11px + 1px)}}
+@media(max-width:640px){.fcell{flex:1 1 100px}}
+@media(max-width:900px){.row,.row.wide-left,.cols,.privacy{grid-template-columns:minmax(0,1fr)}
+  .statusbar{grid-template-columns:minmax(0,1fr)}
+  .grid{grid-template-columns:24px repeat(20,11px);grid-auto-rows:11px}
+  .cell{font-size:10px}.cell.rover{font-size:11px}.cell.wall{font-size:11px}
+  .status4{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="meta"><b>fireline-web/console.html</b> &nbsp; W3 console shell harness; every live value
+comes from the wasm module, this page only supplies the frozen chrome and the container</div>
+<div class="page"><nav class="nav"><a>HOME</a><a>MISSION</a><a>THREE CALLS</a><a>TOOLS</a><a class="on">PLAY</a><a>PRIVACY</a><a>ARENA</a></nav>
+<div class="eyebrow">LIVE CONSOLE // RUNS IN YOUR BROWSER</div>
+<h1>PROGRAM THE RESPONSE<span>THE SAME LITTLE COMPUTER. A DIFFERENT JOB.</span></h1>
+<p class="lede">WRITE RF-8 ASSEMBLY ON THE RIGHT. THE ROVER ON THE LEFT RUNS IT, ONE WORLD TICK AT A TIME, WITH THE SAME ENGINE AND THE SAME MISSIONS THE ANDROID APP USES. NO INSTALL, NO ACCOUNT, NO SAVED PROGRESS ON OUR SIDE.</p>
+
+<!-- 15.2 items 1-7 live here: prompt line, paired world/firmware monitor, RF-8 STATE band,
+     TELEMETRY band, status line, WHAT THE PORTS MEAN + RUN STATS, mission picker.
+     ConsoleRender.renderConsoleHtml writes it; nothing on this page computes a run value. -->
+<div id="fl-shell"></div>
+
+<div class="cta"><p>FL:&gt; RELEASE STATUS</p><strong>OPCODE FIRELINE 0.1 // ANDROID PLAY + BROWSER CONSOLE</strong><p>FREE. YOUR CODE ON THE NOZZLE. PLAY HERE, INSTALL IF YOU WANT IT IN YOUR POCKET.</p></div>
+<div class="status4"><div><b>ENGINE</b>SAME :rf8-core + :fireline-engine</div><div><b>DETERMINISM</b>STATE FINGERPRINT PER RUN</div><div><b>STORAGE</b>YOUR BROWSER ONLY</div><div><b>NETWORK</b>ONE PAGE LOAD, THEN LOCAL</div></div>
+<div class="privacy"><div><h2>PRIVATE BY DESIGN, ALSO IN THE BROWSER</h2><p class="small">THE PAGE AND THE ENGINE BINARY LOAD ONCE OVER HTTPS. AFTER THAT EVERY RUN, EVERY FIRMWARE AND EVERY RESULT STAYS IN THIS TAB'S LOCAL STORAGE. NO ACCOUNT, NO ADS, NO ANALYTICS, NO THIRD-PARTY SCRIPTS, NO SERVER-SIDE EXECUTION OF YOUR CODE.</p><a class="command secondary">READ WEB PRIVACY STATUS</a></div><div><ul><li>FIRMWARE AND RESULTS LIVE IN BROWSER LOCAL STORAGE ONLY.</li><li>SHARE LINKS CARRY YOUR CODE IN THE URL FRAGMENT, NOT TO OUR SERVER.</li><li>EXPORT ANY FIRMWARE AS PLAIN UTF-8 .ASM AND OPEN IT IN THE ANDROID APP.</li><li>CLEARING SITE DATA OR THE IN-PAGE DELETE REMOVES EVERYTHING.</li></ul></div></div>
+<footer><span class="chip"><i style="background:#100b09"></i>field #100b09</span> <span class="chip"><i style="background:#16100e"></i>screen #16100e</span> <span class="chip"><i style="background:#211512"></i>panel #211512</span> <span class="chip"><i style="background:#6c372c"></i>line #6c372c</span> <span class="chip"><i style="background:#f2d9b0"></i>chrome #f2d9b0</span> <span class="chip"><i style="background:#fff4dc"></i>value #fff4dc</span> <span class="chip"><i style="background:#b38362"></i>dim #b38362</span> <span class="chip"><i style="background:#ffd23f"></i>rover #ffd23f</span> <span class="chip"><i style="background:#e63946"></i>RUN #e63946</span> <span class="chip"><i style="background:#35d6d6"></i>water #35d6d6</span> <span class="chip"><i style="background:#34ec5b"></i>exit #34ec5b</span> <span class="chip"><i style="background:#8a6d5e"></i>wall #8a6d5e</span> <span class="chip"><i style="background:#8d6a1e"></i>fuel #8d6a1e</span> <span class="chip"><i style="background:#c77dff"></i>asset #c77dff</span> <span class="chip"><i style="background:#ffb02e"></i><i style="background:#f2921e"></i><i style="background:#e96a2a"></i><i style="background:#e0303c"></i><span style="margin-left:4px">fire 1-4 (dir. F)</span></span><div class="provenance">values come from :fireline-engine + :rf8-core through ConsoleModel/ConsoleRun only; anchors from docs/web/fixtures/parity_matrix.json, parity_traces.json, snapshots.json and docs/WEB-W1-RECORD.md 9</div></footer>
+
+<script type="module">
+import * as fireline from './build/compileSync/wasmJs/main/developmentLibrary/kotlin/opcode-arena-fireline-web.mjs';
+fireline.startFirelineConsole();
+</script>
+</div>
+</body>
+</html>

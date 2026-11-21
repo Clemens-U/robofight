@@ -7,10 +7,11 @@ Nothing here is committed to `main` yet: the build work lives on
 decisions D1-D6 are DECIDED (§12a; D2-D5 decided 2026-11-20, §12b is empty). W1
 and W2 are DONE, recorded in `docs/WEB-W1-RECORD.md` and `docs/WEB-W2-RECORD.md`.
 The next phase is W3, `codex/web-w3-console`.** **W3 progress 2026-11-21: the session
-lift (step 1) and the on-device regression that proves the shipped Android behaviour is
-unchanged (step 2) are DONE, recorded in `docs/WEB-W3-RECORD.md`; that check also fixed a
-pre-existing run-record storage defect. The `:fireline-web` console shell is the next
-step.** This doc proposes scope, architecture
+lift, the on-device regression (which also fixed a pre-existing run-record storage defect),
+the `:fireline-web` wasm module scaffold and the console shell (render layer, wasm entry
+point, harness page, verified in Chrome) are DONE, recorded in `docs/WEB-W3-RECORD.md`.
+Open in W3: the 20x20 world grid and symbol legend, the editor, the `localStorage` library,
+`.asm` import/export and `#run=` permalinks.** This doc proposes scope, architecture
 and integration. It does not change any locked spec; where it needs one, it
 files a numbered amendment (see §11).
 

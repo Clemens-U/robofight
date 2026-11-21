@@ -2,6 +2,7 @@ package robofight.fireline.web
 
 import robofight.fireline.FailureReason
 import robofight.fireline.FirelineResult
+import robofight.fireline.FirelinePorts
 import robofight.fireline.FirelineRun
 import robofight.fireline.Mission
 import robofight.fireline.Missions
@@ -228,6 +229,84 @@ class ConsoleRun(val mission: Mission, val session: MissionSession) {
     fun firmwareBytes(): Int = session.result().firmwareBytes
     fun firmwareInstructions(): Int = session.result().firmwareInstructions
 
+    /**
+     * The firmware text the source pane renders, verbatim from the session's own
+     * source string (`MissionSession.firmwareSource`). The shell never rewrites
+     * a line: escaping happens in `ConsoleRender`, formatting never reassembly.
+     */
+    fun sourceLines(): List<String> = session.firmwareSource.lines()
+
+    /**
+     * The 12 TELEMETRY cells of §15.2 item 4 in the frozen order, each value a
+     * `FirelineWorld.sensor` read of the matching `FirelinePorts` port. WIND_DIR
+     * and WIND_FORCE are the raw port numbers, which is what the frozen golden
+     * master shows (the mission's authored wind letters belong to the `WIND`
+     * line of the world column, not to this band).
+     */
+    fun readoutPorts(): List<Pair<String, Int>> = listOf(
+        "FIRE_DIST" to sensor(FirelinePorts.FIRE_DIST),
+        "FIRE_ANGLE" to sensor(FirelinePorts.FIRE_ANGLE),
+        "FIRE_LEVEL" to sensor(FirelinePorts.FIRE_LEVEL),
+        "LOCAL_FIRE" to sensor(FirelinePorts.LOCAL_FIRE),
+        "SMOKE" to sensor(FirelinePorts.SMOKE),
+        "CIV_DIST" to sensor(FirelinePorts.CIV_DIST),
+        "CIV_ANGLE" to sensor(FirelinePorts.CIV_ANGLE),
+        "CIV_COUNT" to sensor(FirelinePorts.CIV_COUNT),
+        "EXIT_DIST" to sensor(FirelinePorts.EXIT_DIST),
+        "EXIT_ANGLE" to sensor(FirelinePorts.EXIT_ANGLE),
+        "WIND_DIR" to sensor(FirelinePorts.WIND_DIR),
+        "WIND_FORCE" to sensor(FirelinePorts.WIND_FORCE),
+    )
+
+    private fun sensor(port: Int): Int = session.currentWorld.sensor(port)
+
+    /** Objective chips (`EXTINGUISH_ALL` met or not): `ResultModel.objectiveChips`
+     *  over this session's own `RunSummary`, so the console and the RESULT panel
+     *  cannot disagree about what held. */
+    fun objectiveChips(): List<Pair<String, Boolean>> = ResultModel.objectiveChips(session.summary())
+
+    /**
+     * `RUN STATS` rows of §15.2 item 6 in the mockup's row order. Every row is a
+     * public engine field: rover counters (`Rover.shots / shotsDry / distanceMoved
+     * / shieldsRaised / waterUsed`) plus `FirelineResult` fields. The mockup's
+     * `SHIELD ACTIVATIONS` is `Rover.shieldsRaised` (activations, not the
+     * remaining shield ticks).
+     */
+    fun runStats(): List<Pair<String, String>> {
+        val rover = session.currentWorld.rover
+        val result = session.result()
+        return listOf(
+            "SHOOTS FIRED" to rover.shots.toString(),
+            "LOCKED-OUT SHOTS" to rover.shotsDry.toString(),
+            "MOVES" to rover.distanceMoved.toString(),
+            "SHIELD ACTIVATIONS" to rover.shieldsRaised.toString(),
+            "WATER USED" to rover.waterUsed.toString(),
+            "BURNING CELLS" to result.burningCells.toString(),
+            "CIVILIANS RESCUED / WAITING / LOST" to
+                result.civiliansRescued.toString() + " / " + result.civiliansWaiting + " / " + result.civiliansLost,
+            "TOTAL FIRE INTENSITY" to result.fireIntensitySum.toString(),
+        )
+    }
+
+    /**
+     * `OP TICKS LEFT` cell of §15.2 item 3. `Vm.ticksLeft` is private, but the
+     * engine prints the position itself in `Vm.lastOp` (`MOVE (1/2)` = tick 1 of
+     * a 2-tick op, and `TelemetrySnapshot.executing` is `Vm.inProgress`), so the
+     * cell is `(total - step)` read off the engine's own op text - never
+     * re-derived from the ISA cost table. 0 whenever no op is in flight.
+     */
+    fun opTicksLeft(): Int {
+        val t = session.telemetry()
+        if (!t.executing) return 0
+        val match = OP_TICK_POSITION_REGEX.find(t.lastOp) ?: return 0
+        val step = match.groupValues[1].toInt()
+        val total = match.groupValues[2].toInt()
+        return (total - step).coerceAtLeast(0)
+    }
+
+    /** `VM FAULT` cell: the VM's own fault flag (`Vm.fault`, public). */
+    fun vmFault(): Boolean = session.currentWorld.rover.vm.fault
+
     /** Newest-first event strings of the current tick (EVENT LOG head). */
     fun events(maxLines: Int = MissionSession.EVENT_TAIL): List<String> = session.currentEvents(maxLines)
 
@@ -258,6 +337,9 @@ class ConsoleRun(val mission: Mission, val session: MissionSession) {
     }
 
     companion object {
+        /** `(1/2)` tail of the engine's multi-tick op text (`Vm.lastOp`). */
+        private val OP_TICK_POSITION_REGEX = Regex("\\((\\d+)/(\\d+)\\)$")
+
         /** `030 MOVE (1/2) | ` - shared golden-trace formatting rule. */
         fun logLine(seq: Int, text: String): String = ConsoleModel.logLine(seq, text)
 
