@@ -18,7 +18,7 @@ import kotlin.math.abs
  * growth/spread rules, RNG generator/salts/draw order/traversal, port
  * semantics or shield timing — never silently.
  */
-const val FIRELINE_ENGINE_VERSION = 1
+const val FIRELINE_ENGINE_VERSION = 2
 
 // ---- Grid and directions (FIRELINE-DESIGN.md §3.1) ----
 /** Mission layout is exactly 20x20 (§2, §13.4). */

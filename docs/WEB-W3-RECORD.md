@@ -13,6 +13,13 @@ page, verified in Chrome against the built wasm. The matrix stands at 425 tests,
 Still open for W3: the 20x20 world grid and its symbol legend, the editor, the `localStorage`
 library, `.asm` import/export and `#run=` permalinks (gate G5).
 
+Record status 2026-11-21: every fingerprint in this record was measured under engine v1.
+`FIRELINE_ENGINE_VERSION` is 2 (`FirelineRules.kt:21`) since the edge-wall step E1b
+(`PLAN-EDGE-WALLS.md` section 11), so the device values in the table below are historical. The
+stored keys `best.1.1`, `best.2.1` and the `last_run` record stay on disk and are not read by
+engine v2 (`RunStores.kt:94`). Current values: `docs/web/fixtures/parity_matrix.tsv` and
+`docs/web/fixtures/snapshots.json`.
+
 ---
 
 ## 1. Step 1: the session layer moved into the shared engine (commit `29a313f`)

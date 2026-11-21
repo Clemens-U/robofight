@@ -1,6 +1,7 @@
 # PLAN-EDGE-WALLS: thin walls as real mechanics in FIRELINE
 
-> Status: **engine step E1 built (section 10), DW3 decided (section 8)**. The
+> Status: **engine step E1 built (section 10), engine step E1b built (section 11),
+> DW3 decided (section 8)**. The
 > other section 8 decisions are assumed for E1 and stay reversible. Not yet
 > specced into `FIRELINE-DESIGN.md`, not yet scheduled against the web phases.
 >
@@ -138,6 +139,10 @@ wall must read as a line, not as a new symbol:
   final hashes) and the committed anchors (`$47e28d84` mission 02 finish at tick
   102, `$a64c17a9` mission 01 at tick 60). If those do not move, the shipped
   content is bit-identical.
+  Those two anchors are engine v1 values; they held for the E1 build and are
+  superseded by section 11, where engine v2 finishes mission 02 at tick 102 with
+  `d3ea47119fe3b101` and mission 01 `never shoots` at tick 60 with
+  `7cbfe49993c17318`.
 - Ground rule 4 (`GAMEPLAY-IDEAS.md:28-29`) says new deterministic semantics bump
   `eng`. In FIRELINE that means `FIRELINE_ENGINE_VERSION` 1 to 2
   (`FirelineRules.kt:21`), and the bump has teeth: `MissionDescriptor` refuses a
@@ -360,6 +365,10 @@ CHECK` from its `never shoots` failing source):
 
 Every wall-free fingerprint is unmoved, which is the E1 clause of section 6.
 
+Those six fingerprints were measured under engine v1 in the E1 build. Step E1b superseded
+them on 2026-11-21 (section 11); the current values are in `docs/web/fixtures/parity_matrix.tsv`
+and `docs/web/fixtures/snapshots.json`.
+
 ### 10.7 Step E1b, the re-baseline recipe
 
 E1b is the only step in this plan that moves a fingerprint, so its order is
@@ -428,3 +437,199 @@ section 10.5 proves: all five `Missions.kt` sources parse with
 `wallsPresent() == false`, every one of their canonical texts re-encodes
 byte-identically with no wall block, and the layout id decode rules in `Layout`
 were not touched.
+
+## 11. E1b: engine v2 (executed 2026-11-21 at HEAD `ed93d89`)
+
+`FIRELINE_ENGINE_VERSION` is 2 (`FirelineRules.kt:21`). That single line is the whole
+`commonMain` change of this step: `MissionDescriptor` defaults to the constant
+(`Mission.kt:51`), the version gate compares against it (`Mission.kt:66-67`), and
+`canonicalState` writes it (`FirelineWorld.kt:564`). No compatibility shim was added and no
+engine v1 fingerprint was preserved: nobody plays FIRELINE yet, so the churn is accepted now,
+and the care this step took with the fixture chain is the template for the next bump.
+
+DW3 (a), the notice that engine v1 bests are gone, ships as the existing MISSION card copy
+`no run recorded yet for engine v2` (`MissionSurface.kt:84`). No new UI element was added,
+because `DESIGN-FIRELINE.md` is locked.
+
+### 11.1 Fingerprints the bump moved (engine v1 -> engine v2)
+
+Parity matrix rows (`docs/web/fixtures/parity_matrix.tsv`, probe tick 12):
+
+| scenario | probe tick 12 v1 | probe tick 12 v2 | trace hash (unchanged) | final tick / status | final v1 | final v2 |
+|---|---|---|---|---|---|---|
+| 1-reference | `fa31bb2eced7a30c` | `f3dd62629ba58d1f` | `4f4118286b349619` | 17 SUCCESS | `198645dc2e7e9649` | `245faa6d10316e00` |
+| 1-failing | `85461a84b158812d` | `df8ebe851b2c1670` | `9f496c19b6af9b46` | 60 FAILURE TIME_EXPIRED | `a64c17a9d85a6f75` | `7cbfe49993c17318` |
+| 2-reference | `113c566635ef3e13` | `d0f26fd5c0b02efa` | `ceddf1a2fa7d7b10` | 102 SUCCESS | `47e28d84c5d61220` | `d3ea47119fe3b101` |
+| 2-failing | `43054c601ddd8737` | `55814d5ffbe783d6` | `88b5c429de62c944` | 120 FAILURE TIME_EXPIRED | `095dc5eba29eef27` | `2e88bd6f1f4ed91e` |
+| 3-reference | `df4571c82f169e1b` | `ba3c37b47d2133b6` | `28016f5459a44c4d` | 38 SUCCESS | `0cf3b083da3900fd` | `01663660e6731d0a` |
+| 3-failing | `3153a509654849f5` | `aec31f0cbb71140c` | `d31f60893006df8f` | 120 FAILURE TIME_EXPIRED | `818eda729f5866d7` | `fee14c44c61f245a` |
+| 4-reference | `7f2f344b8d0a52c4` | `84736ea77c8e8a67` | `9bafb261b891c1c0` | 147 SUCCESS | `dd669e7313a67d41` | `acf4656261a3c008` |
+| 4-failing | `da58ac6a8b1a7e81` | `07fc73be7bf8f31e` | `99752e4c059a058e` | 500 FAILURE TIME_EXPIRED | `b2c14340a8f8a1de` | `51f0f7232dd88add` |
+| 5-reference | `672a982213390d0c` | `426c4fdd8f395eef` | `317eca23f0149509` | 45 SUCCESS | `a7836db790e4a6a0` | `ba8e443d3c469c1d` |
+| 5-failing | `47145b5826115f48` | `2b88919b27fcd1e1` | `def56526d10c1cf2` | 29 FAILURE ROVER_DESTROYED | `b7b8b80ea652ce1d` | `89bceb4241170566` |
+
+Snapshot anchors (`docs/web/fixtures/snapshots.json`, `docs/web/fixtures/snapshots.extra.json`)
+plus the one anchor that has no committed row:
+
+| label | tick | v1 | v2 |
+|---|---|---|---|
+| `01-ref-t0` | 0 | `9333817203ef8d30` | `28838868ad3468ed` |
+| `01-ref-t12` | 12 | `fa31bb2eced7a30c` | `f3dd62629ba58d1f` |
+| `01-ref-t13` (bonus) | 13 | `b5824095228ab451` | `25492eecf7f255da` |
+| `01-ref-t15` (bonus) | 15 | `982a627de76e457a` | `9c2908d69d70ba79` |
+| `01-ref-final` | 17 | `198645dc2e7e9649` | `245faa6d10316e00` |
+| `01-never-t30` | 30 | `0cacfa28f82b0dc7` | `b77a46e1e4308ad0` |
+| `01-never-final` | 60 | `a64c17a9d85a6f75` | `7cbfe49993c17318` |
+| `02-ref-t12` | 12 | `113c566635ef3e13` | `d0f26fd5c0b02efa` |
+| `02-ref-t30` | 30 | `5c7dd44cba32908d` | `0d7fa9328d0ad4c4` |
+| `02-ref-t46` | 46 | `e9226853d9b3eb4d` | `9b6e65741beac0ea` |
+| `02-ref-final` | 102 | `47e28d84c5d61220` | `d3ea47119fe3b101` |
+
+26 distinct values moved. `02-ref-t30` has no committed fixture row; both of its values were
+measured in a build (`AnchorProbe.kt` in scratch, the value recorded in `EdgeWallsTest.kt` with
+that provenance in its assertion message).
+
+Unmoved by the bump: every final tick, status and failure reason in the matrix, every firmware
+byte and instruction count, all ten golden trace hashes, all 29 arithmetic vectors in
+`parity_arith.tsv`, and all five `limit_probe.tsv` rows. `parity_traces.txt` was rewritten
+byte-identically (no git diff), and `parity_arith.tsv` plus `limit_probe.tsv` changed only in
+their `# commit` and `# engine v2` header lines. The reason every mission moved, wall-free ones
+included, is `canonicalState()`: it stamps `engine=2` into the hashed text.
+
+### 11.2 Commands as executed, with real exit codes and counts
+
+1. `:fireline-engine:jvmTest` right after the constant change: 186 tests, 5 failed
+   (`EdgeWallsTest.missionAnchorsAreUnmovedByEdgeWalls`,
+   `EdgeWallsTest.edgeWallsDoNotEnterTheCanonicalFinalStateTextOfAWalllessLayout`,
+   `W2ArithmeticParityTest.engineNumericPrimitivesAreInRangeAndWrapWhereDocumented`,
+   `W2ParityMatrixTest.everyMatrixRowReproducesItsFixedTickProbeFingerprint`,
+   `W2ParityMatrixTest.everyMatrixRowReproducesItsRecordedOutcome`). All five named a v1 anchor
+   or asserted `FIRELINE_ENGINE_VERSION == 1`.
+2. Fixture harness (JBR + kotlinc, scratch class dirs, corrected `commonMain` trees):
+   compile exit 0 with zero `error:` lines; `fixtures.ParityMatrixKt` run twice, exit 0 both
+   times, printing `engine v2`, `rows=10 arith=29 limits=5`; the two runs' TSVs are
+   byte-identical (`parity_matrix.tsv` md5 `b05740462883cbc547ad650622db64ed`,
+   `parity_traces.txt` `449585cb4d1c49b549b15e2ca872bc2c`, `parity_arith.tsv`
+   `76639b1c5a014db2f3712df798d5f7ae`, `limit_probe.tsv` `a5b8ecda94db87f2649f4ddcd37bd227`).
+3. `python docs/web/fixtures/parity_fixture_gen.py`: exit 0, `engine v2, commit
+   ed93d8926f9b0d6f9d193df458d104aa5518a7c8, rows 10, arith 29, limits 5, trace lines 120`,
+   rewrote `parity_matrix.json`, `parity_arith.json`, `parity_traces.json` and
+   `W2ParityFixtures.kt`.
+4. `fixtures.SnapshotFixturesKt`: exit 0, 8 snapshots, 26549 bytes, plus 2 bonus snapshots;
+   `fixtures.CrossCheckKt`: exit 0, 13 TSV lines.
+5. `python docs/web/fixtures/verify_snapshots.py`: exit 0, `ALL CHECKS PASSED`
+   (bytes 26549, 8 labels). `python docs/web/fixtures/verify_crosscheck.py`: exit 0,
+   `CROSSCHECK PASSED` (7 probes x 13 fields, 3 finals x 9 fields, 3 ACTIVITY rows).
+6. `python docs/web/gen_web_mockups.py`: exit 0, regenerated all five `fl-web-*.html` from the
+   fixtures. `python docs/web/verify_layout_v1.py`: exit 0, `22 checks, 0 failed`. No layout
+   gate failed, so no gate was weakened.
+
+### 11.3 Current-state files versus historical records
+
+Current state, rewritten to the v2 values: the whole fixture chain under `docs/web/fixtures/`
+(`parity_matrix.tsv`, `parity_matrix.json`, `parity_traces.txt` (unchanged bytes),
+`parity_traces.json`, `parity_arith.tsv`, `parity_arith.json`, `limit_probe.tsv`,
+`snapshots.json`, `snapshots.extra.json`, `crosscheck.tsv`), the pinned
+`W2ParityFixtures.kt`, `EdgeWallsTest.kt`, `W2ArithmeticParityTest.kt`, `W1HelloWasm.kt`,
+`ConsoleModel.kt`, `ConsoleRender.kt`, `ConsoleModelTest.kt`, `ConsoleRenderTest.kt`,
+both `MissionSamples.kt` defaults, `MissionSurface.kt`, the five `fl-web-*.html` mockups, and
+`gen_web_mockups.py`, which now reads the mission 01 and mission 02 best-run fingerprints from
+the fixture instead of hardcoding `47e28d84c5d61220`.
+
+Historical records, kept at their measured v1 values with a dated note pointing at
+`docs/web/fixtures/parity_matrix.tsv` and `docs/web/fixtures/snapshots.json`:
+`docs/WEB-W1-RECORD.md`, `docs/WEB-W2-RECORD.md`, `docs/WEB-W3-RECORD.md`, `docs/FIRELINE-WEB.md`
+section 14.1 (its sections 13 to 15, the frozen layout spec, were not touched), and the
+milestone 7 entry of `PLAN-RF8-MULTIAPP.md`. Section 6 and section 10.6 of this plan carry the
+same note. `docs/web/fixtures/README.md` keeps its v1 table marked superseded and adds the v2
+table next to it.
+
+### 11.4 Android half
+
+`BestBadgeStore` keys are `best.<missionId>.<engineVersion>` (`RunStores.kt:94`) and
+`MissionSurface.kt:52` asks with `FIRELINE_ENGINE_VERSION`, so the badge lineage follows the
+constant with no migration code. The engine v1 entries are deliberately left on disk and are
+not read: on `emulator-5554` after the bump they are still present
+(`best.1.1` = `27e9407472339b7c`, `best.2.1` = `47e28d84c5d61220`) and no card shows them.
+`MissionSurface` gained `emptyRunLabel` in its existing companion object (a second companion
+object is a Kotlin error, which is why the first attempt failed to compile), and
+`MissionPickerModelTest.emptyCardCopyNamesTheShippedEngineVersion` pins the copy to
+`no run recorded yet for engine v$FIRELINE_ENGINE_VERSION`. `RunStoresTest` now reads the
+shipped engine version for its badge lookups and states that a stored v1 badge is not shown for
+engine v2.
+
+### 11.5 Close-out matrix (2026-11-21, `--rerun-tasks`, counts read from result XMLs)
+
+| target | tests | failures | errors | skipped |
+|---|---|---|---|---|
+| `:rf8-core:jvmTest` | 15 | 0 | 0 | 0 |
+| `:rf8-core:wasmJsNodeTest` | 15 | 0 | 0 | 0 |
+| `:fireline-engine:jvmTest` | 186 | 0 | 0 | 0 |
+| `:fireline-engine:wasmJsNodeTest` | 186 | 0 | 0 | 0 |
+| `:fireline-web:wasmJsNodeTest` | 24 | 0 | 0 | 0 |
+| `:app:testFreeDebugUnitTest` | 3 | 0 | 0 | 0 |
+| `:app:testProDebugUnitTest` | 9 | 0 | 0 | 0 |
+| `:fireline-app:testDebugUnitTest` | 40 | 0 | 0 | 0 |
+| `:fireline-app:assembleRelease`, `:fireline-app:assembleDebug` | BUILD SUCCESSFUL | | | |
+| total | 478 | 0 | 0 | 0 |
+
+478 against 477 for the E1 build: +1 test (`emptyCardCopyNamesTheShippedEngineVersion`), none
+lost. `BUILD SUCCESSFUL in 28s`, 176 actionable tasks executed, gradle exit 0. Three consecutive
+`--rerun-tasks` runs of this exact task list were green (`BUILD SUCCESSFUL in 36s`, `30s`, `28s`)
+and produced the identical per-target counts above. Only result XMLs written by the last build
+were counted; the 17 stale pre-KMP `build/test-results/test/` directories (`engine/build`,
+`fireline-engine/build`, `fireline-app/build`, `app/build`) were excluded by mtime.
+
+### 11.6 Device cross-check (`emulator-5554`, Medium_Phone, engine v2 debug APK)
+
+`fireline-app-debug.apk` (1281631 bytes, built by `:fireline-app:assembleDebug` in the matrix
+above) was installed with `install -r` over the existing engine v1 install, so the v1 store and
+prefs survived. MISSION picker before the run: five cards, each reading
+`no run recorded yet for engine v2`, and no BEST badge on any card. Mission 02 `CORRIDOR` was
+opened with `CORRIDOR-REF.ASM` (375 B / 25 instructions on device, `SELECTED`), and `RUN` was
+pressed once. RESULT reads `MISSION COMPLETE`, `MISSION 02 / CORRIDOR   TICK 102/120`,
+`firmware 75 B / 25 instructions`, `fingerprint $d3ea4711`, and the event tail
+`102 MOVE (2/2) | MISSION SUCCESS`. That equals the headless v2 fixture value for mission 02
+completion (`d3ea47119fe3b101` at tick 102 in `parity_matrix.tsv` and `snapshots.json`; the app
+shows the first 8 hex). The engine version gate never refused the mission. After the run the
+picker shows `BEST: SUCCESS  TICK 102` on mission 02, the other four cards still read the engine
+v2 empty-state copy, and the prefs hold `best.2.2` = `d3ea47119fe3b101` next to the untouched
+`best.1.1` and `best.2.1`.
+The same check was repeated after the close-out matrix: `install -r` of the `fireline-app-debug.apk`
+that that build produced (1281631 bytes, `lastUpdateTime` moved to 22:11:05 device time), MISSION
+picker read `no run recorded yet for engine v2` on missions 01, 03, 04, 05 and `BEST: SUCCESS
+TICK 102` on mission 02, `OPEN RUN SETUP` on mission 02 opened at `TICK 0 / 120` with
+`CORRIDOR-REF.ASM` `SELECTED` (`375 B 25 i`), one `RUN` press ended at `MISSION COMPLETE`,
+`MISSION 02 / CORRIDOR   TICK 102/120`, `HP 100   HEAT 64   SHIELD 0`, `fingerprint $d3ea4711`,
+tail `102 MOVE (2/2) | MISSION SUCCESS`, and the prefs again held exactly the three keys
+`best.1.1`, `best.2.1`, `best.2.2`.
+
+### 11.7 Deviations from the section 10.7 recipe
+
+1. Step 2 says to read the new hashes out of the failure messages. The values were taken from
+   the generator runs instead (step 3 and 4), which is the same live engine and the source the
+   fixtures are built from. The failure messages were only used to confirm which assertions were
+   stale.
+2. Step 3 anticipated the corrected source trees: `rf8-core/src/commonMain/kotlin`,
+   `fireline-engine/src/commonMain/kotlin/robofight/fireline/*.kt` plus
+   `.../fireline/session/*.kt` (the harness imports the session layer), compiled into scratch
+   class dirs, not the repo and not `/tmp` (the Windows JVM does not see `/tmp`). The classpath
+   separator on this shell is `;`.
+3. Step 7 names the mockup meta lines as a manual edit. They are generated text, so
+   `gen_web_mockups.py` covers them; `gen_web_mockups.py` itself needed the change described in
+   section 11.3 because it hardcoded the mission 02 badge.
+4. Step 8 names `docs/FIRELINE-WEB.md` sections 13 to 15 and two absent docs. Sections 13 to 15
+   are the frozen layout spec and contain no fingerprint to move, so they were not touched; the
+   acceptance record in 14.1 carries the dated note. `docs/FIRELINE-APP.md` and
+   `docs/FIRELINE-ENGINE-V1.md` do not exist in this checkout. The app-side anchor lives in the
+   milestone 7 entry of `PLAN-RF8-MULTIAPP.md`.
+5. Step 9 asks for a one-time notice. It is the existing card copy (section 11), not new chrome.
+6. Step 10 ends with a commit. Nothing was committed here: the constant, the fixtures and the
+   anchors are staged in the working tree for the owner to commit as one commit.
+7. Two build failures happened on the way and are recorded rather than worked around:
+   `MissionSurface.kt:42:15 Conflicting declarations` plus eleven `Unresolved reference
+   'matchParent'` / `'wrapContent'` errors (a second companion object), fixed by moving the
+   label into the existing companion object; and `ConsoleModelTest.kt:123:24` and
+   `ConsoleModelTest.kt:259:24` `Unresolved reference 'd3ea4711'`, because a short anchor
+   starting with a letter must be escaped as `\$d3ea4711` inside a Kotlin string template, fixed
+   in three places (`123`, `183`, `259`). The third matrix run was green.

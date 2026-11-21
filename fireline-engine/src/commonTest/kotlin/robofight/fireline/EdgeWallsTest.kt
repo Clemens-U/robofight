@@ -619,10 +619,12 @@ class EdgeWallsTest {
      * Committed anchors, cited by their fixture labels:
      * `docs/web/fixtures/snapshots.json` labels `02-ref-t12`, `02-ref-t46`,
      * `02-ref-final`, `01-never-t30` and `01-never-final`, which are the same
-     * values `docs/web/fixtures/parity_matrix.json` and
-     * `docs/web/fixtures/README.md` record (`47e28d84c5d61220` for mission 02
-     * `CORRIDOR` at tick 102, `a64c17a9d85a6f75` for mission 01 `never shoots` at
-     * tick 60 = timeLimit).
+     * values `docs/web/fixtures/parity_matrix.tsv` records (`d3ea47119fe3b101`
+     * for mission 02 `CORRIDOR` at tick 102, `7cbfe49993c17318` for mission 01
+     * `never shoots` at tick 60 = timeLimit). These are the engine v2 anchors
+     * re-recorded by step E1b (`PLAN-EDGE-WALLS.md` section 11); they differ from
+     * the engine v1 anchors only because `canonicalState` stamps the engine
+     * version, not because a wall gate changed a wall-free mission.
      */
     @Test
     fun missionAnchorsAreUnmovedByEdgeWalls() {
@@ -632,22 +634,22 @@ class EdgeWallsTest {
         val t12 = FirelineWorld(corridorDescriptor)
         repeat(12) { t12.tickOnce() }
         assertEquals(12, t12.tick, "anchor 02-ref-t12 tick")
-        assertEquals("113c566635ef3e13", t12.finalStateHash(), "docs/web/fixtures label 02-ref-t12")
+        assertEquals("d0f26fd5c0b02efa", t12.finalStateHash(), "docs/web/fixtures label 02-ref-t12")
 
         val t46 = FirelineWorld(corridorDescriptor)
         repeat(46) { t46.tickOnce() }
         assertEquals(46, t46.tick, "anchor 02-ref-t46 tick")
-        assertEquals("e9226853d9b3eb4d", t46.finalStateHash(), "docs/web/fixtures label 02-ref-t46")
+        assertEquals("9b6e65741beac0ea", t46.finalStateHash(), "docs/web/fixtures label 02-ref-t46")
 
         val t30 = FirelineWorld(corridorDescriptor)
         repeat(30) { t30.tickOnce() }
         assertEquals(30, t30.tick, "mission 02 CORRIDOR tick 30")
-        assertEquals("5c7dd44cba32908d", t30.finalStateHash(), "measured in this build from mission 02 referenceSource and recorded in PLAN-EDGE-WALLS.md section 10; docs/web/fixtures/snapshots.json has no mission 02 tick 30 row")
+        assertEquals("0d7fa9328d0ad4c4", t30.finalStateHash(), "measured in this build from mission 02 referenceSource and recorded in PLAN-EDGE-WALLS.md section 11; docs/web/fixtures/snapshots.json has no mission 02 tick 30 row")
 
         val finished = FirelineRun.runWithGuard(corridor, corridorDescriptor)
         assertEquals(102, finished.tick, "anchor 02-ref-final tick")
         assertEquals(RunStatus.SUCCESS, finished.status, "mission 02 reference firmware still succeeds")
-        assertEquals("47e28d84c5d61220", finished.finalStateHash, "docs/web/fixtures anchor 47e28d84 (mission 02, tick 102)")
+        assertEquals("d3ea47119fe3b101", finished.finalStateHash, "docs/web/fixtures label 02-ref-final and parity_matrix 2-reference final_hash (engine v2, tick 102)")
 
         val nozzle = assertNotNull(Missions.byId(1), "mission 01 NOZZLE CHECK must exist")
         val neverShoots = nozzle.failingSources.first { it.first == "never shoots" }
@@ -656,12 +658,12 @@ class EdgeWallsTest {
         val n30 = FirelineWorld(neverDescriptor)
         repeat(30) { n30.tickOnce() }
         assertEquals(30, n30.tick, "anchor 01-never-t30 tick")
-        assertEquals("0cacfa28f82b0dc7", n30.finalStateHash(), "docs/web/fixtures label 01-never-t30")
+        assertEquals("b77a46e1e4308ad0", n30.finalStateHash(), "docs/web/fixtures label 01-never-t30")
 
         val nFinal = FirelineRun.runWithGuard(nozzle, neverDescriptor)
         assertEquals(60, nFinal.tick, "anchor 01-never-final tick = timeLimit 60")
         assertEquals(FailureReason.TIME_EXPIRED, nFinal.failureReason, "mission 01 failing firmware fails for the documented reason")
-        assertEquals("a64c17a9d85a6f75", nFinal.finalStateHash, "docs/web/fixtures anchor a64c17a9 (mission 01 never shoots, tick 60)")
+        assertEquals("7cbfe49993c17318", nFinal.finalStateHash, "docs/web/fixtures label 01-never-final and parity_matrix 1-failing final_hash (engine v2, tick 60 = timeLimit)")
     }
 
     @Test
@@ -671,6 +673,6 @@ class EdgeWallsTest {
         assertFalse(state.contains("wall"), "canonicalState has no wall line, so walls cannot move a fingerprint")
         assertTrue(state.contains("terrain="), "canonicalState keeps its terrain line unchanged (PLAN-EDGE-WALLS.md section 4)")
         assertTrue(state.contains("fire="), "canonicalState keeps its fire line unchanged")
-        assertEquals(FIRELINE_ENGINE_VERSION, 1, "DW3 stays un-cut: MissionDescriptor refuses a foreign engine version (Mission.kt:66-67)")
+        assertEquals(FIRELINE_ENGINE_VERSION, 2, "engine v2 is the shipped version: canonicalState stamps it and MissionDescriptor defaults to it (FirelineWorld.kt:564, Mission.kt:51/66-67)")
     }
 }

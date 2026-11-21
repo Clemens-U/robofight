@@ -21,7 +21,7 @@ import robofight.isa.decPad
  * (docs/FIRELINE-WEB.md §13, frozen layout §15). Two things live here:
  *
  * 1. [MissionRow] picker rows for `Missions.ALL` - the `FL:> SELECT A CALL`
- *    cards of §15.2 item 7, plus the engine-v1 best-run label the cards carry;
+ *    cards of §15.2 item 7, plus the engine-v2 best-run label the cards carry;
  * 2. [ConsoleRun], a thin driver over the shared `MissionSession`
  *    (`:fireline-engine` commonMain) that names the state the run surface, the
  *    RF-8 STATE band and the TELEMETRY band render.
@@ -91,7 +91,7 @@ class ConsoleModel(val missions: List<Mission> = Missions.ALL) {
     )
 
     /**
-     * Engine-v1 best run of the authored reference firmware: the headless
+     * Engine-v2 best run of the authored reference firmware: the headless
      * authority path (`FirelineRun.runWithGuard`), formatted from its own result -
      * the same values pinned in `docs/web/fixtures/parity_matrix.tsv` /
      * `parity_matrix.json`.
@@ -147,7 +147,7 @@ data class MissionRow(
     val windLabel: String,
     val windForce: Int,
     val startingWater: Int,
-    /** Engine-v1 best run of the authored reference firmware. */
+    /** Engine-v2 best run of the authored reference firmware. */
     val bestRun: BestRunLabel,
 ) {
     /** `MISSION 02 / CORRIDOR` - the prompt/titlebar wording of §15.2 item 1
@@ -156,7 +156,7 @@ data class MissionRow(
     val missionLabel: String get() = "MISSION " + decPad(id, 2) + " / " + title
 }
 
-/** Engine-v1 best-run label carried by a picker card. */
+/** Engine-v2 best-run label carried by a picker card. */
 data class BestRunLabel(
     val engineVersion: Int,
     val status: RunStatus,
@@ -166,7 +166,7 @@ data class BestRunLabel(
     val firmwareBytes: Int,
     val firmwareInstructions: Int,
 ) {
-    /** Card line, e.g. `engine v1  SUCCESS tick 102/120  $47e28d84  75 B / 25 instructions`. */
+    /** Card line, e.g. `engine v2  SUCCESS tick 102/120  $d3ea4711  75 B / 25 instructions`. */
     val label: String
         get() = "engine v$engineVersion  ${status.name} tick $tick/${timeLimit?.toString() ?: "MAX"}  " +
             "$fingerprintHex  $firmwareBytes B / $firmwareInstructions instructions"
@@ -233,7 +233,7 @@ class ConsoleRun(val mission: Mission, val session: MissionSession) {
     /** Full 16-hex-digit FNV-1a 64 state fingerprint. */
     fun fingerprint(): String = session.result().finalStateHash
 
-    /** Short form shown on the status line: `$` + top 32 bits (`$47e28d84`). */
+    /** Short form shown on the status line: `$` + top 32 bits (`$d3ea4711`). */
     fun fingerprintHex(): String = ResultModel.fingerprintShort(fingerprint())
 
     fun firmwareBytes(): Int = session.result().firmwareBytes

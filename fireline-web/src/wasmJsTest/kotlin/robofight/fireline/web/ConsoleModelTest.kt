@@ -47,22 +47,23 @@ class ConsoleModelTest {
     /**
      * Fixture: `parity_matrix.json` rows `1-reference`, `2-reference`,
      * `3-reference`, `4-reference`, `5-reference` (final_tick / status /
-     * final_hash / asm_bytes / asm_insns). The picker must show the engine-v1
-     * best run for all five authored missions (D3: all five missions are in v1).
+     * final_hash / asm_bytes / asm_insns), stamped `# engine v2` in
+     * `parity_matrix.tsv`. The picker must show the engine-v2 best run for all
+     * five authored missions (D3: all five missions run on the shipped engine).
      */
     @Test
-    fun pickerRowsCarryTheCommittedEngineV1BestRunForAllFiveMissions() {
+    fun pickerRowsCarryTheCommittedEngineV2BestRunForAllFiveMissions() {
         val rows = model.pickerRows()
         assertEquals(5, rows.size, "authored mission count (Missions.ALL)")
         assertEquals(listOf(1, 2, 3, 4, 5), rows.map { it.id }, "picker order")
 
         // scenario      final_tick status   final_hash(8) bytes insns
         val expected = listOf(
-            Triple(17, "198645dc", 102 to 34),   // 1-reference  198645dc2e7e9649
-            Triple(102, "47e28d84", 75 to 25),  // 2-reference  47e28d84c5d61220
-            Triple(38, "0cf3b083", 72 to 24),   // 3-reference  0cf3b083da3900fd
-            Triple(147, "dd669e73", 105 to 35), // 4-reference  dd669e7313a67d41
-            Triple(45, "a7836db7", 111 to 37), // 5-reference  a7836db790e4a6a0
+            Triple(17, "245faa6d", 102 to 34),   // 1-reference  245faa6d10316e00
+            Triple(102, "d3ea4711", 75 to 25),  // 2-reference  d3ea47119fe3b101
+            Triple(38, "01663660", 72 to 24),   // 3-reference  01663660e6731d0a
+            Triple(147, "acf46562", 105 to 35), // 4-reference  acf4656261a3c008
+            Triple(45, "ba8e443d", 111 to 37), // 5-reference  ba8e443d3c469c1d
         )
         rows.forEachIndexed { index, row ->
             val (tick, hashShort, firmware) = expected[index]
@@ -71,7 +72,7 @@ class ConsoleModelTest {
             assertEquals("$" + hashShort, row.bestRun.fingerprintHex, "row ${row.id} final_hash (parity_matrix ${row.id}-reference)")
             assertEquals(firmware.first, row.bestRun.firmwareBytes, "row ${row.id} asm_bytes")
             assertEquals(firmware.second, row.bestRun.firmwareInstructions, "row ${row.id} asm_insns")
-            assertEquals(1, row.bestRun.engineVersion, "row ${row.id} engine version (fixtures 'engine v1')")
+            assertEquals(2, row.bestRun.engineVersion, "row ${row.id} engine version (parity_matrix.tsv '# engine v2')")
         }
     }
 
@@ -107,7 +108,7 @@ class ConsoleModelTest {
     /**
      * Fixture: `snapshots.json` `02-ref-final` and `parity_matrix.json`
      * `2-reference`: tick 102, SUCCESS, `vm.last_op = MOVE (2/2)`,
-     * `ports.FIRE_DIST = 0`, fingerprint `47e28d84c5d61220`, 75 bytes / 25
+     * `ports.FIRE_DIST = 0`, fingerprint `d3ea47119fe3b101`, 75 bytes / 25
      * instructions. Driven through the console RUN (repeated STEP).
      */
     @Test
@@ -118,8 +119,8 @@ class ConsoleModelTest {
         assertEquals(RunStatus.SUCCESS, run.status(), "status (snapshots 02-ref-final status)")
         assertTrue(run.tick < run.tickLimit, "the mission finishes on its objectives, before the tick guard")
         assertEquals("MOVE (2/2)", run.lastEvent(), "last_op (snapshots 02-ref-final vm.last_op)")
-        assertEquals("47e28d84c5d61220", run.fingerprint(), "fingerprint (snapshots 02-ref-final)")
-        assertEquals("$47e28d84", run.fingerprintHex(), "short fingerprint on the status line")
+        assertEquals("d3ea47119fe3b101", run.fingerprint(), "fingerprint (snapshots 02-ref-final)")
+        assertEquals("\$d3ea4711", run.fingerprintHex(), "short fingerprint on the status line")
         assertEquals(0, run.telemetry().fireDist, "FIRE_DIST at the finish (snapshots 02-ref-final ports)")
         assertEquals(0, run.telemetry().fireLevel, "FIRE_LEVEL at the finish (snapshots 02-ref-final ports)")
         assertEquals(75, run.firmwareBytes(), "firmware_bytes (snapshots 02-ref-final)")
@@ -133,7 +134,7 @@ class ConsoleModelTest {
     /**
      * Fixture: `snapshots.json` `01-never-final` and `parity_matrix.json`
      * `1-failing` (`never shoots`): tick 60 = time_limit, FAILURE /
-     * TIME_EXPIRED, `vm.last_op = JMP 256`, fingerprint `a64c17a9d85a6f75`,
+     * TIME_EXPIRED, `vm.last_op = JMP 256`, fingerprint `7cbfe49993c17318`,
      * 6 bytes / 2 instructions.
      */
     @Test
@@ -145,8 +146,8 @@ class ConsoleModelTest {
         assertEquals(RunStatus.FAILURE, run.status(), "status (snapshots 01-never-final)")
         assertEquals(FailureReason.TIME_EXPIRED, run.failureReason(), "failure_reason (snapshots 01-never-final)")
         assertEquals("JMP 256", run.lastEvent(), "last_op (snapshots 01-never-final vm.last_op)")
-        assertEquals("a64c17a9d85a6f75", run.fingerprint(), "fingerprint (snapshots 01-never-final)")
-        assertEquals("\$a64c17a9", run.fingerprintHex(), "short fingerprint on the status line")
+        assertEquals("7cbfe49993c17318", run.fingerprint(), "fingerprint (snapshots 01-never-final)")
+        assertEquals("\$7cbfe499", run.fingerprintHex(), "short fingerprint on the status line")
         assertEquals(6, run.firmwareBytes(), "firmware_bytes (snapshots 01-never-final)")
         assertEquals(2, run.firmwareInstructions(), "instruction_count (snapshots 01-never-final vm)")
         assertEquals(0, run.telemetry().a, "vm A (snapshots 01-never-final vm.registers.a)")
@@ -179,7 +180,7 @@ class ConsoleModelTest {
         assertEquals("030 MOVE (1/2) | ", ConsoleModel.logLine(30, "MOVE (1/2) | "), "log line shape")
         assertEquals("030 MOVE (1/2) | ", ConsoleModel.logLine(30, run.lastEvent(), run.events()), "log line from engine op + events")
         assertEquals("030 MOVE (1/2) | ", run.logTail(1).first(), "the engine's own tick-30 log line")
-        assertEquals("$5c7dd44c", run.fingerprintHex(), "mid-run fingerprint is live engine output, not a fixture")
+        assertEquals("\$0d7fa932", run.fingerprintHex(), "mid-run fingerprint is live engine output, not a fixture")
         assertEquals("exec: MOVE   @line 0015", run.nextEventPreview(), "multi-tick MOVE still in flight at tick 30")
     }
 
@@ -187,7 +188,7 @@ class ConsoleModelTest {
      * Fixture: `snapshots.json` `02-ref-t46` - tick 46, `vm.last_op = JMP 286`,
      * `a = 4`, `sp = 191` (`$0BF`), `pc = 286` (`$11E`),
      * `ports.FIRE_DIST = 3`, `ports.FIRE_LEVEL = 70`,
-     * fingerprint `e9226853d9b3eb4d`. This is the fixture-pinned mid-run register
+     * fingerprint `9b6e65741beac0ea`. This is the fixture-pinned mid-run register
      * state (the fixtures pin ticks 12/46/final, not 30).
      */
     @Test
@@ -203,14 +204,14 @@ class ConsoleModelTest {
         assertEquals("$11E", t.pcHex, "vm PC hex (snapshots 02-ref-t46 vm.pc_hex)")
         assertEquals(3, t.fireDist, "FIRE_DIST (snapshots 02-ref-t46 ports)")
         assertEquals(70, t.fireLevel, "FIRE_LEVEL (snapshots 02-ref-t46 ports)")
-        assertEquals("e9226853d9b3eb4d", run.fingerprint(), "fingerprint (snapshots 02-ref-t46)")
+        assertEquals("9b6e65741beac0ea", run.fingerprint(), "fingerprint (snapshots 02-ref-t46)")
 
         // `02-ref-t12` / `01-never-t30` fingerprints pin the same run mid-way.
         val t12 = model.openMission(2).apply { repeat(12) { step() } }
-        assertEquals("113c566635ef3e13", t12.fingerprint(), "fingerprint (snapshots 02-ref-t12)")
+        assertEquals("d0f26fd5c0b02efa", t12.fingerprint(), "fingerprint (snapshots 02-ref-t12)")
         assertEquals("MOVE (1/2)", t12.lastEvent(), "last_op (snapshots 02-ref-t12, parity_traces 2-reference 012)")
         val never30 = model.openFailingFirmware(1, "never shoots").apply { repeat(30) { step() } }
-        assertEquals("0cacfa28f82b0dc7", never30.fingerprint(), "fingerprint (snapshots 01-never-t30)")
+        assertEquals("b77a46e1e4308ad0", never30.fingerprint(), "fingerprint (snapshots 01-never-t30)")
         assertEquals("JMP 256", never30.lastEvent(), "last_op (snapshots 01-never-t30)")
         assertEquals(3, never30.telemetry().fireDist, "FIRE_DIST (snapshots 01-never-t30 ports)")
         assertEquals(80, never30.telemetry().fireLevel, "FIRE_LEVEL (snapshots 01-never-t30 ports)")
@@ -255,7 +256,7 @@ class ConsoleModelTest {
         assertEquals("", run.logTail(1).joinToString(""), "log cleared by RESET")
         run.run()
         assertEquals(102, run.tick, "replayed final_tick (parity_matrix 2-reference)")
-        assertEquals("$47e28d84", run.fingerprintHex(), "replayed fingerprint")
+        assertEquals("\$d3ea4711", run.fingerprintHex(), "replayed fingerprint")
     }
 
     /** `$0BF`-style telemetry hex -> decimal, so assertions can name fixture decimals. */

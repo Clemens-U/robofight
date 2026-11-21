@@ -588,6 +588,13 @@ mockup 2 and mockup 5, so the pairing cannot drift between mockups.
 
 ### 14.1 How the mockups were verified
 
+Record status 2026-11-21: the fingerprints in this section, and the `$47e28d84` values cited
+in §2, §4 gate G4 and §9 W3, were measured under engine v1. `FIRELINE_ENGINE_VERSION` is 2
+(`FirelineRules.kt:21`) since the edge-wall step E1b (`PLAN-EDGE-WALLS.md` section 11), which
+moved every state fingerprint. The measurements below are kept as recorded; the current values
+are in `docs/web/fixtures/parity_matrix.tsv` and `docs/web/fixtures/snapshots.json`. §13 to §15
+are the frozen layout spec and were not touched.
+
 - Snapshot harness: `docs/web/fixtures/SnapshotFixtures.kt` (plus
   `CrossCheck.kt`, `verify_snapshots.py`, `verify_crosscheck.py`, `README.md`
   with the exact kotlinc/JBR commands). It compiles `:rf8-core` +

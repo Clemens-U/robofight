@@ -81,7 +81,7 @@ class MissionSurface(
             "${card.seedLabel}  //  ${card.timeLimitLabel}  //  WIND ${card.windLabel}  //  WATER ${card.startingWater}",
             theme.workFace,
         ))
-        if (card.badgeLabel == null) panel.addView(gapped(7, theme.textDim, "no run recorded yet for engine v$FIRELINE_ENGINE_VERSION", theme.workFace))
+        if (card.badgeLabel == null) panel.addView(gapped(7, theme.textDim, emptyRunLabel, theme.workFace))
 
         val actions = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(7), 0, 0) }
         val notice = text(7, theme.textDim).apply { visibility = View.GONE }
@@ -187,6 +187,9 @@ class MissionSurface(
     }
 
     companion object {
+        /** Card copy shown for a mission with no recorded run on the shipped engine version. */
+        val emptyRunLabel: String = "no run recorded yet for engine v$FIRELINE_ENGINE_VERSION"
+
         private val matchParent = ViewGroup.LayoutParams.MATCH_PARENT
         private val wrapContent = ViewGroup.LayoutParams.WRAP_CONTENT
     }

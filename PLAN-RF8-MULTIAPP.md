@@ -568,8 +568,8 @@ per milestone):
       rendered exported `.ASM` items disabled in DocumentsUI - now `*/*`
       with the store validator as the gate); STEP x 30 matched the headless
       tick-30 snapshot and the mission 02 run finished at tick 102 with
-      fingerprint `$47e28d84` on both the RESULT surface and the headless
-      runner; HOME/relaunch and rotation recreate a single clean session
+      fingerprint `$47e28d84` on both the RESULT surface and the headless (engine v1 measurement, superseded 2026-11-21 by engine v2: mission 02 finishes at tick 102 with `d3ea47119fe3b101`, `docs/web/fixtures/parity_matrix.tsv`) runner;
+      HOME/relaunch and rotation recreate a single clean session
       (no parallel sim, db contents unchanged); RUN/STEP/RESET measured at
       48dp with content descriptions incl. the grid's live state line, and
       the run surface stays readable at 720x1280. 51 unit tests green.

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import robofight.fireline.FIRELINE_ENGINE_VERSION
 import robofight.fireline.FailureReason
 import robofight.fireline.RunStatus
 import robofight.fireline.session.RunSummary
@@ -55,21 +56,21 @@ class RunStoresTest {
         val store = BestBadgeStore(FakeKeyValues())
         val first = runSummarySample(tick = 120)
         assertTrue(store.update(first))
-        assertEquals(first, store.get(4, 1))
+        assertEquals(first, store.get(4, FIRELINE_ENGINE_VERSION))
 
         // §7.5 ranks failures by civilians and remaining fire intensity, not
         // by tick count: an equal-rank failure keeps the badge.
         assertFalse(store.update(runSummarySample(tick = 90)))
         val lessFire = runSummarySample(tick = 120, fireIntensitySum = 100)
         assertTrue(store.update(lessFire))
-        assertEquals(100, store.get(4, 1)?.fireIntensitySum)
+        assertEquals(100, store.get(4, FIRELINE_ENGINE_VERSION)?.fireIntensitySum)
 
         // A success outranks a failure regardless of tick count.
         assertTrue(store.update(runSummarySample(RunStatus.SUCCESS, null, tick = 300)))
-        assertEquals(RunStatus.SUCCESS, store.get(4, 1)?.status)
+        assertEquals(RunStatus.SUCCESS, store.get(4, FIRELINE_ENGINE_VERSION)?.status)
         // Among successes the engine prefers fewer ticks.
         assertTrue(store.update(runSummarySample(RunStatus.SUCCESS, null, tick = 200)))
-        assertEquals(200, store.get(4, 1)?.tick)
+        assertEquals(200, store.get(4, FIRELINE_ENGINE_VERSION)?.tick)
     }
 
     @Test
@@ -77,7 +78,9 @@ class RunStoresTest {
         val store = BestBadgeStore(FakeKeyValues())
         store.update(runSummarySample(engineVersion = 1, missionId = 4))
         assertNotNull(store.get(4, 1))
-        assertNull(store.get(4, 2))
+        // The shipped engine version reads its own lineage only, so a stored
+        // engine v1 badge is not shown for engine v2 (RunStores.kt:94).
+        assertNull(store.get(4, FIRELINE_ENGINE_VERSION))
         assertNull(store.get(2, 1))
         // A different engine version starts its own badge lineage.
         assertTrue(store.update(runSummarySample(engineVersion = 2, missionId = 4, tick = 500)))

@@ -13,11 +13,11 @@ import robofight.fireline.RunStatus
  *
  * Fixture provenance (the same committed sources as `ConsoleModelTest`):
  *  - `docs/web/fixtures/parity_matrix.json` / `.tsv`: the five `N-reference`
- *    best-run anchors (`$198645dc`, `$47e28d84`, `$0cf3b083`, `$dd669e73`,
- *    `$a7836db7`) and the `1-failing` `never shoots` anchor
- *    (tick 60, TIME_EXPIRED, `a64c17a9d85a6f75`).
+ *    best-run anchors (`$245faa6d`, `$d3ea4711`, `$01663660`, `$acf46562`,
+ *    `$ba8e443d`) and the `1-failing` `never shoots` anchor
+ *    (tick 60, TIME_EXPIRED, `7cbfe49993c17318`).
  *  - `docs/web/fixtures/snapshots.json`: `02-ref-final` (tick 102, `MOVE (2/2)`,
- *    `47e28d84c5d61220`), `02-ref-t46` (tick 46, `JMP 286`, `A 4`, PC `$11E`).
+ *    `d3ea47119fe3b101`), `02-ref-t46` (tick 46, `JMP 286`, `A 4`, PC `$11E`).
  *  - `docs/WEB-W1-RECORD.md` §9 `STEP x 30` row: `TICK 30 / 120`, `A 6`,
  *    `PC $12D`, `last: MOVE (1/2)`, `FIRE_DIST 6`, `FIRE_LEVEL 55`. Tick 30 is
  *    pinned by that committed device row, not by `snapshots.json`
@@ -86,8 +86,8 @@ class ConsoleRenderTest {
             assertTrue(text.contains("OPEN IN CONSOLE"), "card action label (golden master choose_calls_html)")
         }
 
-        // The five committed engine-v1 anchors, spelled out rather than derived.
-        val anchors = listOf("\$198645dc", "\$47e28d84", "\$0cf3b083", "\$dd669e73", "\$a7836db7")
+        // The five committed engine-v2 anchors, spelled out rather than derived.
+        val anchors = listOf("\$245faa6d", "\$d3ea4711", "\$01663660", "\$acf46562", "\$ba8e443d")
         anchors.forEach { anchor ->
             assertTrue(text.contains(anchor), "picker carries $anchor (parity_matrix 1..5-reference)")
         }
@@ -163,7 +163,7 @@ class ConsoleRenderTest {
 
     /**
      * Fixture: `snapshots.json 02-ref-final` / `parity_matrix 2-reference`:
-     * tick 102, SUCCESS, `MOVE (2/2)`, `$47e28d84`, log tail
+     * tick 102, SUCCESS, `MOVE (2/2)`, `$d3ea4711`, log tail
      * `102 MOVE (2/2) | MISSION SUCCESS`.
      */
     @Test
@@ -177,8 +177,8 @@ class ConsoleRenderTest {
         assertTrue(text.contains("MISSION 02 / CORRIDOR // TICK 102"), "prompt line at the finish")
         assertTrue(html.contains("102 MOVE (2/2) | MISSION SUCCESS"),
             "EVENT LOG line verbatim from MissionSession.eventLog (snapshots 02-ref-final recent_events)")
-        assertTrue(html.contains("fingerprint \$47e28d84"),
-            "status line fingerprint (snapshots 02-ref-final 47e28d84c5d61220)")
+        assertTrue(html.contains("fingerprint \$d3ea4711"),
+            "status line fingerprint (snapshots 02-ref-final d3ea47119fe3b101)")
         assertTrue(html.contains("<span class=\"ok\">EXTINGUISH_ALL done</span>"), "objective chip done (ResultModel.objectiveChips)")
         assertTrue(html.contains("<span class=\"ok\">REACH_EXIT done</span>"), "objective chip done (snapshots 02-ref-final objectives)")
         assertTrue(text.contains("tick 102/120"), "objline tick chip (snapshots 02-ref-t12 time_limit 120)")
@@ -189,7 +189,7 @@ class ConsoleRenderTest {
 
     /**
      * Fixture: `snapshots.json 01-never-final` / `parity_matrix 1-failing`
-     * (`never shoots`): tick 60, TIME_EXPIRED, `JMP 256`, `$a64c17a9`.
+     * (`never shoots`): tick 60, TIME_EXPIRED, `JMP 256`, `$7cbfe499`.
      */
     @Test
     fun mission01NeverShootsRenderCarriesTimeExpiredAndItsAnchor() {
@@ -202,7 +202,7 @@ class ConsoleRenderTest {
         assertTrue(html.contains("060 JMP 256 | MISSION FAILURE TIME_EXPIRED"),
             "EVENT LOG line verbatim (snapshots 01-never-final recent_events)")
         assertTrue(html.contains("<div class=\"fcell\"><span>LAST OP</span><b>JMP 256</b></div>"), "LAST OP cell (snapshots 01-never-final vm.last_op)")
-        assertTrue(html.contains("fingerprint \$a64c17a9"), "status line fingerprint (snapshots 01-never-final a64c17a9d85a6f75)")
+        assertTrue(html.contains("fingerprint \$7cbfe499"), "status line fingerprint (snapshots 01-never-final 7cbfe49993c17318)")
         assertTrue(html.contains("<span class=\"bad\">EXTINGUISH_ALL failed</span>"), "objective chip failed on FAILURE (objectives_html shape)")
         assertTrue(text.contains("tick 60/60"), "objline tick chip at the time limit (snapshots 01-never-* time_limit 60)")
         assertTrue(html.contains("MISSION 01://NOZZLE CHECK"),

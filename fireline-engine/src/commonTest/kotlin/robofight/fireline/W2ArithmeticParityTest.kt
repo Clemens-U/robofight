@@ -85,7 +85,7 @@ class W2ArithmeticParityTest {
         assertEquals(0x7FFFFFFF, LcgStream.STATE_MASK, "LCG state stays a positive 31-bit Int")
         assertTrue(LcgStream.nextOf(0x7FFFFFFF) in 0..LcgStream.STATE_MASK, "LCG next state stays in mask")
         assertTrue(LcgStream.byteOf(-1) in 0..255, "LCG byte extraction is always a positive byte")
-        assertEquals(FIRELINE_ENGINE_VERSION, 1, "the recorded fingerprints are stamped v1")
+        assertEquals(FIRELINE_ENGINE_VERSION, 2, "the recorded fingerprints are stamped v2 (docs/web/fixtures/parity_matrix.tsv '# engine v2')")
     }
 
     private fun liveInt(name: String): Int = assertNotNull(liveVector()[name]).toInt()

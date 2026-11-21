@@ -7,6 +7,12 @@ W1 gate as written: "artifacts reachable on this machine, both test tasks green,
 loadable in a browser." **All three parts are met.** The kill/branch decision is: keep
 Option A (Kotlin Multiplatform -> wasmJs), proceed to W2.
 
+Record status 2026-11-21: every fingerprint quoted in this record was measured under engine
+v1. `FIRELINE_ENGINE_VERSION` is 2 (`fireline-engine/src/commonMain/kotlin/robofight/fireline/FirelineRules.kt:21`),
+which moves every fingerprint in the repo. The values measured here are kept as measured; the
+current values are in `docs/web/fixtures/parity_matrix.tsv` and `docs/web/fixtures/snapshots.json`
+(`PLAN-EDGE-WALLS.md` section 11).
+
 ## 1. What changed in the repo
 
 | change | where |

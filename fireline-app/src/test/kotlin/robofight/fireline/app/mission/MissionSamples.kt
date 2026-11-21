@@ -2,6 +2,7 @@ package robofight.fireline.app.mission
 
 import robofight.fireline.session.RunSummary
 
+import robofight.fireline.FIRELINE_ENGINE_VERSION
 import robofight.fireline.FailureReason
 import robofight.fireline.RunStatus
 
@@ -15,7 +16,7 @@ import robofight.fireline.RunStatus
 internal fun runSummarySample(
     status: RunStatus = RunStatus.FAILURE,
     failureReason: FailureReason? = FailureReason.TIME_EXPIRED,
-    engineVersion: Int = 1,
+    engineVersion: Int = FIRELINE_ENGINE_VERSION,
     missionId: Int = 4,
     tick: Int = 120,
     seed: Int = 4004,

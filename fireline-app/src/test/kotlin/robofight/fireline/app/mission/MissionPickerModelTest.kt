@@ -68,4 +68,17 @@ class MissionPickerModelTest {
         assertNull(MissionPickerModel.cardFor(Missions.byId(2)!!, null).badgeLabel)
         assertEquals(FIRELINE_ENGINE_VERSION, success.engineVersion)
     }
+
+    /**
+     * The MISSION card copy for a mission with no recorded run states the engine
+     * version it is looking for, read from `FIRELINE_ENGINE_VERSION`
+     * (`MissionSurface.emptyRunLabel`, rendered at `MissionSurface.kt:84`).
+     */
+    @Test
+    fun emptyCardCopyNamesTheShippedEngineVersion() {
+        assertEquals("no run recorded yet for engine v$FIRELINE_ENGINE_VERSION", MissionSurface.emptyRunLabel)
+        assertEquals("no run recorded yet for engine v2", MissionSurface.emptyRunLabel)
+        val card = MissionPickerModel.cardFor(Missions.byId(2)!!, null)
+        assertNull(card.badgeLabel)
+    }
 }

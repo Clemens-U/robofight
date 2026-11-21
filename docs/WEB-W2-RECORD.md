@@ -9,6 +9,13 @@ arithmetic vectors and the web input-limit refusals are recorded from live engin
 pinned as fixtures, and asserted identically on `jvm` and `wasmJs`: 19 new tests, 146
 engine tests on each target, zero failures across the close-out matrix.
 
+Record status 2026-11-21: every fingerprint in this record was measured under engine v1.
+`FIRELINE_ENGINE_VERSION` is 2 (`FirelineRules.kt:21`) since the edge-wall step E1b
+(`PLAN-EDGE-WALLS.md` section 11), which moves every state fingerprint while leaving the ten
+golden trace hashes, the 29 arithmetic vectors and the limit probe rows unchanged. The values
+measured here are kept as measured; the current ones are in `docs/web/fixtures/parity_matrix.tsv`
+and `docs/web/fixtures/snapshots.json`.
+
 ---
 
 ## 1. What W2 had to prove

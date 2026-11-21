@@ -6,7 +6,7 @@ package robofight.fireline
  * input-limit probe, asserted identically by `:fireline-engine` on `jvm` and `wasmJs`.
  *
  * GENERATED - never typed by hand. `docs/web/fixtures/ParityMatrix.kt` records every
- * value from live engine state on the JVM (engine v1, commit d66ef5f8214506120857fd15aaa80c1042e9d4cc),
+ * value from live engine state on the JVM (engine v2, commit ed93d8926f9b0d6f9d193df458d104aa5518a7c8),
  * `docs/web/fixtures/parity_fixture_gen.py` wrote this file from that output.
  * Raw form of the same data: `parity_matrix.tsv`, `parity_traces.txt`,
  * `parity_arith.tsv`, `limit_probe.tsv`; JSON form for a browser container:
@@ -19,8 +19,8 @@ package robofight.fireline
  */
 
 internal const val PARITY_GENERATOR: String = "docs/web/fixtures/ParityMatrix.kt"
-internal const val PARITY_ENGINE_VERSION: Int = 1
-internal const val PARITY_SOURCE_COMMIT: String = "d66ef5f8214506120857fd15aaa80c1042e9d4cc"
+internal const val PARITY_ENGINE_VERSION: Int = 2
+internal const val PARITY_SOURCE_COMMIT: String = "ed93d8926f9b0d6f9d193df458d104aa5518a7c8"
 internal const val PARITY_PROBE_TICK: Int = 12
 internal const val PARITY_EXPECTED_ROWS: Int = 10
 
@@ -43,16 +43,16 @@ internal data class ParityFixtureRow(
 )
 
 internal val PARITY_FIXTURE_ROWS: List<ParityFixtureRow> = listOf(
-    ParityFixtureRow("1-reference", 1, "NOZZLE CHECK", "reference", "reference", 12, "fa31bb2eced7a30c", "4f4118286b349619", 17, "SUCCESS", "-", "198645dc2e7e9649", 102, 34),
-    ParityFixtureRow("1-failing", 1, "NOZZLE CHECK", "failing", "never shoots", 12, "85461a84b158812d", "9f496c19b6af9b46", 60, "FAILURE", "TIME_EXPIRED", "a64c17a9d85a6f75", 6, 2),
-    ParityFixtureRow("2-reference", 2, "CORRIDOR", "reference", "reference", 12, "113c566635ef3e13", "ceddf1a2fa7d7b10", 102, "SUCCESS", "-", "47e28d84c5d61220", 75, 25),
-    ParityFixtureRow("2-failing", 2, "CORRIDOR", "failing", "naive always forward", 12, "43054c601ddd8737", "88b5c429de62c944", 120, "FAILURE", "TIME_EXPIRED", "095dc5eba29eef27", 6, 2),
-    ParityFixtureRow("3-reference", 3, "FIRST RESPONSE", "reference", "reference", 12, "df4571c82f169e1b", "28016f5459a44c4d", 38, "SUCCESS", "-", "0cf3b083da3900fd", 72, 24),
-    ParityFixtureRow("3-failing", 3, "FIRST RESPONSE", "failing", "skips the second civilian", 12, "3153a509654849f5", "d31f60893006df8f", 120, "FAILURE", "TIME_EXPIRED", "818eda729f5866d7", 45, 15),
-    ParityFixtureRow("4-reference", 4, "DOWNWIND", "reference", "reference", 12, "7f2f344b8d0a52c4", "9bafb261b891c1c0", 147, "SUCCESS", "-", "dd669e7313a67d41", 105, 35),
-    ParityFixtureRow("4-failing", 4, "DOWNWIND", "failing", "ignores the burning line", 12, "da58ac6a8b1a7e81", "99752e4c059a058e", 500, "FAILURE", "TIME_EXPIRED", "b2c14340a8f8a1de", 9, 3),
-    ParityFixtureRow("5-reference", 5, "HOT ZONE", "reference", "reference", 12, "672a982213390d0c", "317eca23f0149509", 45, "SUCCESS", "-", "a7836db790e4a6a0", 111, 37),
-    ParityFixtureRow("5-failing", 5, "HOT ZONE", "failing", "no shield, straight through", 12, "47145b5826115f48", "def56526d10c1cf2", 29, "FAILURE", "ROVER_DESTROYED", "b7b8b80ea652ce1d", 6, 2),
+    ParityFixtureRow("1-reference", 1, "NOZZLE CHECK", "reference", "reference", 12, "f3dd62629ba58d1f", "4f4118286b349619", 17, "SUCCESS", "-", "245faa6d10316e00", 102, 34),
+    ParityFixtureRow("1-failing", 1, "NOZZLE CHECK", "failing", "never shoots", 12, "df8ebe851b2c1670", "9f496c19b6af9b46", 60, "FAILURE", "TIME_EXPIRED", "7cbfe49993c17318", 6, 2),
+    ParityFixtureRow("2-reference", 2, "CORRIDOR", "reference", "reference", 12, "d0f26fd5c0b02efa", "ceddf1a2fa7d7b10", 102, "SUCCESS", "-", "d3ea47119fe3b101", 75, 25),
+    ParityFixtureRow("2-failing", 2, "CORRIDOR", "failing", "naive always forward", 12, "55814d5ffbe783d6", "88b5c429de62c944", 120, "FAILURE", "TIME_EXPIRED", "2e88bd6f1f4ed91e", 6, 2),
+    ParityFixtureRow("3-reference", 3, "FIRST RESPONSE", "reference", "reference", 12, "ba3c37b47d2133b6", "28016f5459a44c4d", 38, "SUCCESS", "-", "01663660e6731d0a", 72, 24),
+    ParityFixtureRow("3-failing", 3, "FIRST RESPONSE", "failing", "skips the second civilian", 12, "aec31f0cbb71140c", "d31f60893006df8f", 120, "FAILURE", "TIME_EXPIRED", "fee14c44c61f245a", 45, 15),
+    ParityFixtureRow("4-reference", 4, "DOWNWIND", "reference", "reference", 12, "84736ea77c8e8a67", "9bafb261b891c1c0", 147, "SUCCESS", "-", "acf4656261a3c008", 105, 35),
+    ParityFixtureRow("4-failing", 4, "DOWNWIND", "failing", "ignores the burning line", 12, "07fc73be7bf8f31e", "99752e4c059a058e", 500, "FAILURE", "TIME_EXPIRED", "51f0f7232dd88add", 9, 3),
+    ParityFixtureRow("5-reference", 5, "HOT ZONE", "reference", "reference", 12, "426c4fdd8f395eef", "317eca23f0149509", 45, "SUCCESS", "-", "ba8e443d3c469c1d", 111, 37),
+    ParityFixtureRow("5-failing", 5, "HOT ZONE", "failing", "no shield, straight through", 12, "2b88919b27fcd1e1", "def56526d10c1cf2", 29, "FAILURE", "ROVER_DESTROYED", "89bceb4241170566", 6, 2),
 )
 
 /** Gate G2: `FirelineRun.eventTrace(descriptor, probeTick)` verbatim, per scenario. */

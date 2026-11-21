@@ -27,26 +27,34 @@ JBR="C:/Program Files/Android/Android Studio/jbr/bin/java.exe"
 KJ="C:/Program Files/Android/Android Studio/plugins/Kotlin/kotlinc/lib/kotlin-compiler.jar"
 SL="C:/Program Files/Android/Android Studio/plugins/Kotlin/kotlinc/lib/kotlin-stdlib.jar"
 FIX="$PWD/docs/web/fixtures"
-CLS="$LOCALAPPDATA/Temp/flfixture/cls"
+CLS="C:/Users/Clemens/AppData/Local/hermes/cache/scratch/flfixture/cls"   # scratch dir, never inside the repo
 
+# Source trees are the Kotlin Multiplatform ones (`src/commonMain`) since the
+# 2026-11-20 KMP move; an earlier revision of this recipe named `src/main`,
+# which no longer exists. The `session` subpackage is its own compile input.
 "$JBR" -cp "$KJ" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler \
-  rf8-core/src/main/kotlin/robofight/*/*.kt \
-  fireline-engine/src/main/kotlin/robofight/fireline/*.kt \
+  rf8-core/src/commonMain/kotlin/robofight/*/*.kt \
+  fireline-engine/src/commonMain/kotlin/robofight/fireline/*.kt \
+  fireline-engine/src/commonMain/kotlin/robofight/fireline/session/*.kt \
   "$FIX/SnapshotFixtures.kt" "$FIX/CrossCheck.kt" \
   -d "$CLS" -nowarn            # ignore "malformed kotlin.Metadata" warnings; grep stderr for 'error:'
 
-"$JBR" -cp "$CLS;$SL" fixtures.SnapshotFixturesKt "C:/.../docs/web/fixtures/snapshots.json"   # native C:/ path, writes snapshots.json + snapshots.extra.json
+"$JBR" -cp "$CLS;$SL" fixtures.SnapshotFixturesKt "C:/Users/Clemens/Documents/github/robofight/docs/web/fixtures/snapshots.json"   # native C:/ path, writes snapshots.json + snapshots.extra.json
 "$JBR" -cp "$CLS;$SL" fixtures.CrossCheckKt > "$FIX/crosscheck.tsv"
 python "$FIX/verify_snapshots.py"
 python "$FIX/verify_crosscheck.py"
 python docs/web/gen_web_mockups.py     # mockups read the committed fixtures
-python docs/web/verify_layout_v1.py    # frozen layout gates (docs/FIRELINE-WEB.md §15)
+python docs/web/verify_layout_v1.py    # frozen layout gates (docs/FIRELINE-WEB.md §15), 22 checks
 ```
 
 Pass native `C:/...` forward-slash paths to `java`/`kotlinc`; MSYS `/c/...` paths
 break into `\c\` and fail.
 
-## Verified results (2026-11-19, engine v1)
+## Verified results (2026-11-19, engine v1; superseded 2026-11-21 by engine v2 below)
+
+The three fingerprints and the five interim values in this section were measured under
+engine v1. They are kept as measured because they are the record of that build; engine v2
+moved all of them (`PLAN-EDGE-WALLS.md` section 11).
 
 | scenario | final tick | outcome | fingerprint |
 |---|---|---|---|
@@ -57,6 +65,29 @@ break into `\c\` and fail.
 Interim fingerprints: `01-ref-t0` `9333817203ef8d30`, `01-ref-t12` `fa31bb2eced7a30c`,
 `01-never-t30` `0cacfa28f82b0dc7`, `02-ref-t12` `113c566635ef3e13`, `02-ref-t46` `e9226853d9b3eb4d`.
 Two generator runs produced byte-identical JSON (`801b48308c3c3f003cafd417faca49b0`).
+
+## Verified results (2026-11-21, engine v2, commit `ed93d89`)
+
+Engine v2 is the edge-wall semantics step E1b (`PLAN-EDGE-WALLS.md` section 11):
+`FIRELINE_ENGINE_VERSION` 2 (`FirelineRules.kt:21`), stamped into `canonicalState()`
+(`FirelineWorld.kt:564`). All values below were re-recorded from live engine state at commit
+`ed93d8926f9b0d6f9d193df458d104aa5518a7c8`; the `parity_matrix.tsv`, `parity_arith.tsv` and
+`limit_probe.tsv` headers carry `# commit ed93d8926f9b0d6f9d193df458d104aa5518a7c8` and
+`# engine v2`. All ten golden trace hashes, the 29 arithmetic vectors and the five limit probe
+rows are unchanged from engine v1; only state fingerprints moved.
+
+| scenario | final tick | outcome | fingerprint |
+|---|---|---|---|
+| 01 NOZZLE CHECK, reference firmware (102 B / 34 insn) | 17 | SUCCESS | `245faa6d10316e00` |
+| 01 NOZZLE CHECK, `never shoots` (6 B / 2 insn) | 60 = timeLimit | FAILURE / TIME_EXPIRED | `7cbfe49993c17318` |
+| 02 CORRIDOR, reference firmware (75 B / 25 insn) | 102 | SUCCESS | `d3ea47119fe3b101` |
+
+Interim fingerprints: `01-ref-t0` `28838868ad3468ed`, `01-ref-t12` `f3dd62629ba58d1f`,
+`01-never-t30` `b77a46e1e4308ad0`, `02-ref-t12` `d0f26fd5c0b02efa`, `02-ref-t46` `9b6e65741beac0ea`.
+Two `fixtures.ParityMatrixKt` runs on 2026-11-21 produced byte-identical TSVs
+(`parity_matrix.tsv` md5 `b05740462883cbc547ad650622db64ed`, `parity_traces.txt`
+`449585cb4d1c49b549b15e2ca872bc2c`, `parity_arith.tsv` `76639b1c5a014db2f3712df798d5f7ae`,
+`limit_probe.tsv` `a5b8ecda94db87f2649f4ddcd37bd227`).
 
 ## Field notes / legends
 

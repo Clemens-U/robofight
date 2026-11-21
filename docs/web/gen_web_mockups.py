@@ -732,13 +732,14 @@ def m1_play_panel(snaps):
     s_mid = (by_label(snaps, "ref-t15", 1) or by_label(snaps, "ref-t12", 1)
              or by_label(snaps, "ref-t0", 1) or by_label(snaps, "nozzle", 1))
     cards = []
-    # Best results shown in the mockup come from real engine fingerprints:
-    # mission 01 from this session's fixture, mission 02 from the Milestone 7
-    # acceptance record in PLAN-RF8-MULTIAPP.md 9.6.
-    best = {2: ("$47e28d84", "done")}
-    ref_final = by_label(snaps, "final", 1)
-    if ref_final and ref_final.get("mission_id") == 1:
-        best[1] = ("$" + str(ref_final.get("fingerprint", "")).lstrip("$"), "done")
+    # Best results shown in the mockup come from real engine fingerprints, read
+    # from the committed fixture labels `01-ref-final` and `02-ref-final`, never
+    # typed here: a fingerprint bump moves the mockup with the fixture.
+    best = {}
+    for mid in (1, 2):
+        ref_final = by_label(snaps, "final", mid)
+        if ref_final and ref_final.get("mission_id") == mid and ref_final.get("fingerprint"):
+            best[mid] = ("$" + str(ref_final.get("fingerprint", "")).lstrip("$"), "done")
     for mid, name, brief, seed, wind, water, limit in MISSIONS:
         badge, badge_cls = ("NOT RUN", "new")
         if mid in best:
