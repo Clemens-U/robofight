@@ -750,7 +750,13 @@ Total 488 tests, 0 failures, 0 errors, 0 skipped, against the 478 baseline of se
 
 ## 13. Record E5 (content): mission 06 `THIN WALL`, the teaching mission (2026-11-22)
 
-Step E5 was pulled forward ahead of E3 and E4 by owner decision on 2026-11-21 (the ordering question and its answer are recorded in §12.7 item 2). Reason: E3 (Android edge segments) and E4 (web edge overlay) would otherwise draw their first wall segments against the synthetic §12 layouts, which ship in no product. With a real sixth mission in the catalog, the wall becomes visible on both surfaces with no extra content work, and the renderers get a mission-shaped test target.
+Content step E5 of section 7 landed 2026-11-22 on branch `codex/edge-walls-e1` at commit
+`dd60c20`, on top of the E2 commit `afec375`. Scope is `:fireline-engine` mission content,
+`:fireline-app` and `:fireline-web` picker expectations, the fixture set, and the player-facing
+docs; `FIRELINE_ENGINE_VERSION` stays 2.
+
+Step E5 was pulled forward ahead of E3 and E4 by owner decision on 2026-11-21 (the ordering
+question and its answer are recorded in §12.7 item 2). Reason: E3 (Android edge segments) and E4 (web edge overlay) would otherwise draw their first wall segments against the synthetic §12 layouts, which ship in no product. With a real sixth mission in the catalog, the wall becomes visible on both surfaces with no extra content work, and the renderers get a mission-shaped test target.
 
 ### 13.1 What was added
 
