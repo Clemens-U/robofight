@@ -453,11 +453,14 @@ reinstalled on `emulator-5554` before the store was read).
 ### 10.4b G4 in the Android container, and the two containers agreeing
 
 The same STEP sequence was then driven on `emulator-5554` (`Medium_Phone`, density 420) against a
-fresh HEAD build. Identity first: the installed `robofight.fireline` `base.apk` md5
+build of this tree. Identity first: the installed `robofight.fireline` `base.apk` md5
 `04debd9da66e7db6b1f93c7663d84027` equals `fireline-app/build/outputs/apk/debug/fireline-app-debug.apk`,
-so the readouts below come from this tree's app, not a leftover install. Run setup was opened on
-mission 02 with `CORRIDOR-REF.ASM`, left PAUSED, and advanced by tapping STEP (the STEP path, not
-autoplay). The device readouts:
+and that APK was assembled from a HEAD whose engine files are identical to this commit's (this W3
+close-out touched only `fireline-web` and `docs`), so the readouts below are this tree's engine in
+this tree's app, not a leftover install. Run setup was opened on mission 02 with `CORRIDOR-REF.ASM`
+(`SEED 2002 (FIXED)`), left PAUSED, and advanced by tapping STEP once per tick (the STEP path, not
+autoplay), each tick boundary confirmed from a fresh dump through both channels, the grid
+`content-desc` `running mission 02 tick N of 120` and the `TICK N / 120` chip. The device readouts:
 
 - tick 12: `TICK 12 / 120 // A 0 X 0 Y 0 SP $0BF PC $115 // last: MOVE (1/2) // FIRE_DIST 10 //
   FIRE_LEVEL 35`
@@ -470,6 +473,14 @@ autoplay). The device readouts:
   `TICK 102/120` with `HP 100`, `HEAT 64`, `SHIELD 0`, `firmware 75 B / 25 instructions` and state
   fingerprint `$d3ea4711`. The mission card afterwards reads `BEST: SUCCESS  TICK 102`. The mission
   cards on the list screen carry the `engine v2` line.
+
+Device-only fields at the same checkpoints (no web counterpart, no conflict): the grid surface's
+`content-desc` carries `rover at x 2 y 7 facing S` at tick 12, `x 3 y 10 facing E` at tick 30 and
+`x 6 y 10 facing E` at tick 46; the source window shows `exec: MOVE @line 15` mid-move at tick 30
+and `next: IN FIRE_DIST @line 11` at tick 46; `HEAT 0` on the run bands at ticks 12 to 46 and
+`HEAT 64` at the finish, because heat accrues in the firing leg after tick 46; the result card adds
+`water used 50`, `shots 5`, `burning cells 0` and the objective chips `EXTINGUISH_ALL`, `REACH_EXIT`;
+the untouched mission cards read `no run recorded yet for engine v2`, the store's engine marker.
 
 Every field equals the browser capture in section 10.3, and the device readouts equal the committed
 anchors (`snapshots.json` `02-ref-t12` / `02-ref-t46`, `parity_matrix.json` `2-reference`): same PC,
