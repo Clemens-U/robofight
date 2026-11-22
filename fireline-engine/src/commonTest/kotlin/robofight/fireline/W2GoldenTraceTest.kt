@@ -28,19 +28,15 @@ class W2GoldenTraceTest {
         return h.toULong().toString(16).padStart(16, '0')
     }
 
-    private fun sourceOf(row: ParityFixtureRow): String {
-        val m = assertNotNull(Missions.byId(row.missionId), "fixture mission ${row.missionId} missing")
-        if (row.kind == "reference") return m.referenceSource
-        val found = m.failingSources.firstOrNull { it.first == row.firmwareLabel }
-        return assertNotNull(found, "failing firmware ${row.firmwareLabel} missing on mission ${m.id}").second
-    }
+    private fun sourceOf(row: ParityFixtureRow): String = paritySourceOf(row)
+
+    private fun missionOf(row: ParityFixtureRow): Mission = parityMissionOf(row)
 
     @Test
     fun goldenTraceMatchesForEveryScenario() {
         assertEquals(PARITY_FIXTURE_ROWS.size, PARITY_GOLDEN_TRACES.size, "one trace per matrix row")
         for (row in PARITY_FIXTURE_ROWS) {
-            val m = assertNotNull(Missions.byId(row.missionId))
-            val trace = FirelineRun.eventTrace(m.descriptorForSource(sourceOf(row)), row.probeTick)
+            val trace = FirelineRun.eventTrace(missionOf(row).descriptorForSource(sourceOf(row)), row.probeTick)
             val pinned = assertNotNull(PARITY_GOLDEN_TRACES[row.scenario], "no pinned trace for ${row.scenario}")
             assertEquals(pinned.size, trace.size, "${row.scenario}: trace length")
             for (i in pinned.indices) {
@@ -54,8 +50,7 @@ class W2GoldenTraceTest {
         for (row in PARITY_FIXTURE_ROWS) {
             val pinned = assertNotNull(PARITY_GOLDEN_TRACES[row.scenario])
             assertEquals(row.traceHash, fnvHex(pinned.joinToString("\n")), "${row.scenario}: pinned trace hash")
-            val m = assertNotNull(Missions.byId(row.missionId))
-            val live = FirelineRun.eventTrace(m.descriptorForSource(sourceOf(row)), row.probeTick)
+            val live = FirelineRun.eventTrace(missionOf(row).descriptorForSource(sourceOf(row)), row.probeTick)
             assertEquals(row.traceHash, fnvHex(live.joinToString("\n")), "${row.scenario}: live trace hash")
         }
     }

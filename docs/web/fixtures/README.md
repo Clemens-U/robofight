@@ -89,6 +89,37 @@ Two `fixtures.ParityMatrixKt` runs on 2026-11-21 produced byte-identical TSVs
 `449585cb4d1c49b549b15e2ca872bc2c`, `parity_arith.tsv` `76639b1c5a014db2f3712df798d5f7ae`,
 `limit_probe.tsv` `a5b8ecda94db87f2649f4ddcd37bd227`).
 
+### E2 wall fixture rows (2026-11-22, engine v2, commit `4bd81ca`)
+
+The same generator now also records four wall-carrying layouts (`PLAN-EDGE-WALLS.md` §7 step
+E2). They are fixture layouts, not authored missions: their canonical mission text is pinned
+in `W2ParityFixtures.kt` because no source file ships it. Every value below came out of
+`fixtures.ParityMatrixKt` at commit `4bd81cac5a5b529c325e0ff788229a1f6d0a04e5`, the `# commit`
+tag of `parity_matrix.tsv`.
+
+| layout (scenario) | fixture id | firmware label (image) | seed | probe tick | probe fingerprint | golden trace hash | final tick | status / reason | final fingerprint | wall edges | round trip |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| WALL LANE (wall-lane-move) | 101 | lane move loop, 6 B / 2 insn | 6001 | 12 | `4ce6f21b96b15e4f` | `88b5c429de62c944` | 60 | FAILURE / TIME_EXPIRED | `983902383703454a` | 3 | yes |
+| SEALED NOZZLE (wall-nozzle-seal) | 102 | single shoot, 9 B / 3 insn | 6002 | 12 | `f72074b3a2cbae1e` | `b87628c5ec530355` | 60 | FAILURE / TIME_EXPIRED | `28621a2b7f6d5c29` | 1 | yes |
+| WALL LANE SUPPRESS (wall-lane-suppress) | 103 | single shoot, 9 B / 3 insn | 6003 | 12 | `afb0ccd208010c01` | `e762879cfcc1a486` | 60 | FAILURE / TIME_EXPIRED | `c5c75948d2b9ec6f` | 3 | yes |
+| OPEN LANE (wall-open-lane) | 104 | lane move loop, 6 B / 2 insn | 6001 | 12 | `c0769f7efd8bf8a6` | `88b5c429de62c944` | 44 | SUCCESS / - | `8204a0e863743898` | 2 | yes |
+
+Mission rules behind every wall row, recorded as columns: objectives `REACH_EXIT` (4), time
+limit 60, survive until unset, starting water 100, wind 0x0, tick guard 200, rover spawn
+(2,2) facing east, exit (17,2). `wall-open-lane` is `wall-lane-move` with one edge wall
+removed: the two pinned layout texts (1704 characters, 85 lines each) differ in exactly one
+character, the `#` at `WALL_VERT` row 2 char 5 becoming `.`; same seed, same firmware, same
+rules, and the outcome moves from FAILURE / TIME_EXPIRED at tick 60 to SUCCESS at tick 44.
+
+Two `fixtures.ParityMatrixKt` runs on 2026-11-22 produced byte-identical outputs
+(`parity_matrix.tsv` md5 `2f60459c1c9f7b23e734d105a321f437`, `parity_traces.txt`
+`c50bcc35db606b51d7a59d35a68f71ce`, `parity_arith.tsv` `38b395c49928b71f114e4381684a4dca`,
+`limit_probe.tsv` `e0cabb03628a00d057443f8d5d6d935c`), and `parity_fixture_gen.py` reported
+`engine v2, commit 4bd81cac5a5b529c325e0ff788229a1f6d0a04e5, rows 14 (10 mission + 4 wall),
+arith 29, limits 5, trace lines 168`. The ten authored mission fingerprints in the table above
+are unchanged by the wall rows: the same generator at commit `4bd81ca` reproduces the
+`ed93d89` values in every shared column.
+
 ## Field notes / legends
 
 - `terrain`: 20x20 authoring glyphs - `.` floor, `#` wall, `F` fuel, `W` refill, `E` exit,
@@ -130,14 +161,16 @@ engine's determinism instead of re-deriving it (docs/FIRELINE-WEB.md §4, §9 W2
 
 | file | role |
 |---|---|
-| `ParityMatrix.kt` | the generator (`package fixtures`, `main(args)`; `args[0]` = output dir). Compiles against `:rf8-core` + `:fireline-engine` commonMain. Records: fingerprint matrix + 12-tick golden traces (`FirelineRun.eventTrace`), 64/32-bit arithmetic vectors, `WebInputLimits` probe. Asserts runner == step-by-step per row, and aborts if a firmware fails to assemble. |
-| `parity_matrix.tsv` | 10 rows (5 authored missions x reference + failing firmware): probe tick + mid-run fingerprint, trace hash, final tick / status / failure reason / fingerprint, assembler bytes+instructions. Header comments carry `# commit` and `# engine v`. |
-| `parity_traces.txt` | the 10 golden traces verbatim (12 lines each, 120 lines), with per-scenario `probe=` / `trace_hash=` headers. |
+| `ParityMatrix.kt` | the generator (`package fixtures`, `main(args)`; `args[0]` = output dir). Compiles against `:rf8-core` + `:fireline-engine` commonMain. Records: fingerprint matrix + 12-tick golden traces (`FirelineRun.eventTrace`), 64/32-bit arithmetic vectors, `WebInputLimits` probe. Asserts runner == step-by-step per row, and aborts if a firmware fails to assemble. Since E2 it also carries the four wall-carrying layouts as canonical mission text (`FIRELINE LAYOUT 20` header, `TERRAIN` 20x20, `FIRE` 20x20, `WALL_VERT` 20 rows x 19 glyphs, `WALL_HORIZ` 19 rows x 20 glyphs, `ROVER x,y,dir`), builds them through `Layout.fromCanonicalText` + `Mission.requireValid`, checks `fromCanonicalText(toCanonicalText(layout))` byte identity per row, and refuses to emit a row whose authored text is not the canonical text the engine emits. |
+| `parity_matrix.tsv` | 14 rows: 10 authored mission rows (5 missions x reference + failing firmware) plus the four E2 wall fixture rows of `PLAN-EDGE-WALLS.md` §7 step E2. Columns: probe tick + mid-run fingerprint, trace hash, final tick / status / failure reason / fingerprint, assembler bytes+instructions, the mission rules the fingerprint depends on (seed, objectives, time limit, survive until, starting water, wind dir x force, tick guard), `wall_count` (the engine's own `Layout.edgeCount`), the recorded layout and firmware text for the wall rows (`-` for authored rows, whose sources are committed in `Missions.kt`), and the measured canonical text `roundtrip`. Header comments carry `# commit` and `# engine v`. |
+| `parity_traces.txt` | the 14 golden traces verbatim (12 lines each, 168 trace lines, 182 lines including the per-scenario `probe=` / `trace_hash=` headers). |
 | `parity_arith.tsv` | 29 arithmetic vectors: engine LCG streams, FNV-1a parameters and hashes, plus Int/Long overflow, shift, remainder, truncation behaviors every container must reproduce. |
 | `limit_probe.tsv` | legal vs oversized source, and `WebInputLimits.prepare` outcomes (oversized and over-cap tick budget refused **before** assembly). |
-| `parity_fixture_gen.py` | reads the TSVs, refuses to write if they contradict each other (trace hash must equal the matrix `trace_hash`, 12 trace lines each, 16-hex digests, all firmware assembling), then writes the JSON fixtures and the pinned Kotlin fixture file. |
-| `parity_matrix.json`, `parity_arith.json`, `parity_traces.json` | the same data for a browser container to check itself against. |
-| `../fireline-engine/src/commonTest/kotlin/robofight/fireline/W2ParityFixtures.kt` | the pinned Kotlin fixtures (`internal` vals), generated - never hand-typed. |
+| `parity_fixture_gen.py` | reads the TSVs, refuses to write if they contradict each other (14 rows in the expected 10 + 4 split, trace hash must equal the matrix `trace_hash`, 12 trace lines each, 16-hex digests, all firmware assembling, every `roundtrip` true, authored rows carry no wall state, wall rows carry layout and firmware text whose `#` glyph count equals the engine `wall_count` and whose section shapes are `TERRAIN` 20x20, `FIRE` 20x20, `WALL_VERT` 20x19, `WALL_HORIZ` 19x20), then writes the JSON fixtures and the pinned Kotlin fixture file. |
+| `parity_matrix.json`, `parity_arith.json`, `parity_traces.json` | the same data for a browser container to check itself against. Each wall row also carries decoded `layoutText` and `firmwareText` next to the escaped TSV columns. |
+| `../fireline-engine/src/commonTest/kotlin/robofight/fireline/W2ParityFixtures.kt` | the pinned Kotlin fixtures (`internal` vals), generated - never hand-typed: `PARITY_FIXTURE_ROWS` (14 rows incl. the rule columns), `PARITY_WALL_LAYOUT_TEXTS`, `PARITY_WALL_FIRMWARE_TEXTS`, `PARITY_GOLDEN_TRACES`, `PARITY_ARITH_VECTORS`, `PARITY_LIMIT_PROBE`, plus the row and scenario counts. |
+| `../fireline-engine/src/commonTest/kotlin/robofight/fireline/W2FixtureMissions.kt` | hand-written helper (not generated): rebuilds the mission each row describes, from `Missions.byId` for authored rows and from the pinned canonical layout text plus the recorded rule columns for wall rows, so one fixture set drives both targets. |
+| `../fireline-engine/src/commonTest/kotlin/robofight/fireline/W2WallParityTest.kt` | the E2 wall gate (5 tests): wall rows are pinned and their glyph count equals `Layout.edgeCount`, every wall row reproduces its recorded probe and final fingerprint when recomputed from the pinned text, the canonical text round trip keeps the fingerprint byte-identically, the removed wall is the only difference between `wall-lane-move` and `wall-open-lane`, and the wall gates appear in the pinned golden traces. |
 
 ## Build + run the W2 pipeline (from the repo root, bash)
 
@@ -145,12 +178,12 @@ engine's determinism instead of re-deriving it (docs/FIRELINE-WEB.md §4, §9 W2
 JBR="C:/Program Files/Android/Android Studio/jbr/bin/java.exe"
 KJ="C:/Program Files/Android/Android Studio/plugins/Kotlin/kotlinc/lib/kotlin-compiler.jar"
 SL="C:/Program Files/Android/Android Studio/plugins/Kotlin/kotlinc/lib/kotlin-stdlib.jar"
-CLS="$LOCALAPPDATA/Temp/flw2/cls"
+CLS="C:/Users/Clemens/AppData/Local/hermes/cache/scratch/flw2/cls"   # scratch dir, never inside the repo
 
-"$JBR" -cp "$KJ" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler \
-  rf8-core/src/commonMain/kotlin/robofight/*/*.kt \
-  fireline-engine/src/commonMain/kotlin/robofight/fireline/*.kt \
-  docs/web/fixtures/ParityMatrix.kt -d "$CLS" -nowarn     # grep the output for 'error:'
+"$JBR" -Xmx2g -cp "$KJ" org.jetbrains.kotlin.cli.jvm.K2JVMCompiler -nowarn -d "$CLS" -cp "$SL" \
+  "C:/Users/Clemens/Documents/github/robofight/rf8-core/src/commonMain/kotlin" \
+  "C:/Users/Clemens/Documents/github/robofight/fireline-engine/src/commonMain/kotlin" \
+  "C:/Users/Clemens/Documents/github/robofight/docs/web/fixtures/ParityMatrix.kt"   # grep the log for 'error:'
 
 "$JBR" -cp "$CLS;$SL" fixtures.ParityMatrixKt \
   "C:/Users/Clemens/Documents/github/robofight/docs/web/fixtures"
@@ -160,10 +193,15 @@ python3 docs/web/fixtures/parity_fixture_gen.py          # JSON + W2ParityFixtur
 gradle :fireline-engine:jvmTest :fireline-engine:wasmJsTest   # consumes the pinned fixtures
 ```
 
+Whole source trees may be passed as directory arguments instead of the `*/*.kt` globs (the
+form above is what the E2 runs used); the classpath separator on this shell is `;`.
+
 Two `fixtures.ParityMatrixKt` runs must produce byte-identical TSVs (run it twice and
 compare `md5sum`); that is the determinism proof for the recorded values. Engine changes
 that move a fingerprint require a `FIRELINE_ENGINE_VERSION` bump plus regeneration, and
-the record in `docs/WEB-W2-RECORD.md` documents why.
+the record in `docs/WEB-W2-RECORD.md` documents why. `ParityMatrix.kt` stamps `# commit`
+with the live `git rev-parse HEAD` and `# engine v` with `FIRELINE_ENGINE_VERSION`, so a
+regeneration always names the state it measured.
 
 ## Fingerprint family used by these fixtures
 

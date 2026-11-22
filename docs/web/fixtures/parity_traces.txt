@@ -128,3 +128,55 @@
 010 MOVE (1/2) | ROVER FIRE DAMAGE -4 (fire 100)
 011 MOVE (2/2) | ROVER FIRE DAMAGE -4 (fire 100)
 012 JMP 256 | ROVER FIRE DAMAGE -4 (fire 100)
+# wall-lane-move lane move loop probe=12 trace_hash=88b5c429de62c944
+001 MOVE (1/2) | 
+002 MOVE (2/2) | 
+003 JMP 256 | 
+004 MOVE (1/2) | 
+005 MOVE (2/2) | 
+006 JMP 256 | 
+007 MOVE (1/2) | 
+008 MOVE (2/2) | 
+009 JMP 256 | 
+010 MOVE (1/2) | 
+011 MOVE (2/2) | 
+012 JMP 256 | 
+# wall-nozzle-seal single shoot probe=12 trace_hash=b87628c5ec530355
+001 SHOOT (1/3) | 
+002 SHOOT (2/3) | 
+003 SHOOT (3/3) | PACKET BLOCKED EDGE 3,2
+004 WAIT | 
+005 JMP 259 | 
+006 WAIT | 
+007 JMP 259 | 
+008 WAIT | 
+009 JMP 259 | 
+010 WAIT | 
+011 JMP 259 | 
+012 WAIT | 
+# wall-lane-suppress single shoot probe=12 trace_hash=e762879cfcc1a486
+001 SHOOT (1/3) | 
+002 SHOOT (2/3) | 
+003 SHOOT (3/3) | PACKET -> 3,2
+004 WAIT | 
+005 JMP 259 | 
+006 WAIT | PACKET SPENT EDGE 6,2
+007 JMP 259 | 
+008 WAIT | 
+009 JMP 259 | 
+010 WAIT | 
+011 JMP 259 | 
+012 WAIT | 
+# wall-open-lane lane move loop probe=12 trace_hash=88b5c429de62c944
+001 MOVE (1/2) | 
+002 MOVE (2/2) | 
+003 JMP 256 | 
+004 MOVE (1/2) | 
+005 MOVE (2/2) | 
+006 JMP 256 | 
+007 MOVE (1/2) | 
+008 MOVE (2/2) | 
+009 JMP 256 | 
+010 MOVE (1/2) | 
+011 MOVE (2/2) | 
+012 JMP 256 | 

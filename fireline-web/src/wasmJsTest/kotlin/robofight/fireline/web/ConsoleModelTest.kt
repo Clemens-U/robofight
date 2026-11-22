@@ -18,8 +18,11 @@ import robofight.fireline.session.StepOutcome
  * is named on each assertion.
  *
  * Sources of truth (committed on this branch):
- *  - `parity_matrix.json` / `parity_matrix.tsv` - 10 rows
- *    (5 missions x reference + failing firmware): final_tick, status,
+ *  - `parity_matrix.json` / `parity_matrix.tsv` - 14 rows: 10 authored mission
+ *    rows (5 missions x reference + failing firmware) plus the four E2 wall
+ *    fixture rows of `PLAN-EDGE-WALLS.md` §7 step E2, which no authored mission
+ *    ships and which `:fireline-engine` asserts instead of this console gate.
+ *    Used here for the mission rows: final_tick, status,
  *    failure_reason, final_hash, asm_bytes, asm_insns.
  *  - `parity_traces.json` / `parity_traces.txt` - golden trace lines 001..012
  *    per scenario (probe tick 12), shape `NNN <op> | <events>`.

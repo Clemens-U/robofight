@@ -633,3 +633,117 @@ tail `102 MOVE (2/2) | MISSION SUCCESS`, and the prefs again held exactly the th
    `ConsoleModelTest.kt:259:24` `Unresolved reference 'd3ea4711'`, because a short anchor
    starting with a letter must be escaped as `\$d3ea4711` inside a Kotlin string template, fixed
    in three places (`123`, `183`, `259`). The third matrix run was green.
+
+## 12. E2: wall determinism (record from the live engine, then pin, both targets)
+
+Section 7 row E2 asks for new edge-wall rows through the W2 fixture pipeline, "identical hashes across targets, fixture README updated". It was executed on 2026-11-22 on the working tree at HEAD `4bd81cac5a5b529c325e0ff788229a1f6d0a04e5` (engine `FIRELINE_ENGINE_VERSION` 2, the E1b state). No authored mission content was added, nothing in `fireline-engine/src/commonMain` was changed, and nothing was committed.
+
+### 12.1 The wall fixture set
+
+Four layouts, each authored as canonical mission text (`FIRELINE LAYOUT 20` header, `TERRAIN` 20 rows x 20 glyphs, `FIRE` 20 rows x 20 glyphs, `WALL_VERT` 20 rows x 19 glyphs, `WALL_HORIZ` 19 rows x 20 glyphs, `ROVER 2,2,E`), built by `Layout.fromCanonicalText` and validated by `Mission.requireValid`. Common geometry: rover spawn (2,2) facing east, exit (17,2), objectives `REACH_EXIT` (4), time limit 60, starting water 100, wind 0x0, tick guard 200, survive until unset. `wall-lane-move` and `wall-open-lane` use the firmware `loop:  MOVE` / `JMP    loop` (6 bytes, 2 instructions); `wall-nozzle-seal` and `wall-lane-suppress` use `fire:  SHOOT` / `loop:  WAIT` / `JMP    loop` (9 bytes, 3 instructions).
+
+| layout name (matrix scenario) | fixture id | seed | firmware (label, image) | tick probed | probe fingerprint | golden trace hash | final tick | final status | failure reason | final fingerprint | wall edges (`Layout.edgeCount`) | canonical text round trip |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| WALL LANE (`wall-lane-move`) | 101 | 6001 | lane move loop, 6 B / 2 insn | 12 | `4ce6f21b96b15e4f` | `88b5c429de62c944` | 60 | FAILURE | TIME_EXPIRED | `983902383703454a` | 3 | yes |
+| SEALED NOZZLE (`wall-nozzle-seal`) | 102 | 6002 | single shoot, 9 B / 3 insn | 12 | `f72074b3a2cbae1e` | `b87628c5ec530355` | 60 | FAILURE | TIME_EXPIRED | `28621a2b7f6d5c29` | 1 | yes |
+| WALL LANE SUPPRESS (`wall-lane-suppress`) | 103 | 6003 | single shoot, 9 B / 3 insn | 12 | `afb0ccd208010c01` | `e762879cfcc1a486` | 60 | FAILURE | TIME_EXPIRED | `c5c75948d2b9ec6f` | 3 | yes |
+| OPEN LANE (`wall-open-lane`) | 104 | 6001 | lane move loop, 6 B / 2 insn | 12 | `c0769f7efd8bf8a6` | `88b5c429de62c944` | 44 | SUCCESS | (none) | `8204a0e863743898` | 2 | yes |
+
+Wall state per layout, as recorded glyphs: `wall-lane-move` and `wall-open-lane` carry `WALL_VERT` row 2 char 5 (the vertical edge between (5,2) and (6,2); in `wall-open-lane` that glyph is `.`) plus `WALL_HORIZ` row 1 char 2 and row 2 char 2 (the two horizontal edges beside the spawn cell). `wall-nozzle-seal` carries only `WALL_VERT` row 2 char 2, the edge directly in front of the rover's nose. `wall-lane-suppress` uses the lane walls and additionally sets `FIRE` at (6,2) to 2, so a packet has to cross the lane gate.
+
+Edge mechanic exercised, one per row, with the pinned trace as evidence:
+1. `wall-lane-move`: the `Rover` MOVE gate. The rover never reaches (17,2), the run dies at `TIME_EXPIRED` on tick 60 with fingerprint `983902383703454a`.
+2. `wall-nozzle-seal`: the packet spawn edge gate. Trace line `003 SHOOT (3/3) | PACKET BLOCKED EDGE 3,2`, no packet ever exists on the board.
+3. `wall-lane-suppress`: absorption in flight. Trace lines `003 SHOOT (3/3) | PACKET -> 3,2` and `006 WAIT | PACKET SPENT EDGE 6,2`.
+4. `wall-open-lane`: the control row. Same seed, same firmware, same rules as `wall-lane-move`, one wall glyph removed, and the run reaches the exit at tick 44 with fingerprint `8204a0e863743898`.
+
+`wall-lane-move` and `wall-open-lane` layout texts are 1704 characters / 85 lines each (1789 characters in the TSV because `ParityMatrix.kt` escapes each newline as `\n`). They differ at exactly one character, offset 927, which is `WALL_VERT` section row 2, char 5: `#` in the blocked row, `.` in the open row. Decoded layout md5: `1deb9606befe73642e5d8825c3e3681d` (`wall-lane-move`), `baefc12181487b4217bc18948d5898bb` (`wall-nozzle-seal`), `94cde4f49a046764742521226ac02e2f` (`wall-lane-suppress`), `687560657e9fd43494d6aa6d4fcb2133` (`wall-open-lane`).
+
+### 12.2 Recording the rows from the live engine, twice
+
+Harness compile (scratch class dir, native forward-slash paths, `;` classpath separator):
+
+```bash
+"C:/Program Files/Android/Android Studio/jbr/bin/java.exe" -Xmx2g \
+  -cp "C:/Program Files/Android/Android Studio/plugins/Kotlin/kotlinc/lib/kotlin-compiler.jar" \
+  org.jetbrains.kotlin.cli.jvm.K2JVMCompiler -nowarn \
+  -d "C:/Users/Clemens/AppData/Local/hermes/cache/scratch/flw2/cls" \
+  -cp "C:/Program Files/Android/Android Studio/plugins/Kotlin/kotlinc/lib/kotlin-stdlib.jar" \
+  "C:/Users/Clemens/Documents/github/robofight/rf8-core/src/commonMain/kotlin" \
+  "C:/Users/Clemens/Documents/github/robofight/fireline-engine/src/commonMain/kotlin" \
+  "C:/Users/Clemens/Documents/github/robofight/docs/web/fixtures/ParityMatrix.kt"
+```
+
+exit 0, 0 `error:` lines in the compile log. Then the generator, run twice into scratch (`run4`, `run5`) and twice into `docs/web/fixtures` (runs A and B):
+
+```bash
+"$JBR" -cp "$CLS;$SL" fixtures.ParityMatrixKt "C:/Users/Clemens/Documents/github/robofight/docs/web/fixtures"
+```
+
+exit 0 on each of the four runs, stdout `engine v2`, `rows=14 arith=29 limits=5`. `diff -r` over the two repo runs printed no differences. md5 of every regenerated file, identical for both runs:
+
+| file | md5 before this step (committed) | md5 after regeneration, both runs |
+|---|---|---|
+| `parity_matrix.tsv` | `b05740462883cbc547ad650622db64ed` | `2f60459c1c9f7b23e734d105a321f437` |
+| `parity_traces.txt` | `449585cb4d1c49b549b15e2ca872bc2c` | `c50bcc35db606b51d7a59d35a68f71ce` |
+| `parity_arith.tsv` | `76639b1c5a014db2f3712df798d5f7ae` | `38b395c49928b71f114e4381684a4dca` |
+| `limit_probe.tsv` | `a5b8ecda94db87f2649f4ddcd37bd227` | `e0cabb03628a00d057443f8d5d6d935c` |
+
+`parity_matrix.tsv` now has 2 provenance comment lines, one 27-column header line and 14 data rows (the 10 authored mission rows in their original order and values, then the 4 wall rows); `parity_traces.txt` has 14 blocks of 12 trace lines (168 trace lines, 182 lines with headers). A third generator run after the documentation edits (`runC`, exit 0, same `rows=14 arith=29 limits=5`) reproduced the four md5 values byte-for-byte against the files in `docs/web/fixtures`.
+
+### 12.3 Pinning the recorded rows
+
+`python3 docs/web/fixtures/parity_fixture_gen.py` (exit 0) printed `engine v2, commit 4bd81cac5a5b529c325e0ff788229a1f6d0a04e5, rows 14 (10 mission + 4 wall), arith 29, limits 5, trace lines 168` and wrote `parity_matrix.json` (md5 `a1ca0a1c19d55dd62d44bfa29b3d5b78`), `parity_traces.json` (`1c818b6fa34864910699f9ff697f8135`), `parity_arith.json` (`edeb02793553669cce7c6b7f0910cdb4`) and `W2ParityFixtures.kt` (`cacf6b7772d2b6062fbf3cecbfb7e558`, 342 lines).
+
+The matrix schema grew from 15 to 27 columns; the 12 new columns are `seed`, `objectives`, `time_limit`, `survive_until`, `starting_water`, `wind_dir`, `wind_force`, `max_ticks`, `wall_count`, `layout_source`, `firmware_source`, `roundtrip`. No column was removed. The wall layout and firmware text live in the TSV (escaped), so the wall rows are pinned from generator output and no wall layout is typed into a test. `W2ParityFixtures.kt` gained `PARITY_EXPECTED_MISSION_ROWS` (10), `PARITY_EXPECTED_WALL_ROWS` (4), `PARITY_WALL_SCENARIOS`, the rule columns on `ParityFixtureRow`, and the maps `PARITY_WALL_LAYOUT_TEXTS` and `PARITY_WALL_FIRMWARE_TEXTS`. The generator refuses to write unless the recording is self-consistent: 14 rows in the 10 + 4 split, the wall scenario set matching, every `roundtrip` true, `final_tick <= max_ticks`, authored rows carrying no wall state and no layout text, wall rows carrying layout and firmware text whose `#` glyph count equals the engine's own `wall_count`, and section shapes `TERRAIN` 20x20, `FIRE` 20x20, `WALL_VERT` 20x19, `WALL_HORIZ` 19x20.
+
+### 12.4 Two-target proof
+
+`gradle --offline :fireline-engine:jvmTest` and `:fireline-engine:wasmJsTest` each exit 0 (the wasm run reports `BUILD SUCCESSFUL in 25s`, 24 actionable tasks, 8 executed, 16 up-to-date). Result XMLs: `fireline-engine/build/test-results/jvmTest` 19 files, 191 tests, 0 failures, 0 errors, 0 skipped; `fireline-engine/build/test-results/wasmJsNodeTest` 19 files, 191 tests, 0 failures, 0 errors, 0 skipped (186 per target before this step). Both targets read the same generated `W2ParityFixtures.kt`; the tests that assert the wall rows are, on `[jvm]` and on `[wasmJs, node]` alike:
+
+1. `wallFixtureRowsArePinnedFromTheGenerator`: the four wall rows exist, `PARITY_WALL_LAYOUT_TEXTS` is keyed by all four scenarios, and the `#` glyphs in the pinned text equal `Layout.edgeCount()` of the reparsed layout.
+2. `everyWallRowReproducesItsRecordedFingerprintOnThisTarget`: the engine re-run of each wall row must match the recorded probe fingerprint, final fingerprint, final tick, status and failure reason.
+3. `wallLayoutCanonicalTextRoundTripsWithTheSameFingerprint`: `fromCanonicalText(toCanonicalText(layout))` byte-identical and its run fingerprint identical.
+4. `theRemovedWallIsTheOnlyDifferenceBetweenTheBlockedAndOpenLaneRows`: one character in the pinned texts, different final fingerprints, different final ticks and statuses.
+5. `wallEventsAppearInThePinnedGoldenTraces`: `PACKET BLOCKED EDGE 3,2` in `wall-nozzle-seal`, `PACKET SPENT EDGE 6,2` in `wall-lane-suppress`.
+
+The pre-existing consumers were widened rather than weakened: `W2ParityMatrixTest` counts rows against `PARITY_EXPECTED_ROWS` with an explicit 10 mission / 4 wall split and maps `wall` to FAILURE and `wall-open` to SUCCESS, `W2GoldenTraceTest` iterates all 14 matrix rows. No assertion was deleted and no expected value was hand-typed.
+
+### 12.5 Nothing else moved
+
+`git diff --numstat -- fireline-engine/src/commonMain` is empty. The 10 pre-existing mission rows are identical before and after in every shared column, including the final fingerprints: `1-reference 245faa6d10316e00`, `1-failing 7cbfe49993c17318`, `2-reference d3ea47119fe3b101`, `2-failing 2e88bd6f1f4ed91e`, `3-reference 01663660e6731d0a`, `3-failing fee14c44c61f245a`, `4-reference acf4656261a3c008`, `4-failing 51f0f7232dd88add`, `5-reference ba8e443d3c469c1d`, `5-failing 89bceb4241170566`. The probe fingerprints, trace hashes, final ticks, statuses, failure reasons and assembler sizes are likewise identical; only new columns were appended and four rows were appended. `parity_arith.tsv`, `parity_arith.json` and `limit_probe.tsv` each changed by exactly one line, the provenance stamp `# commit ed93d8926f9b0d6f9d193df458d104aa5518a7c8` becoming `# commit 4bd81cac5a5b529c325e0ff788229a1f6d0a04e5`; the 29 arithmetic vectors and 5 limit probes are unchanged.
+
+### 12.6 Close-out matrix and fixture gates
+
+```bash
+export JAVA_HOME="C:/Program Files/Android/Android Studio/jbr"
+"C:/Users/Clemens/.gradle/wrapper/dists/gradle-9.6.0-bin/42k10rwplmzkhuboz9kdazi7s/gradle-9.6.0/bin/gradle.bat" \
+  --offline --rerun-tasks -Dorg.gradle.java.home="C:/Program Files/Android/Android Studio/jbr" \
+  -Dorg.gradle.jvmargs=-Xmx3g -Dkotlin.daemon.jvmargs=-Xmx1g \
+  :rf8-core:jvmTest :rf8-core:wasmJsTest :fireline-engine:jvmTest :fireline-engine:wasmJsTest \
+  :fireline-web:wasmJsTest :app:testFreeDebugUnitTest :app:testProDebugUnitTest \
+  :fireline-app:testDebugUnitTest :fireline-app:assembleRelease -x lintVitalRelease
+```
+
+exit 0, `BUILD SUCCESSFUL in 31s`, `160 actionable tasks: 160 executed`, finished 2026-11-22T02:10:42+01:00. Result XMLs written by that build (52 files, mtimes 02:10:25 to 02:10:41, all after the build start marker at 02:10:08):
+
+| module | result dir | tests | failures | errors | skipped | XML files |
+|---|---|---|---|---|---|---|
+| `:rf8-core` | `jvmTest` | 15 | 0 | 0 | 0 | 1 |
+| `:rf8-core` | `wasmJsNodeTest` | 15 | 0 | 0 | 0 | 1 |
+| `:fireline-engine` | `jvmTest` | 191 | 0 | 0 | 0 | 19 |
+| `:fireline-engine` | `wasmJsNodeTest` | 191 | 0 | 0 | 0 | 19 |
+| `:fireline-web` | `wasmJsNodeTest` | 24 | 0 | 0 | 0 | 3 |
+| `:app` | `testFreeDebugUnitTest` | 3 | 0 | 0 | 0 | 1 |
+| `:app` | `testProDebugUnitTest` | 9 | 0 | 0 | 0 | 3 |
+| `:fireline-app` | `testDebugUnitTest` | 40 | 0 | 0 | 0 | 5 |
+
+Total 488 tests, 0 failures, 0 errors, 0 skipped, against the 478 baseline of section 11.6: +5 per `:fireline-engine` target, exactly `W2WallParityTest`. The 17 stale pre-KMP `build/test-results/test/` XMLs sit in directories this target list does not run and none of them carries a mtime in the build window, so they are excluded by directory and by mtime. Fixture gates after the build: `python3 docs/web/fixtures/verify_snapshots.py` exit 0, last line `ALL CHECKS PASSED`; `python3 docs/web/fixtures/verify_crosscheck.py` exit 0, last line `CROSSCHECK PASSED`; `python3 docs/web/verify_layout_v1.py` exit 0, last line `---- 22 checks, 0 failed`.
+
+### 12.7 Deviations from the section 7 row
+
+1. The row says "new edge-wall rows through the W2 fixture pipeline". Executing it required widening the matrix schema by 12 columns (section 12.3), because the wall layouts are not authored missions: their canonical text exists in no source file, so it has to be carried by the recording itself or it would have to be typed by hand into a test, which the fixture provenance rules forbid.
+2. The four wall layouts get fixture ids 101 to 104 and are not added to `Missions.kt`. `W2FixtureMissions.kt` rebuilds each wall mission from the pinned canonical text plus the recorded rule columns. Reason: section 7 assigns content to step E5, and the free/Circuit wall mission is a content decision.
+3. The row says "identical hashes across targets". The fingerprints and trace hashes are identical on `[jvm]` and `[wasmJs, node]`, with one recorded nuance: `wall-lane-move` and `wall-open-lane` share the trace hash `88b5c429de62c944` with each other and with `2-failing`, because the 12-tick event trace records the instruction executed and not the position reached, and the MOVE gate does not add a trace event. The wall block is therefore proven by the divergent final fingerprints (`983902383703454a` at tick 60 against `8204a0e863743898` at tick 44) and by `EdgeWallsTest`, not by the trace text.
+4. Count assertions that depend on the row count were updated as required: `parity_fixture_gen.py` (`EXPECTED_ROWS` 14 = 10 mission + 4 wall), `W2ParityMatrixTest` (row count plus the explicit split), `W2GoldenTraceTest` (one trace per matrix row, 14). The `:fireline-web` console gate keeps consuming only the 10 authored mission rows and its source comment now says so; asserting wall rows there would require authored catalog content.
+5. Scratch placement: the class dir and the generator logs live in scratch (`C:/Users/Clemens/AppData/Local/hermes/cache/scratch/flw2/cls`, logs under the shell `$TMPDIR`, which resolves to `C:/Users/Clemens/AppData/Local/Temp`), never in the repo. Nothing was committed, matching the standing rule for this branch.
