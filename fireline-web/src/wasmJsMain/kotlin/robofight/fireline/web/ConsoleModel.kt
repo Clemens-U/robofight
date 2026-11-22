@@ -61,6 +61,28 @@ class ConsoleModel(val missions: List<Mission> = Missions.ALL) {
         return ConsoleRun(mission, MissionSession(mission, firmwareName, firmwareSource))
     }
 
+    /**
+     * The editor path (docs/FIRELINE-WEB.md §12a D4 "editor with line-level
+     * assembler errors"): validate a typed source through the web input gate
+     * (`WebInputLimits`, 1200 lines / 8192 bytes / non-ASCII refusals) and the
+     * RF-8 assembler, and open the mission only when both are clean. A refused
+     * draft carries the exact `AsmError` line numbers so the console can name
+     * the line it failed on instead of failing the whole page.
+     */
+    fun draftFirmware(missionId: Int, firmwareName: String, firmwareSource: String): DraftResult {
+        val mission = missions.firstOrNull { it.id == missionId }
+            ?: return DraftResult.Rejected(listOf("no authored mission with id $missionId"))
+        val problems = WebLibrary.sourceProblems(firmwareSource)
+        if (problems.isNotEmpty()) return DraftResult.Rejected(problems)
+        return DraftResult.Accepted(ConsoleRun(mission, MissionSession(mission, firmwareName, firmwareSource)))
+    }
+
+    /** Outcome of [draftFirmware]: an openable run, or the refusal reasons. */
+    sealed class DraftResult {
+        data class Accepted(val run: ConsoleRun) : DraftResult()
+        data class Rejected(val problems: List<String>) : DraftResult()
+    }
+
     /** Open a mission with one of its documented failing firmware variants. */
     fun openFailingFirmware(missionId: Int, label: String): ConsoleRun {
         val mission = missions.firstOrNull { it.id == missionId }

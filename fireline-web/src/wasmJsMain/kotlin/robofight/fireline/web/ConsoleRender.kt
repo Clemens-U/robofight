@@ -28,8 +28,6 @@ import robofight.isa.decPad
  * `MissionSession` state with the same words.
  *
  * Deliberate omissions of this shell step (recorded in docs/WEB-W3-RECORD.md):
- * the `SPEED`/`PANIC` row, the share `LINK`, `COPY` and `DOWNLOAD .ASM` (no
- * pacing timer and no `localStorage`/`#run=` permalink until the next W3 step);
  * the hero, `FL:> RELEASE STATUS`, the four-cell strip,
  * the privacy block and the footer chips (§15.2 items 8-10 are landing-page
  * framing, not the console panel). The 20x20 world grid and its symbol legend
@@ -38,7 +36,11 @@ import robofight.isa.decPad
  * derives a glyph itself. The `kv` readout that stood in place of the grid in
  * the first shell step is gone: `TICK` already appears on the prompt line, the
  * titlebar, the objectives line and the RF-8 STATE band, and the rover position
- * now appears in the grid itself plus the `X`/`Y` cells.
+ * now appears in the grid itself plus the `X`/`Y` cells. The `SPEED`/`PANIC`
+ * row, the share `LINK` with `COPY` and `DOWNLOAD .ASM`, the editor and the
+ * `localStorage` firmware library are no longer omissions either: they are the
+ * §12a D4 "full loop" and render from [ConsoleUiState] (owned by `Main.kt`),
+ * still without deriving any value here.
  */
 object ConsoleRender {
 
@@ -51,6 +53,49 @@ object ConsoleRender {
     const val ID_STEP = "fl-btn-step"
     const val ID_RESET = "fl-btn-reset"
     const val ID_MISSIONS = "fl-missions"
+
+    // ---- ids added with the §12a D4 full loop (pacing, share, editor, library) ----
+    const val ID_STATUS = "fl-status"
+    const val ID_ASSEMBLER_NOTE = "fl-asmnote"
+    const val ID_SPEED_PREFIX = "fl-btn-speed-"
+    const val ID_PANIC = "fl-btn-panic"
+    const val ID_PANIC_ON = "fl-btn-panic-on"
+    const val ID_COPY = "fl-btn-copy"
+    const val ID_DOWNLOAD = "fl-btn-download"
+    const val ID_EDIT = "fl-btn-edit"
+    const val ID_APPLY = "fl-btn-apply"
+    const val ID_EDITOR_CANCEL = "fl-btn-editor-cancel"
+    const val ID_EDITOR_SOURCE = "fl-editor-source"
+    const val ID_EDITOR_NAME = "fl-editor-name"
+    const val ID_SAVE = "fl-btn-save"
+    const val ID_IMPORT_FILE = "fl-import-file"
+    const val ID_CLEAR_LIBRARY = "fl-btn-clear-library"
+    const val ID_IMPORT_MISSION = "fl-import-mission"
+    const val ID_LIBRARY_TARGET = "fl-library-target"
+    const val ID_LIBRARY_LIST = "fl-library-list"
+
+    fun speedButtonId(ticksPerSecond: Int): String = ID_SPEED_PREFIX + ticksPerSecond
+
+    /** The PANIC button names its state in its id, so a test (and the click
+     *  wiring) can tell the two renderings apart without parsing the label. */
+    fun panicButtonId(on: Boolean): String = if (on) ID_PANIC_ON else ID_PANIC
+    fun panicLabel(on: Boolean): String = if (on) "PANIC ON" else PANIC_LABEL
+    fun libraryLoadButtonId(name: String): String = "fl-btn-library-load-" + name
+    fun libraryDeleteButtonId(name: String): String = "fl-btn-library-delete-" + name
+
+    /** The `SPEED 1 / 5 / 20 / 50 ticks per second` choices of §15.4, in the
+     *  frozen order. Pacing never changes engine behaviour: it only changes how
+     *  often `ConsoleRun.step()` is called. */
+    val SPEED_CHOICES = listOf(1, 5, 20, 50)
+    const val DEFAULT_SPEED = 5
+
+    /** `PANIC uncapped, no speed limit` of §15.4. */
+    const val PANIC_LABEL = "PANIC"
+
+    /** Which mission an IMPORT / LOAD targets when the console has not been told
+     *  otherwise: the console's startup mission (2 / CORRIDOR), the mission the
+     *  frozen golden master is drawn from. */
+    const val DEFAULT_LIBRARY_MISSION_ID = 2
 
     fun cardId(missionId: Int): String = "fl-card-" + missionId
     fun openCardButtonId(missionId: Int): String = "fl-card-open-" + missionId
@@ -89,17 +134,22 @@ object ConsoleRender {
      * only the picker renders (nothing is open yet), which is the same
      * `FL:&gt; SELECT A CALL` prompt the frozen layout uses for the picker.
      */
-    fun renderConsoleHtml(model: ConsoleModel, run: ConsoleRun?): String {
+    fun renderConsoleHtml(
+        model: ConsoleModel,
+        run: ConsoleRun?,
+        state: ConsoleUiState = ConsoleUiState.DEFAULT,
+    ): String {
         val out = StringBuilder()
         if (run != null) {
             out.append(promptLine(run))
-            out.append(consolePanel(model, run))
+            out.append(consolePanel(model, run, state))
             out.append(fieldsBand(STATE_BAND_TITLE, stateBandCells(run)))
             out.append(fieldsBand(TELEMETRY_BAND_TITLE, telemetryBandCells(run)))
             out.append(statusLine(run))
             out.append(explanationColumns(run))
         }
         out.append(missionPicker(model))
+        out.append(firmwareLibraryBlock(model, run, state))
         return out.toString()
     }
 
@@ -121,7 +171,7 @@ object ConsoleRender {
     private const val ID_PROMPT_ATTR = "fl-prompt"
 
     // -------------------------------------------------------------- §15.2 item 2
-    private fun consolePanel(model: ConsoleModel, run: ConsoleRun): String {
+    private fun consolePanel(model: ConsoleModel, run: ConsoleRun, state: ConsoleUiState): String {
         val row = model.row(run.missionId)
             ?: error("console run for mission ${run.missionId} has no picker row")
         val sb = StringBuilder()
@@ -134,7 +184,7 @@ object ConsoleRender {
         sb.append(objectivesLine(run, row))
         sb.append("<div class=\"pair\">")
         sb.append(worldColumn(run, row))
-        sb.append(firmwareColumn(run))
+        sb.append(firmwareColumn(run, state))
         sb.append("</div>")
         sb.append("</div></div>")
         return sb.toString()
@@ -174,7 +224,7 @@ object ConsoleRender {
             WorldGrid.gridHtml(run.currentWorld) +
             WorldGrid.legendHtml() +
             "<h4 style=\"margin-top:.7rem\">EVENT LOG</h4>" +
-            "<ul class=\"events\" id=\"" + ID_EVENTS + "\">" + eventLog(run) + "</ul>" +
+            "<ul class=\"events\" id=\"" + ID_EVENTS + "\" aria-label=\"EVENT LOG\">" + eventLog(run) + "</ul>" +
             "</div>"
 
     /**
@@ -195,25 +245,121 @@ object ConsoleRender {
 
     /** Firmware column: heading, the single `pre.source` pane (one scrollable
      *  box, §15.7), the `next:`/`exec:` preview, the one control block, and the
-     *  assembler note. */
-    private fun firmwareColumn(run: ConsoleRun): String {
+     *  assembler note.
+     *
+     *  In edit mode the source pane is replaced by one `<textarea>` of the same
+     *  frozen height, so the page still has exactly one scrollable box (§15.6
+     *  item 4): the editor is the box, the pane is not rendered at the same
+     *  time. */
+    private fun firmwareColumn(run: ConsoleRun, state: ConsoleUiState): String {
         val lines = run.sourceLines()
+        val pane = if (state.editDraft == null) {
+            sourcePane(lines, run.telemetry().instructionLine)
+        } else {
+            editorPane(state.editDraft.source)
+        }
         return "<div class=\"pairfirm\"><h4>FIRMWARE: " + escapeHtml(run.firmwareName) + "</h4>" +
-            sourcePane(lines, run.telemetry().instructionLine) +
+            pane +
             "<div class=\"flags\" id=\"" + ID_NEXT + "\">" + escapeHtml(run.nextEventPreview()) + "</div>" +
-            "<div class=\"consolecontrols\"><div class=\"runrow\">" +
-            "<button type=\"button\" class=\"btn run\" id=\"" + ID_RUN + "\">RUN</button>" +
-            "<button type=\"button\" class=\"btn step\" id=\"" + ID_STEP + "\">STEP</button>" +
-            "<button type=\"button\" class=\"btn reset\" id=\"" + ID_RESET + "\">RESET</button>" +
-            "</div></div>" +
-            // "0 errors" is a fact, not a claim: `Mission.descriptorForSource`
-            // refuses a source that does not assemble (`check(r.ok)`), so a run
-            // that reached this renderer assembled cleanly.
-            "<div class=\"flags asmnote\">assembler: 0 errors, " + run.firmwareBytes() + " bytes, " +
-            lines.size + " source lines. the &gt; marker is the instruction the execution monitor is on; " +
-            "the source pane scrolls while it runs. cheat sheet: base ports 0-11 | FIRELINE ports 16-30 | " +
-            "no-target sentinels DIST 0 / ANGLE 255 / LEVEL 0</div>" +
+            controlBlock(state) +
+            assemblerNote(state) +
             "</div>"
+    }
+
+    /** The editor surface (§12a D4): the draft source in one textarea, the
+     *  store name next to it, APPLY / CANCEL under them. Line numbers are not
+     *  shown while editing; they belong to the read-only pane, and APPLY returns
+     *  to it. */
+    private fun editorPane(draftSource: String): String =
+        "<textarea class=\"source editor\" id=\"" + ID_EDITOR_SOURCE +
+            "\" spellcheck=\"false\" autocomplete=\"off\" autocapitalize=\"off\" wrap=\"off\"" +
+            " style=\"--src-height:" + SOURCE_PANE_HEIGHT_PX + "px\">" +
+            escapeHtml(draftSource) + "</textarea>" +
+            "<div class=\"editorname\"><label for=\"" + ID_EDITOR_NAME + "\">store name</label>" +
+            "<input id=\"" + ID_EDITOR_NAME + "\" type=\"text\" spellcheck=\"false\" autocomplete=\"off\"" +
+            " placeholder=\"NAME.ASM\"></div>"
+
+    /** The control block, the one place §15.4 allows for `RUN` / `STEP` /
+     *  `RESET`, `SPEED 1/5/20/50`, `PANIC` and the share `LINK` with `COPY` and
+     *  `DOWNLOAD .ASM`. Structure and wording are `run_controls()` of
+     *  `docs/web/gen_web_mockups.py`: a `runrow` of the three commands, then an
+     *  `inforow` carrying the tick speed, PANIC and the share link. The editor's
+     *  APPLY / CANCEL sit in the same block so no second control row appears. */
+    private fun controlBlock(state: ConsoleUiState): String {
+        val sb = StringBuilder("<div class=\"consolecontrols\"><div class=\"runrow\">")
+        sb.append("<button type=\"button\" class=\"btn run\" id=\"").append(ID_RUN).append("\">RUN</button>")
+        sb.append("<button type=\"button\" class=\"btn step\" id=\"").append(ID_STEP).append("\">STEP</button>")
+        sb.append("<button type=\"button\" class=\"btn reset\" id=\"").append(ID_RESET).append("\">RESET</button>")
+        if (state.editDraft == null) {
+            sb.append(button(ID_EDIT, "EDIT"))
+        } else {
+            sb.append(button(ID_APPLY, "APPLY")).append(button(ID_EDITOR_CANCEL, "CANCEL"))
+        }
+        sb.append("</div><div class=\"inforow\">")
+        sb.append("<span><b>SPEED</b> ").append(SPEED_CHOICES.joinToString(" / "))
+            .append(" ticks per second&nbsp;")
+            .append(SPEED_CHOICES.joinToString(" ") { speedChip(it, state) })
+            .append("&nbsp;&nbsp;<b>").append(PANIC_LABEL).append("</b> uncapped, no speed limit ")
+            .append(button(panicButtonId(state.panic), panicLabel(state.panic), active = state.panic))
+            .append("</span>")
+        sb.append(shareRow(state))
+        sb.append("</div>")
+        sb.append(statusNote(state))
+        return sb.append("</div>").toString()
+    }
+
+    /** `<span><b>SPEED</b> ... <span class="chip on">5 SELECTED</span> ...` of the
+     *  golden master, with each choice clickable: the selected one keeps the
+     *  master's `chip on` look, the others render as `.chip.btn` buttons. */
+    private fun speedChip(ticksPerSecond: Int, state: ConsoleUiState): String =
+        if (ticksPerSecond == state.speed && !state.panic) {
+            "<span class=\"chip on\">" + ticksPerSecond + " SELECTED</span>"
+        } else {
+            "<button type=\"button\" class=\"chip btn\" id=\"" + speedButtonId(ticksPerSecond) + "\">" +
+                ticksPerSecond + "</button>"
+        }
+
+    /** `LINK <code>#run=FLW1-…</code> COPY DOWNLOAD .ASM` of §15.4. The link text
+     *  is this exact console state (§8: mission, seed override, firmware name and
+     *  source), and it lives in the URL fragment only. */
+    private fun shareRow(state: ConsoleUiState): String =
+        if (state.shareLink == null) {
+            ""
+        } else {
+            "<span class=\"link\"><b>LINK</b> <code>" + escapeHtml(state.shareLink) + "</code>" +
+                button(ID_COPY, "COPY") + button(ID_DOWNLOAD, "DOWNLOAD .ASM") + "</span>"
+        }
+
+    /** Assembler note: the clean `0 errors` fact of a run that reached here, or
+     *  the editor's line-level refusal (§12a D4). */
+    private fun assemblerNote(state: ConsoleUiState): String {
+        val draft = state.editDraft
+        if (draft == null) {
+            return draftNote(state.asmNote)
+        }
+        if (draft.problems.isEmpty()) {
+            return "<div class=\"flags asmerr\" id=\"" + ID_ASSEMBLER_NOTE + "\">editor: the draft assembles," +
+                " APPLY opens it as a run.</div>"
+        }
+        return "<div class=\"flags asmerr\" id=\"" + ID_ASSEMBLER_NOTE + "\">assembler: " +
+            draft.problems.joinToString(" | ") { escapeHtml(it) } + "</div>"
+    }
+
+    private fun draftNote(asmNote: String): String =
+        "<div class=\"flags asmnote\" id=\"" + ID_ASSEMBLER_NOTE + "\">" + asmNote + "</div>"
+
+    /** One-line feedback for COPY / SAVE / IMPORT / library actions. It never
+     *  carries firmware content, only what the console did. */
+    private fun statusNote(state: ConsoleUiState): String =
+        if (state.statusLine.isEmpty()) "" else div("flags flstatus", ID_STATUS, escapeHtml(state.statusLine))
+
+    private fun button(id: String, label: String, active: Boolean = false): String {
+        // Written as a branch, not as `a + if (c) x else y + b`: the W3 test run
+        // showed Kotlin 2.3.20's wasm backend folding that one long `+` chain
+        // wrong for the `active` case (the tag came out truncated after the
+        // class attribute, no `id`, no label).
+        val cls = if (active) "chip btn on" else "chip btn"
+        return "<button type=\"button\" class=\"" + cls + "\" id=\"" + id + "\">" + label + "</button>"
     }
 
     /** One `<pre class="source">`, one `<span>` per source line, `<u>` line
@@ -328,4 +474,119 @@ object ConsoleRender {
 
     private fun div(cssClass: String, id: String, content: String): String =
         "<div class=\"" + cssClass + "\" id=\"" + id + "\">" + content + "</div>"
+
+    /** The golden master's assembler note (`run_controls` / the `asmnote` div of
+     *  `console_pair`), split so the console can print its own engine numbers
+     *  (`firmwareBytes`, source line count, "0 errors") without rewriting the
+     *  frozen cheat-sheet wording. The `>` and `|` characters are stored as
+     *  rendered HTML because they are part of the frozen wording. */
+    const val DEFAULT_ASSEMBLER_NOTE_TAIL =
+        "the &gt; marker is the instruction the execution monitor is on; the source pane scrolls while it " +
+            "runs. cheat sheet: base ports 0-11 | FIRELINE ports 16-30 | " +
+            "no-target sentinels DIST 0 / ANGLE 255 / LEVEL 0"
+
+    /** The note exactly as the frozen golden master prints it (mission 02 /
+     *  CORRIDOR reference firmware: 75 bytes, 25 source lines). */
+    const val DEFAULT_ASSEMBLER_NOTE =
+        "assembler: 0 errors, 75 bytes, 25 source lines. " + DEFAULT_ASSEMBLER_NOTE_TAIL
+
+    // ---------------------------------------------------------- §8 firmware library
+
+    /**
+     * The `localStorage` library block (§8 "Storage", §12a D4): stored firmwares
+     * with LOAD / DELETE, SAVE CURRENT, IMPORT .ASM, the mission an imported or
+     *  stored firmware is loaded into, and DELETE LIBRARY (the §8 in-page
+     *  removal of the whole store). It renders below the mission picker: §15.2
+     *  freezes the ten regions of the monitor panel, and the library is a console
+     *  tool, not one of those regions, so it sits in the tools tail with the
+     *  picker rather than being inserted into the frozen order.
+     */
+    private fun firmwareLibraryBlock(model: ConsoleModel, run: ConsoleRun?, state: ConsoleUiState): String {
+        val sb = StringBuilder()
+        sb.append("<div class=\"prompt\" style=\"margin-top:1.6rem\">FL:&gt; FIRMWARE LIBRARY</div>")
+        sb.append("<div class=\"librarycontrols\">")
+        if (run != null) {
+            sb.append("<button type=\"button\" class=\"chip btn\" id=\"").append(ID_SAVE).append("\">SAVE CURRENT</button>")
+        }
+        sb.append("<label class=\"importlabel\">IMPORT .ASM")
+        sb.append("<input type=\"file\" id=\"").append(ID_IMPORT_FILE).append("\" accept=\".asm,.txt\">")
+        sb.append("</label>")
+        sb.append("<label class=\"importlabel\">into")
+        sb.append("<select id=\"").append(ID_IMPORT_MISSION).append("\">")
+        model.pickerRows().forEach { row ->
+            val selected = if (row.id == state.importMissionId) " selected" else ""
+            sb.append("<option value=\"").append(row.id).append("\"").append(selected).append(">")
+                .append(decPad(row.id, 2)).append(" ").append(escapeHtml(row.title)).append("</option>")
+        }
+        sb.append("</select></label>")
+        sb.append("<button type=\"button\" class=\"chip btn\" id=\"").append(ID_CLEAR_LIBRARY).append("\">DELETE LIBRARY</button>")
+        sb.append("</div>")
+        sb.append("<div class=\"librarytarget\">load into")
+        // aria-label because the visible "load into" text sits outside the control, so a
+        // screen reader reading the select alone would only hear the mission options.
+        sb.append("<select id=\"").append(ID_LIBRARY_TARGET).append("\" aria-label=\"load library entry into mission\">")
+        model.pickerRows().forEach { row ->
+            val selected = if (row.id == state.libraryTargetMissionId) " selected" else ""
+            sb.append("<option value=\"").append(row.id).append("\"").append(selected).append(">")
+                .append(decPad(row.id, 2)).append(" ").append(escapeHtml(row.title)).append("</option>")
+        }
+        sb.append("</select></div>")
+        sb.append("<div class=\"library\" id=\"").append(ID_LIBRARY_LIST).append("\">")
+        val entries = state.library.entries
+        if (entries.isEmpty()) {
+            sb.append("<div class=\"flags\">empty. the library is browser `localStorage` under `")
+                .append(WebLibrary.STORAGE_KEY)
+                .append("`: nothing leaves the browser, and clearing site data removes it (§8).</div>")
+        } else {
+            entries.forEach { entry ->
+                sb.append("<div class=\"libentry\">")
+                sb.append("<span class=\"libname\">").append(escapeHtml(entry.name)).append("</span>")
+                sb.append("<span class=\"libmeta\">").append(entry.source.lines().size).append(" source lines")
+                    .append(if (entry.name == state.library.selectedName) "  selected" else "").append("</span>")
+                sb.append("<button type=\"button\" class=\"mini\" id=\"").append(libraryLoadButtonId(entry.name)).append("\">LOAD</button>")
+                sb.append("<button type=\"button\" class=\"mini\" id=\"").append(libraryDeleteButtonId(entry.name)).append("\">DELETE</button>")
+                sb.append("</div>")
+            }
+        }
+        return sb.append("</div>").toString()
+    }
 }
+
+/**
+ * The shell's own state, passed into the render layer so `ConsoleRender` can
+ * draw the pacing row, the share row, the editor and the library without owning
+ * or deriving anything: `Main.kt` owns these values, the render layer formats
+ * them (docs/FIRELINE-WEB.md §13). [asmNote] is stored as rendered HTML for the
+ * same reason the golden master stores its cheat sheet that way.
+ */
+data class ConsoleUiState(
+    val speed: Int = ConsoleRender.DEFAULT_SPEED,
+    val panic: Boolean = false,
+    /** The `#run=FLW1-…` fragment of the currently open run (§8), null while no
+     *  run is open or the codec refused to encode it. */
+    val shareLink: String? = null,
+    /** The open editor draft, null when the read-only source pane renders. */
+    val editDraft: EditDraft? = null,
+    /** The decoded `localStorage` store (§8); never trusted, always re-checked. */
+    val library: WebLibrary.Store = WebLibrary.EMPTY,
+    /** Mission a LOAD button opens its firmware in. */
+    val libraryTargetMissionId: Int = ConsoleRender.DEFAULT_LIBRARY_MISSION_ID,
+    /** Mission an IMPORT .ASM is checked and opened in. */
+    val importMissionId: Int = ConsoleRender.DEFAULT_LIBRARY_MISSION_ID,
+    /** One-line feedback about the last COPY / SAVE / IMPORT / library action. */
+    val statusLine: String = "",
+    val asmNote: String = ConsoleRender.DEFAULT_ASSEMBLER_NOTE,
+) {
+    companion object {
+        val DEFAULT = ConsoleUiState()
+    }
+}
+
+/** A firmware being edited: what is typed, the store name typed with it, and the
+ *  engine's own refusals (`WebInputLimits` first, then the RF-8 assembler with
+ *  its `line n:` prefixes, docs/FIRELINE-WEB.md §12a D4). */
+data class EditDraft(
+    val source: String,
+    val name: String,
+    val problems: List<String> = emptyList(),
+)

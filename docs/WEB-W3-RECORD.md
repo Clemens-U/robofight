@@ -1,17 +1,18 @@
 # WEB-W3 record: shared mission session layer, on-device regression, and one storage defect
 
 Branch: `codex/web-w3-console` (from `codex/web-w2-parity` HEAD `ffafe02`).
-Date: 2026-11-20 to 2026-11-21. Plan: `docs/FIRELINE-WEB.md` §9 W3, gates §4 G4 and G5.
+Date: 2026-11-20 to 2026-11-22. Plan: `docs/FIRELINE-WEB.md` §9 W3, gates §4 G1 to G6.
 
-**Status of this record: W3 steps 1 to 4 are DONE.** Step 1 lifted the mission session
-layer out of `:fireline-app` into the shared engine so the browser console and the MISSION
-screen cannot drift apart. Step 2 proved on a device that the shipped Android behaviour is
-unchanged, against the committed W2 fixtures, and it found one pre-existing defect that is
-now fixed. Step 3 added the `:fireline-web` wasm module scaffold (data layer plus its fixture
-gate). Step 4 added the console shell: a pure render layer, the wasm entry point and a harness
-page, verified in Chrome against the built wasm. The matrix stands at 425 tests, zero failures.
-Still open for W3: the 20x20 world grid and its symbol legend, the editor, the `localStorage`
-library, `.asm` import/export and `#run=` permalinks (gate G5).
+**Status of this record: W3 IS CLOSED (steps 1 to 8; section 10 is the gate close-out).** Step 1
+lifted the mission session layer out of `:fireline-app` into the shared engine so the browser
+console and the MISSION screen cannot drift apart. Step 2 proved on a device that the shipped
+Android behaviour is unchanged, against the committed W2 fixtures, and it found one pre-existing
+defect that is now fixed. Step 3 added the `:fireline-web` wasm module scaffold (data layer plus its
+fixture gate). Step 4 added the console shell: a pure render layer, the wasm entry point and a
+harness page, verified in Chrome against the built wasm. Step 5 added the 20x20 world grid and its
+symbol legend. Steps 6 to 8 added the editor, the `localStorage` library, `.asm` import/export and
+`#run=` permalinks with the `SPEED`/`PANIC` row and the share block, and then measured gates G1 to
+G6 (section 10). The matrix stands at 534 tests, zero failures.
 
 Record status 2026-11-21: every fingerprint in this record was measured under engine v1.
 `FIRELINE_ENGINE_VERSION` is 2 (`FirelineRules.kt:21`) since the edge-wall step E1b
@@ -128,6 +129,16 @@ tasks), still zero failures and zero errors.
 - uiautomator reports Compose label nodes at their text bounds, so card action labels measure
   51 px (19.4 dp) there while the run-bar buttons measure their real 126 px (48.0 dp). The
   run-bar numbers are the ones the 48 dp gate uses.
+- Autoplay races a scripted STEP loop in the browser: the console starts a mission pacing timer the
+  moment it opens, so a capture that presses `RESET` and then steps can land on a tick the timer
+  advanced. Stop the pacing first (`RUN` chip toggles it off), then `RESET`, then drive
+  `fl-btn-step`. The first tick-30 capture was contaminated this way (it showed `A 0` at a completed
+  run) and was replaced by the paused-timer capture in section 10.3.
+- `PermalinkSources.kt` writes the TSV rows only. The `# commit <sha>` provenance line is added by
+  the recipe (`printf '# commit %s\n' "$(git rev-parse HEAD)" | cat - <tsv> > ... && mv ...`);
+  redirecting the record step straight over the file silently drops the header and
+  `permalink_fixture_gen.py --check` then refuses with "carries no '# commit <sha>' provenance
+  header". That is the intended fail-closed behaviour, not a generator bug.
 
 ## 6. Step 3: the `:fireline-web` wasm module scaffold
 
@@ -329,3 +340,227 @@ Close the remaining frozen-layout gaps in `:fireline-web`: the editor, the `loca
 `LINK`/`COPY`/`DOWNLOAD .ASM` control-block entries. Gate G5 (`.asm` roundtrip against
 `:fireline-app`) and G4 (the tick-30 and tick-102 field values, proven on device and now also in
 the browser) are the W3 acceptance pair; W4 hosting comes after.
+
+## 10. Steps 6 to 8 close-out: editor, library, import/export, permalinks, and gates G1-G6
+
+Date 2026-11-22, branch `codex/edge-walls-e1` (HEAD `9f16765` at the start of this step). This is
+the step that closes W3: the shell of section 7 gained the `SPEED`/`PANIC` row, the editor, the
+`localStorage` library, `.asm` import and export, `#run=` permalinks and the share block, and the
+W3 acceptance gates G1 to G6 were then measured rather than assumed.
+
+**Verdict: W3 gates met.** 53 `:fireline-web` wasmJs tests green (50 after the shell steps, plus
+the 3 interop tests of section 11), the browser console reproduces the committed tick-30, tick-46
+and tick-102 field values of the same firmware the Android app keeps in its own store, and the
+browser's own share link decodes back to those exact bytes (md5 `e80d319c4361b40d7be27971433065fe`
+on both sides).
+
+### 10.1 What was added
+
+| path | role |
+|---|---|
+| `fireline-web/src/wasmJsMain/.../WebLibrary.kt` | §8 browser firmware store: namespaced key `fireline.web.v1`, `storeNames` on the Android store contract (`NAME.ASM`, uppercase, `[A-Z0-9][A-Z0-9_-]*`, max 24 chars before the extension), a line codec that round-trips arbitrary sources plus the selected entry, and `normalizeName` shared by SAVE and IMPORT |
+| `fireline-web/src/wasmJsMain/.../Permalink.kt` | §8 share-link codec `FLW1-` + base64url(gzip(payload)), payload `version mission_id seed_override name_len name source`; `encode`, `decode` with refusal reasons, `fragmentFor` (`#run=` form) |
+| `fireline-web/src/wasmJsMain/.../ConsoleRender.kt` | presentation-only additions: `SPEED` chips and the selected chip, `PANIC` (`fl-btn-panic` / `fl-btn-panic-on`), share row (`LINK`/`COPY`/`DOWNLOAD .ASM`), editor block that replaces the one `#fl-source` pane instead of adding a second scrollable box, library block with per-entry LOAD/DELETE ids, import and library mission selects |
+| `fireline-web/src/wasmJsMain/.../Main.kt` | the only DOM owner: pacing timer, EDIT/APPLY/SAVE, `fl-import-file` reading, `DOWNLOAD .ASM` via a blob URL, COPY (fragment first, clipboard second), permalink open on load, library persistence |
+| `fireline-web/console.html` | harness page: `@media (pointer: coarse)` touch-target rules (49 px minimum on chips, links, mission-card buttons, selects, the file input and the name field) and the import file input |
+| `docs/web/fixtures/PermalinkSources.kt`, `permalink_fixture_gen.py`, `permalink_sources.tsv`, `permalink_fixtures.json`, `W3PermalinkFixtures.kt` | the permalink fixtures: sources recorded from live engine text, links built by the generator's own gzip framing and re-verified with Python's independent `gzip` module, then pinned as Kotlin constants (13 scenarios) |
+| `fireline-web/src/wasmJsTest/.../W3RenderTest.kt` (10), `W3LibraryDraftTest.kt` (8), `W3PermalinkTest.kt` (8), `W3InteropTest.kt` (3) | the gate tests |
+
+### 10.2 Gate table
+
+| gate | requirement (`docs/FIRELINE-WEB.md` §4) | how it was measured here | status |
+|---|---|---|---|
+| G1 | one engine, one source of truth | `ConsoleModelTest.consoleRunEqualsHeadlessAuthorityForEveryAuthoredFirmware` compares the console run with `FirelineRun.runWithGuard` for all six missions and every authored failing firmware, on wasmJs; `:fireline-engine:jvmTest` / `wasmJsTest` re-run from the same `commonMain`; the permalink fixtures re-derive byte-identically from their committed TSV (`PERMALINK FIXTURES REPRODUCIBLE: 13 scenarios, gzip cross-verified`, recipe in `docs/web/fixtures/README.md`) | met |
+| G2 | golden event traces pinned | unchanged W2 fixtures re-asserted (`parity_traces.json`, 13 scenarios x 12 ticks) | met |
+| G3 | fingerprint matrix pinned | unchanged W2/W4 fixtures re-asserted (`parity_matrix.json`, 13 rows, engine 2) | met |
+| G4 | the emulator STEP sequence reproduces on web: same tick-30 field values, mission 02 finishing at tick 102 | live Chrome STEP sequence (section 10.3) against the STEP path driven on `emulator-5554` (section 10.4b), ticks 12/30/46/102 field for field | met (with the engine-v2 note below) |
+| G5 | `.asm` roundtrip against `:fireline-app` | store bytes pulled out of the installed app, imported into the browser, and the browser's own share link decoded back to them, section 10.4 | met |
+| G6 | limits enforced before allocating | `WebInputLimits` refusals in wasm tests, plus the live browser control with a 1 202-line picked file; touch targets, motion and reading semantics measured on the built console (section 10.5) | met |
+
+Note on the G4 fingerprint text: §2/§4 still print the engine-v1 value `$47e28d84`
+(`docs/FIRELINE-WEB.md:40, 231`), and section 2 of this record cites it as the device value. The
+committed matrix is engine 2 since the edge-wall step E1b (`PLAN-EDGE-WALLS.md` §11.1 is the
+re-baseline), where mission 02 reference is `d3ea47119fe3b101`. The measurements below were taken
+against a fresh HEAD build on both sides and equal the committed engine-2 anchors; the v1 values
+are historical, exactly as the record-status note at the top of this file says. `W3PermalinkTest`'s
+header comment was corrected to stop quoting the v1 digest as if it were the live anchor.
+
+### 10.3 G4: the same STEP sequence in a real browser
+
+`console.html` served by a local server that maps `.wasm` to `application/wasm` and `.mjs` to
+`text/javascript` (`python -m http.server` serves `.mjs` as `text/plain` and the browser then
+refuses the module import). Measurement recipe, because the first attempt was contaminated: the
+console autoplays a freshly opened mission, so the authoritative capture stops the pacing timer
+first (`RUN` chip), presses `RESET` (prompt returns to `TICK 0`), and only then drives
+`fl-btn-step` tick by tick. One STEP is always exactly one `ConsoleRun.step()`; the timer only
+chooses how often that call happens.
+
+| tick | browser showed | committed anchor | match |
+|---|---|---|---|
+| 12 | `A 0 X 0 Y 0 SP $0BF PC $115`, `LAST OP MOVE (1/2)`, `OP TICKS LEFT1`, `TICK 12`; telemetry `FIRE_DIST 10`, `FIRE_ANGLE 3`, `FIRE_LEVEL 35`, `EXIT_DIST 12`, `EXIT_ANGLE 3`, `CIV_ANGLE 255` | `snapshots.json` `02-ref-t12` (pc 277 = `$115`, sp 191, `MOVE (1/2)`, FIRE_DIST 10, FIRE_LEVEL 35) | yes, every field |
+| 30 | `A 6 X 0 Y 0 SP $0BF PC $12D`, `LAST OP MOVE (1/2)`, `FLAGS Z0 N0 C0`, `OP TICKS LEFT1`, `TICK 30`; telemetry `FIRE_DIST 6`, `FIRE_ANGLE 0`, `FIRE_LEVEL 55`, `LOCAL_FIRE 0`, `SMOKE 0`, `EXIT_DIST 8`, `WIND_DIR 0`, `WIND_FORCE 0` | `WEB-W1-RECORD` §9 STEP x 30 (`A 6`, `PC $12D`, `last MOVE (1/2)`, `FIRE_DIST 6`, `FIRE_LEVEL 55`), asserted in wasm by `ConsoleModelTest.mission02Tick30StopMatchesTheCommittedStepByStepState` | yes, every field |
+| 46 | `A 4 ... SP $0BF PC $11E`, `LAST OP JMP 286`, `OP TICKS LEFT0`, `FIRE_DIST 3`, `FIRE_LEVEL 70`, `EXIT_DIST 5` | `snapshots.json` `02-ref-t46` (pc 286 = `$11E`, a 4, `JMP 286`, FIRE_DIST 3, FIRE_LEVEL 70) | yes, every field |
+| 102 | prompt `FL:> LIVE MONITOR // MISSION 02 / CORRIDOR // TICK 102`, `LAST OP MOVE (2/2)`, `VM FAULT no`, telemetry `FIRE_DIST 0`, `FIRE_LEVEL 0` | `parity_matrix.json` `2-reference`: tick 102, SUCCESS, `d3ea47119fe3b101`; `snapshots.json` `02-ref-final` (rover 11,10, `last_op MOVE (2/2)`, PC `$145`) | yes |
+| 0 after APPLY | `applied MY-LOOP.ASM (mission 2)`, `TICK 0`, note `assembler: 0 errors, 6 bytes, 3 source lines.` | editor path re-opens a fresh session (the 375-byte authored run is untouched) | yes |
+
+Event-log lines in the same capture read `039 JMP 286 | `, `040 IN port16 | `, `041 JZ (skip) | ` -
+the three-digit padded tick and the ` | ` separator the shared session layer is pinned to
+(`MissionSessionTest.sessionLogAndHexPaddingKeepTheirShape`). A `RUN` press on a running session
+completes it (prompt reached `TICK 102`), which is the RUN path the W1 record measured on device as
+equal to the STEP path.
+
+Other live-browser behaviour recorded in the same session, because §8 promises it: SAVE writes
+`fireline.web.v1` and the library survives a reload (`MY-LOOP.ASM` back with LOAD/DELETE buttons
+`fl-btn-library-load-MY-LOOP.ASM`, `fl-btn-library-delete-MY-LOOP.ASM`); COPY leaves the link in
+the address bar as a `#run=` fragment; the grid renders 400 cells and `#fl-source` is the only
+scrollable pane (editor replaces it rather than adding a second one).
+
+Touch and overflow check on the same page under `pointer: coarse` emulation (CDP touch emulation,
+390 x 844, `matchMedia("(pointer: coarse)").matches` confirmed true): 31 interactive nodes, minimum
+measured height 49 px, zero nodes below 44 px, `scrollWidth == clientWidth` (390 == 390, no
+horizontal overflow), 31 nodes at the desktop width with the pre-existing 20 px chips back
+(`pointer: coarse` is a genuine device query, not a viewport proxy), and the single scrollable pane
+`fl-source` in both modes. At desktop width the frozen `11px 1fr / auto 1fr` pairing of `§15.3` is
+untouched: the new rules only add `min-height` under coarse pointers.
+
+### 10.4 G5: the roundtrip against `:fireline-app`
+
+Both sides ran engine 2 from the same HEAD (the debug APK was rebuilt from this tree and
+reinstalled on `emulator-5554` before the store was read).
+
+1. The app's own store was read straight out of the installed debug app's database
+   (`adb exec-out run-as robofight.fireline cat databases/fireline.db`, table `files`): row 1
+   `CORRIDOR-REF.ASM`, 375 characters, md5 `e80d319c4361b40d7be27971433065fe` (row 2
+   `CORRIDOR-RT21.ASM`, the section 2 export, same md5).
+2. Those bytes were picked into the browser through the real `fl-import-file` input
+   (`DataTransfer` + one `change` event, i.e. the same handler a picked file reaches). The status
+   line reads `imported CORRIDOR-REF.ASM into mission 2`, the source pane renders 25 lines, and the
+   assembler note reads `assembler: 0 errors, 75 bytes, 25 source lines.` - identical to the
+   authored run. The tick-12, tick-30 and tick-46 bands of section 10.3 were then measured on this
+   imported run, so the values are the app's bytes in the browser, not a lookalike.
+3. COPY on that run put a 579-character `FLW1-` link in the address bar. Python's independent
+   `gzip` module decompressed it to mission 2, seed override 0, name `CORRIDOR-REF.ASM` and a
+   375-character source whose md5 equals the store row. Byte-for-byte, the captured link equals the
+   pinned generator link for scenario `2-reference`, so the browser encoder, the Python generator
+   and the app store describe one firmware.
+4. `W3InteropTest` pins that loop as a test: `androidStoreBytesImportThroughTheWebGateAndReachThe
+   MatrixAnchor` (normalization to the store name form, gate refusal list empty, tick 30 readout,
+   tick 102 SUCCESS, fingerprint `d3ea47119fe3b101`) and `browserShareLinkDecodesToTheAndroidStore
+   BytesAndReEncodesByteForByte` (decode to the store bytes, re-encode to the same string, reopen
+   the link to the same anchor). The Android half of the roundtrip (SAF import/export, `cmp`
+   byte-identical, same md5) is section 2 of this record and section 12a of the plan.
+
+### 10.4b G4 in the Android container, and the two containers agreeing
+
+The same STEP sequence was then driven on `emulator-5554` (`Medium_Phone`, density 420) against a
+fresh HEAD build. Identity first: the installed `robofight.fireline` `base.apk` md5
+`04debd9da66e7db6b1f93c7663d84027` equals `fireline-app/build/outputs/apk/debug/fireline-app-debug.apk`,
+so the readouts below come from this tree's app, not a leftover install. Run setup was opened on
+mission 02 with `CORRIDOR-REF.ASM`, left PAUSED, and advanced by tapping STEP (the STEP path, not
+autoplay). The device readouts:
+
+- tick 12: `TICK 12 / 120 // A 0 X 0 Y 0 SP $0BF PC $115 // last: MOVE (1/2) // FIRE_DIST 10 //
+  FIRE_LEVEL 35`
+- tick 30: `TICK 30 / 120 // A 6 X 0 Y 0 SP $0BF PC $12D // last: MOVE (1/2) // FIRE_DIST 6 //
+  FIRE_LEVEL 55`
+- tick 46: `TICK 46 / 120 // A 4 X 0 Y 0 SP $0BF PC $11E // last: JMP 286 // FIRE_DIST 3 //
+  FIRE_LEVEL 70`
+- completion: the result surface header reads `MISSION COMPLETE` (the engine's own event line for
+  success, `MISSION SUCCESS`, is the last log line `102 MOVE (2/2) | MISSION SUCCESS`) at
+  `TICK 102/120` with `HP 100`, `HEAT 64`, `SHIELD 0`, `firmware 75 B / 25 instructions` and state
+  fingerprint `$d3ea4711`. The mission card afterwards reads `BEST: SUCCESS  TICK 102`. The mission
+  cards on the list screen carry the `engine v2` line.
+
+Every field equals the browser capture in section 10.3, and the device readouts equal the committed
+anchors (`snapshots.json` `02-ref-t12` / `02-ref-t46`, `parity_matrix.json` `2-reference`): same PC,
+same SP, same `A`, same last instruction, same telemetry. That is gate G4 in its original wording -
+the emulator STEP sequence reproduced in the browser, tick for tick and field for field - measured
+from both containers on one HEAD build.
+
+### 10.5 G6 in the browser, and the two defects this step found
+
+The import control refused a 1 202-line picked file with the engine's own text
+(`TOO-BIG refused: source has 1202 lines, limit is 1200`) and left the library untouched; the wasm
+side asserts the byte ceiling (`limit is 8192`) and the non-ASCII refusal with the same reason
+strings before any session or store write (`W3InteropTest.oversizedAndHostileImportsAreRefusedWith
+EngineReasons`, `W3PermalinkTest.oversizedSourceIsRefusedBeforeAnyAllocation`).
+
+Defect 1 (wasm codegen, cost the most time here): `ConsoleRender.button()` was written as one
+`+` chain containing an `if` expression, and the Kotlin 2.3.20 wasm backend emitted a truncated tag
+for the active case - `class="chip btn on</span></div></div>` with no `id` and no label (84
+characters where 112 belong). The failure first looked like a bad test assertion because Gradle
+also reported every task `UP-TO-DATE` after source edits (only `:fireline-web:clean` forced a real
+recompile). `button()` is now a statement-form function with a `val cls` and an explicit `return`,
+with a comment naming the miscompile so nobody "simplifies" it back into one chain.
+
+Defect 2 (§8 promise, not a crash): COPY used `document.execCommand("copy")` through a throwaway
+textarea, which a browser may refuse; the reported status said `clipboard refused by the browser`
+while the address bar still carried no fragment, so the user had no link at all. `copyShareLink()`
+now writes the fragment into the page's own address first (`setFragment`) and then attempts the
+clipboard, reporting `clipboard refused by the browser, link is in the address bar` when the
+clipboard is denied. The payload stays in the fragment either way, so §8's no-server-copy promise
+holds.
+
+G6 measurements (touch targets, motion, reading semantics), taken on the built console
+(`:fireline-web:wasmJsNodeDevelopmentLibraryDistribution`, re-served and re-loaded):
+
+- Control sizes at a phone-class viewport (393 x 851 CSS px, `deviceScaleFactor` 1, mobile
+  emulation, Chrome DevTools `Emulation.setDeviceMetricsOverride`): `RUN`, `STEP`, `RESET`, `EDIT`,
+  the three `SPEED` chips, `PANIC`, `COPY`, `DOWNLOAD`, `SAVE LIBRARY` and `DELETE LIBRARY` all
+  measure 49.0 CSS px tall. At `dpr` 1, 1 CSS px = 1 dp, so the touch targets are 49 dp against the
+  48 dp gate. The rule behind them is CSS, not viewport math: `.btn { font-size: 13px;
+  letter-spacing: .12em; padding: .85rem 1.3rem; min-width: 74px }`, which measures 49 x 74 px at a
+  770 px viewport too - a wider viewport keeps the same CSS box and therefore a physically larger
+  target.
+- Motion: the console stylesheet declares no `transition` and no `animation` (measured by walking
+  every CSS rule in the page), so there is nothing for `prefers-reduced-motion` to suppress; the
+  gate is met by having no motion in the first place rather than by a reduced variant.
+- Reading semantics: `lang="en"`, a viewport meta tag, every form control reached by a name (the
+  import file input and import mission select sit inside their visible `<label>`s; the library
+  target select gained `aria-label="load library entry into mission"` because its visible helper
+  text sits outside the control), and the event list carries `aria-label="EVENT LOG"` matching its
+  own heading. The world readout is a 400-cell grid plus the visible symbol legend, which names
+  every glyph the grid uses (`wall`, `rover + facing`, the four fire bands, `water packet`, `refill`,
+  `exit`, `civilian`, `fuel`, `protected asset`), so the legend is the accessible description of the
+  grid.
+- Honest gap, recorded rather than papered over: the `FL:> ... TICK n` prompt is not an `aria-live`
+  region, deliberately, because during autoplay it would re-announce every 20 to 50 ms and drown any
+  other announcement. A screen reader reaches the same numbers through the RF-8 STATE and TELEMETRY
+  band cells on demand. Auto-announcing run state in a way that does not spam is a W4 polish item,
+  not a W3 gate.
+
+### 10.6 What did not move, and the fixture provenance of this step
+
+`git diff --numstat HEAD` over `fireline-engine`, `rf8-core`, `fireline-app`, `app`, `engine` and the
+tracked fixture files (`parity_matrix.json`, `parity_traces.json`, `snapshots.json`) returns an empty
+set: this W3 close-out changed seven tracked files, all in `fireline-web` or `docs` (`docs/FIRELINE-WEB.md`
++11/-7, `docs/WEB-W3-RECORD.md` +228/-11, `docs/web/fixtures/README.md` +32/-0, `fireline-web/console.html`
++41/-0, `ConsoleModel.kt` +22/-0, `ConsoleRender.kt` +284/-23, `Main.kt` +405/-15), plus
+eleven new files (the `Permalink.kt` and `WebLibrary.kt` data layer, the four W3 wasm test files plus
+the generated `W3PermalinkFixtures.kt`, and the four permalink fixture files). The engine is
+untouched: `FIRELINE_ENGINE_VERSION` stays 2 and every committed anchor
+(`parity_matrix.json`, `parity_traces.json`, `snapshots.json`) is re-asserted unchanged, not re-recorded.
+
+Permalink fixture provenance follows the house rule: the record step ran at HEAD
+`9f16765d666189196aee07fb0021ec8fccfbf699` (the previous commit), `permalink_sources.tsv` carries that
+sha in its `# commit` header, and the generated `permalink_fixtures.json` and `W3PermalinkFixtures.kt`
+land in the commit that follows. `permalink_fixture_gen.py --check` on that tree left both generated
+files byte-identical.
+
+### 10.7 W3 close-out status
+
+`:fireline-web:wasmJsTest` 53 tests, 0 failures, 0 errors: `ConsoleModelTest` 8, `ConsoleRenderTest`
+8, `WorldGridTest` 8, `W3RenderTest` 10, `W3LibraryDraftTest` 8, `W3PermalinkTest` 8,
+`W3InteropTest` 3. Close-out matrix on this tree with `--rerun-tasks` (106 tasks executed,
+`BUILD SUCCESSFUL`, counts read from the per-target result XMLs): `:rf8-core:jvmTest` 15/0/0,
+`:rf8-core:wasmJsTest` 15/0/0, `:fireline-engine:jvmTest` 192/0/0, `:fireline-engine:wasmJsTest`
+192/0/0, `:fireline-web:wasmJsTest` 53/0/0, `:fireline-app:testDebugUnitTest` 40/0/0,
+`:app:testFreeDebugUnitTest` 3/0/0, `:app:testProDebugUnitTest` 9/0/0, `:engine:test` 15/0/0,
+`:fireline-app:assembleRelease -x lintVitalRelease` green. Total 534 tests, 0 failures, 0 errors
+(433 at the section 8 matrix, plus 29 new `:fireline-web` tests in this W3 close-out and 28 engine
+tests carried by the wall scenarios and the store-rule suites since).
+
+W3 is closed with this step: the browser console is a usable FIRELINE console that drives the
+shared `MissionSession`, keeps its own firmware library, imports and exports the same `.ASM` bytes
+the Android app keeps, and opens a run from a share link. W4 (landing page and hosting) is
+deliberately not touched here.

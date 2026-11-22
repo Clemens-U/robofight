@@ -6,12 +6,10 @@ Nothing here is committed to `main` yet: the build work lives on
 **The layout is frozen for v1 (§15, owner decision 2026-11-19) and all build
 decisions D1-D6 are DECIDED (§12a; D2-D5 decided 2026-11-20, §12b is empty). W1
 and W2 are DONE, recorded in `docs/WEB-W1-RECORD.md` and `docs/WEB-W2-RECORD.md`.
-The next phase is W3, `codex/web-w3-console`.** **W3 progress 2026-11-21: the session
-lift, the on-device regression (which also fixed a pre-existing run-record storage defect),
-the `:fireline-web` wasm module scaffold and the console shell (render layer, wasm entry
-point, harness page, verified in Chrome) are DONE, recorded in `docs/WEB-W3-RECORD.md`.
-Open in W3: the 20x20 world grid and symbol legend, the editor, the `localStorage` library,
-`.asm` import/export and `#run=` permalinks.** This doc proposes scope, architecture
+W3 (`codex/web-w3-console`) is DONE and its gate set G1-G6 is satisfied, recorded in
+`docs/WEB-W3-RECORD.md` (section 10 is the gate close-out; the matrix stands at 534 tests, zero
+failures). **W4 (`codex/web-w4-integration`, landing page and hosting) is the next phase and is not
+started: it needs an explicit go (D5 authorises W4 only on the owner's word).** This doc proposes scope, architecture
 and integration. It does not change any locked spec; where it needs one, it
 files a numbered amendment (see §11).
 
@@ -426,7 +424,13 @@ status block in the plan.
   and reduced-motion pass, 48dp-equivalent touch targets on touch screens.
   **Scope decided 2026-11-20 (D3, D4): all five authored missions, and the full
   loop including `.asm` import/export and `#run=` share permalinks. Gate G5 is
-  therefore part of the W3 gate, not deferred to W4.**
+  therefore part of the W3 gate, not deferred to W4.** **DONE 2026-11-22, gates
+  G1-G6 satisfied (see `docs/WEB-W3-RECORD.md` §10): the console drives the shared
+  `MissionSession`, all five authored missions run in the browser, the tick 12/30/46
+  bands and the mission 02 finish at tick 102 match the committed fixtures field for
+  field in both containers, and `.ASM` bytes round-trip app -> browser -> app with one
+  shared fingerprint. Under engine v2 the fingerprint anchor is `$d3ea4711`
+  (`parity_matrix.json` `2-reference`); the `$47e28d84` above was the engine v1 value.**
 - **W4, landing page integration** (`codex/web-w4-integration`).
   `#play` panel, nav entry, hero command rewiring, `/play/` deploy task,
   share permalinks, web privacy page. Gate: landing page static rendering

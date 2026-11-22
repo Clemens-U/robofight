@@ -18,6 +18,7 @@ Java: Android Studio JBR + kotlinc.
 | `CrossCheck.kt` | independent re-derivation: mid-run probes + finals via `FirelineRun.runWithGuard` (headless authority) vs `runStepByStep`; prints TSV |
 | `verify_snapshots.py` | JSON validity, 20x20 grid shape, glyph whitelist, required keys |
 | `verify_crosscheck.py` | compares every snapshot field against `crosscheck.tsv` |
+| `permalink_sources.tsv`, `permalink_fixtures.json`, `PermalinkSources.kt`, `permalink_fixture_gen.py`, `W3PermalinkFixtures.kt` | the W3 `FLW1-` permalink pipeline (see "W3 permalink fixtures" below) |
 
 ## Build + run (from the repo root, bash; compiled classes go to scratch)
 
@@ -152,6 +153,37 @@ two rows were appended (`PLAN-EDGE-WALLS.md` §13.4). Generator output after thi
 snapshot of a thin-wall mission would be wall-blind today: `TextGrid` renders cells, a thin wall
 is not a cell, and the snapshot schema carries no `WALL_VERT`/`WALL_HORIZ` rows yet. That work is
 owned by `PLAN-EDGE-WALLS.md` §7 step E4 (§13.7 item 4), together with the console edge overlay.
+
+## W3 permalink fixtures (2026-11-22, engine v2, `docs/WEB-W3-RECORD.md` §10)
+
+`docs/FIRELINE-WEB.md` §8 defines the `FLW1-` share link: payload
+`version(1) mission_id(4 BE) seed_override(4 BE) name_len(2 BE) name firmware_source`, gzip
+(stored deflate, `MTIME 0`, `XFL 0`, `OS 3`, CRC32 and length little-endian), encoded as
+`FLW1-` + base64url without padding. Same pipeline shape as the W2 parity fixtures, from generators
+only, never hand-typed:
+
+```bash
+cd <repo root>
+CLS="C:/Users/Clemens/AppData/Local/hermes/cache/scratch/flfixture/cls"   # compiled by the recipe above, which includes PermalinkSources.kt
+"$JBR" -cp "$CLS;$SL" fixtures.PermalinkSourcesKt > docs/web/fixtures/permalink_sources.tsv
+printf '# commit %s\n' "$(git rev-parse HEAD)" | cat - docs/web/fixtures/permalink_sources.tsv > "$TMPDIR/pl_tsv" && mv "$TMPDIR/pl_tsv" docs/web/fixtures/permalink_sources.tsv
+python docs/web/fixtures/permalink_fixture_gen.py --check
+```
+
+The TSV records the six authored missions' reference firmware plus failing variants (13 data rows)
+straight from the live engine catalog, and its first line must carry `# commit <40 hex>` provenance -
+`permalink_fixture_gen.py` refuses without it. The generator builds every link with its own
+gzip/stored-deflate code, decompresses each one with the independent Python `gzip` module, and writes
+`permalink_fixtures.json` plus the Kotlin pin `W3PermalinkFixtures.kt`. The cross-proof runs the other
+way in `:fireline-web:wasmJsTest`: `Permalink.encode` must produce exactly these links and
+`Permalink.decode` must return these payloads byte for byte.
+
+`--check` on the committed tree at commit `9f16765d666189196aee07fb0021ec8fccfbf699` printed
+`PERMALINK FIXTURES REPRODUCIBLE: 13 scenarios, gzip cross-verified`, with
+`permalink_fixtures.json` and `W3PermalinkFixtures.kt` left byte-identical (13 scenarios:
+`1-reference`, `1-failing-never-shoots`, `2-reference`, `2-failing-spray-everything`, `3-reference`,
+`3-failing-turn-only`, `4-reference`, `4-failing-run-south`, `5-reference`, `5-failing-no-shoot`,
+`6-reference`, `6-failing-spray-through-thin-wall`, `2-reference-custom-seed`).
 
 ## Field notes / legends
 
