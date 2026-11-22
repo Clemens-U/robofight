@@ -587,23 +587,44 @@ class EdgeWallsTest {
 
     // ==================== 6. nothing shipped changed ====================
 
+    /**
+     * DW4 a, scoped after step E5. The five missions that shipped before the thin
+     * wall content must still carry zero edges, and mission 06 "THIN WALL" is the
+     * single authored mission that carries them (PLAN-EDGE-WALLS.md §7 step E5,
+     * §13). The isolation half is the point of the gate: adding wall content must
+     * not touch an existing layout, and the mission that does carry walls carries
+     * exactly the three edges the pinned E2 lane fixture carries.
+     */
     @Test
-    fun everyShippedMissionLayoutCarriesNoWalls() {
-        assertEquals(listOf(1, 2, 3, 4, 5), Missions.ALL.map { it.id }, "the five shipped missions (Missions.kt:321)")
-        for (m in Missions.ALL) {
+    fun shippedMissionLayoutsCarryNoWallsExceptTheTeachingMission() {
+        assertEquals(listOf(1, 2, 3, 4, 5, 6), Missions.ALL.map { it.id }, "the six authored missions (Missions.ALL)")
+        for (id in 1..5) {
+            val m = assertNotNull(Missions.byId(id), "mission $id must exist")
             assertFalse(m.layout.wallsPresent(), "mission ${m.id} '${m.name}' must not carry edge walls (DW4 a)")
             assertEquals(0, m.layout.edgeCount(), "mission ${m.id} '${m.name}' has zero edges")
             assertFalse(m.layout.vertEdge.any { it }, "mission ${m.id} WALL_VERT must be all open")
             assertFalse(m.layout.horizEdge.any { it }, "mission ${m.id} WALL_HORIZ must be all open")
             assertEquals(emptyList<String>(), m.validate(), "mission ${m.id} '${m.name}' must still validate")
         }
+        val thin = assertNotNull(Missions.byId(6), "mission 06 THIN WALL must exist")
+        assertTrue(thin.layout.wallsPresent(), "mission 06 is the authored teaching mission that carries edge walls")
+        assertEquals(3, thin.layout.edgeCount(), "mission 06 carries the same three edges as the E2 lane fixture (parity_matrix.tsv wall-lane-move)")
+        assertEquals(1, thin.layout.vertEdge.count { it }, "mission 06 WALL_VERT: the lane gate right of (5,2)")
+        assertEquals(2, thin.layout.horizEdge.count { it }, "mission 06 WALL_HORIZ: the spawn cell's north and south edges")
+        assertTrue(thin.layout.wallBetween(5, 2, 6, 2), "mission 06 gates the lane between (5,2) and (6,2)")
+        assertEquals(emptyList<String>(), thin.validate(), "mission 06 validates with its edges (the flood fill reaches the starting fire around the gate)")
         assertTrue(fixtureLayout().wallsPresent(), "the fixture is the layout that does carry walls")
         assertEquals(3, fixtureLayout().edgeCount(), "the fixture wall table declares 3 edges")
     }
 
+    /**
+     * Canonical text round trip per mission: missions 01-05 emit no WALL block at
+     * all (DW4 b), mission 06 emits both blocks and re-emits them byte-identically.
+     */
     @Test
-    fun everyShippedMissionSourceRoundTripsWithoutWallBlocks() {
-        for (m in Missions.ALL) {
+    fun missionSourcesRoundTripAndOnlyMission06CarriesWallBlocks() {
+        for (id in 1..5) {
+            val m = assertNotNull(Missions.byId(id), "mission $id must exist")
             val text = m.layout.toCanonicalText()
             assertFalse(text.contains(SECTION_WALL_VERT), "mission ${m.id} text carries no WALL_VERT block")
             assertFalse(text.contains(SECTION_WALL_HORIZ), "mission ${m.id} text carries no WALL_HORIZ block")
@@ -613,6 +634,15 @@ class EdgeWallsTest {
             assertFalse(reparsed.wallsPresent(), "mission ${m.id} reparses wall-less")
             assertEquals(0, reparsed.edgeCount(), "mission ${m.id} reparses with zero edges")
         }
+        val m = assertNotNull(Missions.byId(6), "mission 06 THIN WALL must exist")
+        val text = m.layout.toCanonicalText()
+        assertTrue(text.contains(SECTION_WALL_VERT), "mission 06 text carries the WALL_VERT block")
+        assertTrue(text.contains(SECTION_WALL_HORIZ), "mission 06 text carries the WALL_HORIZ block")
+        val reparsed = Layout.fromCanonicalText(text)
+        assertSameLayoutArrays(m.layout, reparsed, "mission 06 canonical text")
+        assertEquals(text, reparsed.toCanonicalText(), "mission 06 text is byte-identical after a round trip")
+        assertTrue(reparsed.wallsPresent(), "mission 06 reparses with its edges")
+        assertEquals(3, reparsed.edgeCount(), "mission 06 reparses with the same three edges")
     }
 
     /**

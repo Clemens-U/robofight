@@ -17,14 +17,14 @@ import robofight.fireline.RunStatus
 class MissionPickerModelTest {
 
     @Test
-    fun catalogIsTheFiveAuthoredMissionsInOrder() {
+    fun catalogIsTheSixAuthoredMissionsInOrder() {
         val cards = MissionPickerModel.cards { null }
-        assertEquals(listOf("01", "02", "03", "04", "05"), cards.map { it.idLabel })
+        assertEquals(listOf("01", "02", "03", "04", "05", "06"), cards.map { it.idLabel })
         assertEquals(
-            listOf("NOZZLE CHECK", "CORRIDOR", "FIRST RESPONSE", "DOWNWIND", "HOT ZONE"),
+            listOf("NOZZLE CHECK", "CORRIDOR", "FIRST RESPONSE", "DOWNWIND", "HOT ZONE", "THIN WALL"),
             cards.map { it.name },
         )
-        assertEquals(listOf(1, 2, 3, 4, 5), cards.map { it.missionId })
+        assertEquals(listOf(1, 2, 3, 4, 5, 6), cards.map { it.missionId })
     }
 
     @Test
@@ -45,15 +45,20 @@ class MissionPickerModelTest {
         assertEquals(listOf("RESCUE_ALL", "REACH_EXIT"), cards[2].objectiveChips)
         assertEquals(listOf("EXTINGUISH_ALL", "RESCUE_ALL", "REACH_EXIT"), cards[3].objectiveChips)
         assertEquals(listOf("RESCUE_ALL", "REACH_EXIT", "PROTECT_ASSETS"), cards[4].objectiveChips)
+        // Mission 06 objectives 5 = EXTINGUISH_ALL (1) | REACH_EXIT (4)
+        // (docs/web/fixtures/parity_matrix.tsv row 6-reference).
+        assertEquals(listOf("EXTINGUISH_ALL", "REACH_EXIT"), cards[5].objectiveChips)
     }
 
     @Test
     fun rulesMatchTheAuthoredMissionNumbers() {
         val cards = MissionPickerModel.cards { null }
-        assertEquals(listOf(60, 120, 120, 500, 200), cards.map { it.timeLimit })
-        assertEquals(listOf(1001, 2002, 3003, 4004, 5005), cards.map { it.seedLabel.removePrefix("SEED ").removeSuffix(" (FIXED)").toInt() })
-        assertEquals(listOf("W x0", "W x0", "W x0", "E x2", "N x0"), cards.map { it.windLabel })
-        assertEquals(listOf(100, 100, 100, 100, 60), cards.map { it.startingWater })
+        // time_limit / seed / wind_dir x wind_force / starting_water per
+        // docs/web/fixtures/parity_matrix.tsv rows 1..6-reference.
+        assertEquals(listOf(60, 120, 120, 500, 200, 120), cards.map { it.timeLimit })
+        assertEquals(listOf(1001, 2002, 3003, 4004, 5005, 6027), cards.map { it.seedLabel.removePrefix("SEED ").removeSuffix(" (FIXED)").toInt() })
+        assertEquals(listOf("W x0", "W x0", "W x0", "E x2", "N x0", "W x0"), cards.map { it.windLabel })
+        assertEquals(listOf(100, 100, 100, 100, 60, 100), cards.map { it.startingWater })
         assertEquals(listOf("LIMIT 60 TICKS", "LIMIT 120 TICKS"), cards.take(2).map { it.timeLimitLabel })
         // The seed line is read-only display only; no editor affordance exists in v1.
         assertTrue(cards.all { it.seedLabel.contains("(FIXED)") })

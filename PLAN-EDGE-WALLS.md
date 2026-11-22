@@ -747,3 +747,106 @@ Total 488 tests, 0 failures, 0 errors, 0 skipped, against the 478 baseline of se
 3. The row says "identical hashes across targets". The fingerprints and trace hashes are identical on `[jvm]` and `[wasmJs, node]`, with one recorded nuance: `wall-lane-move` and `wall-open-lane` share the trace hash `88b5c429de62c944` with each other and with `2-failing`, because the 12-tick event trace records the instruction executed and not the position reached, and the MOVE gate does not add a trace event. The wall block is therefore proven by the divergent final fingerprints (`983902383703454a` at tick 60 against `8204a0e863743898` at tick 44) and by `EdgeWallsTest`, not by the trace text.
 4. Count assertions that depend on the row count were updated as required: `parity_fixture_gen.py` (`EXPECTED_ROWS` 14 = 10 mission + 4 wall), `W2ParityMatrixTest` (row count plus the explicit split), `W2GoldenTraceTest` (one trace per matrix row, 14). The `:fireline-web` console gate keeps consuming only the 10 authored mission rows and its source comment now says so; asserting wall rows there would require authored catalog content.
 5. Scratch placement: the class dir and the generator logs live in scratch (`C:/Users/Clemens/AppData/Local/hermes/cache/scratch/flw2/cls`, logs under the shell `$TMPDIR`, which resolves to `C:/Users/Clemens/AppData/Local/Temp`), never in the repo. Nothing was committed, matching the standing rule for this branch.
+
+## 13. Record E5 (content): mission 06 `THIN WALL`, the teaching mission (2026-11-22)
+
+Step E5 was pulled forward ahead of E3 and E4 by owner decision on 2026-11-21 (the ordering question and its answer are recorded in §12.7 item 2). Reason: E3 (Android edge segments) and E4 (web edge overlay) would otherwise draw their first wall segments against the synthetic §12 layouts, which ship in no product. With a real sixth mission in the catalog, the wall becomes visible on both surfaces with no extra content work, and the renderers get a mission-shaped test target.
+
+### 13.1 What was added
+
+One authored mission, `Missions.kt:363` `val THIN_WALL` (id 6, name `THIN WALL`), appended to `Missions.ALL` (`Missions.kt:416`); the file header now reads "the six authored free missions" (`Missions.kt:4`). Design doc: `FIRELINE-DESIGN.md` §9.6 (`06 / THIN WALL`). Player-facing doc: `MANUAL.md` §8.4 note under the `MOVE` row (the no-op row now has a mission that drills it).
+
+Layout, from `Layout.decode(...)` at `Missions.kt:367-382`:
+
+- terrain: refill lanes at row 1 and row 3 for `x = 2..17`, refill cells at (4,2) west of the gate and (7,2) east of the fire, exit `E` at (17,2), rover spawn `R` at (2,2). `field(2, 2, ...)` writes cells directly, so authored row index is `y` and column index is `x`.
+- fire: `fireAt` a single level 1 cell at (6,2).
+- edge walls: `vertEdgeRows(2 to 5)` is the thin wall on the edge to the right of (5,2), the lane gate. `horizEdgeRows(1 to 2, 2 to 2)` is the edge below (2,1) plus the edge below (2,2), which seals the spawn cell to the north and to the south. `horizEdgeRows` is documented at `Missions.kt:60` as "the edge BELOW cell (column, row)", matching §4.
+- no wall cells: `layout.terrain.count { it == TERRAIN_WALL } == 0`, asserted in §13.2. `layout.edgeCount() == 3`.
+- rules: seed 6027, objectives `EXTINGUISH_ALL | REACH_EXIT` (bitmask 5), `timeLimit = 120`, `maxTicks = 300`, `startingWater = 100`, wind `W` x 0 (a direction with no force, so nothing in this mission is the wind's doing).
+- why the lanes are refill: a refill cell never ignites, so the spread can only ever involve the two cells the gate separates, (6,2) and (5,2). Row 3 is simultaneously the firebreak and the bypass lane the reference solution shoots the lane from. The layout comment (`Missions.kt:356-362`) records that seed 6027 is the seed whose spread stream attempts the westward crossing of the walled edge at tick 15 and never relights the source cell after it is drowned.
+
+Firmware: reference 108 bytes / 36 instructions (`Missions.kt:389-407`): three `MOVE` to (5,2), `IN AHEAD` plus `JZ straight` (the thin wall answers the 1 sentinel a wall cell would give, §6.2), `TURN R` into the row 3 bypass, one step to (5,3), `TURN L`/`MOVE` to (6,3), `TURN L` to face north, two `SHOOT` to drown (6,2) from below (the packet spawns on the target, no edge to cross), back west and `TURN R` to face north again, two `SHOOT` to drown (5,2) through the bypass, then `TURN R` and fourteen `MOVE` east along row 3 to (17,3), `TURN L` and one `MOVE` into the exit at (17,2). Documented failing firmware `spray through the thin wall` (15 bytes / 5 instructions, `Missions.kt:408-412`): `MOVE` x3 into the gated cell, then `SHOOT` in a loop at the closed lane.
+
+### 13.2 The teaching claims are engine-pinned, not prose
+
+`Step10AuthoredMissionsTest.thinWallGatesMovementAndWaterButNotFire` (new; `[jvm]` and `[wasmJs, node]`) asserts: id 6; objectives `EXTINGUISH_ALL | REACH_EXIT`; `timeLimit == 120` with the comment "same limit as mission 02: the route is a short walk"; `windForce == 0` ("the crossing here is the wall's, not the wind's"); zero wall cells; `edgeCount() == 3` naming the §12 `wall-lane-move` row as the shape it came from; `wallBetween(5, 2, 6, 2)` is the gate; `wallBetween(5, 2, 5, 3)` is false, the bypass south of the lane is open; `terrainAt(6, 2)` is floor and `terrainPassable` of it is true ("a thin wall never makes a cell non-free", §3/DW1); exactly one burning cell. Then two live runs:
+
+1. An always-forward bot (`MOVE` x3 plus a `WAIT` loop) finishes with `rover.x == 5`, `rover.y == 2` and `distanceMoved == 3`: the blocked `MOVE` pays its 2 ticks without stepping, and the rover stops on the west side of the gate.
+2. The documented failing firmware, driven tick by tick with an `onTick` hook over `world.lastEvents`, records `blockedShots >= 3` events starting `PACKET BLOCKED EDGE` (packets aimed at a thin wall are refused at spawn), one event containing `IGNITES 5,2` and `from 6,2` (fire spread westward across the walled edge, DW1), and `failureReason == ROVER_DESTROYED` ("the fire crossed the wall the water could not cross, which is the lesson").
+3. The reference run: `RunStatus.SUCCESS`, `burningCells == 0`, `fireIntensitySum == 0`, inside the limit, firmware size in the 75..111 byte and 25..37 instruction bands of missions 01-05.
+
+Two §10 tests were widened rather than duplicated (their count is unchanged at 22 in `EdgeWallsTest`): `shippedMissionLayoutsCarryNoWallsExceptTheTeachingMission` (missions 01-05 keep zero edges, mission 06 carries 3) and `missionSourcesRoundTripAndOnlyMission06CarriesWallBlocks` (every authored mission source round trips through `Layout.toCanonicalText`/`fromCanonicalText`, and the `WALL_VERT`/`WALL_HORIZ` blocks appear in exactly one mission's canonical text). `MissionPickerModelTest` gained `catalogIsTheSixAuthoredMissionsInOrder` (6 tests in that suite) and the picker tests now name six cards.
+
+### 13.3 Fixture rows and provenance
+
+`docs/web/fixtures/parity_matrix.tsv` grew from 14 to 16 rows: the two new rows are the authored mission 06 with its reference and its documented failing firmware. Generated by `fixtures.ParityMatrixKt` at HEAD `afec3755273df5d278d7349e2438979cd3d09bcb` with mission 06 in the working tree, the same provenance convention as §12.3 (the `# commit` header names the commit HEAD was at generation time; the rows land in the commit that follows).
+
+| scenario | probe tick | probe fingerprint | golden trace hash | final tick | status / reason | final fingerprint | firmware | wall edges | round trip |
+|---|---|---|---|---|---|---|---|---|---|
+| `6-reference` | 12 | `a85a699d9f1ef675` | `5f7fd7153968d3c2` | 59 | SUCCESS / - | `61fe3d4c35449094` | 108 B / 36 insn | 3 | yes |
+| `6-failing` | 12 | `a5e475326ab2e2af` | `aae04624e85d38cf` | 59 | FAILURE / ROVER_DESTROYED | `42bdbe754583cd57` | 15 B / 5 insn | 3 | yes |
+
+The 12-tick trace of `6-failing` is the wall evidence in the trace itself: instruction 009 `SHOOT (3/3)` carries `PACKET BLOCKED EDGE 6,2`, the spawn refusal at the gate cell. In `6-reference` the first 12 ticks are the approach (six `MOVE` ticks, `IN AHEAD`, `JZ (skip)`, `TURN R`, two more `MOVE`, `TURN L`); the drowning shots and the fire crossing happen after the trace window, which is why §13.2 asserts them from live events instead.
+
+Generated file digests after the step (md5): `parity_matrix.tsv` `f7b950f13df715bc651b955647fbd8d0`, `parity_traces.txt` `c53090daef81b1a457fd8d21b20fbc1f`, `parity_arith.tsv` `4344825cf9b453dfbfb3ebc8778463a1`, `limit_probe.tsv` `802dda7c0e6303a42da49326f0a50335`, `parity_matrix.json` `5aaa58eed5e566cd3ea5f16aae2d789b`, `parity_traces.json` `8a54593a03d43561cc7d7ceb128f291c`, `parity_arith.json` `ec26de578658f7b63ae385fbc8be1b7a`, `W2ParityFixtures.kt` `54d936cc384de4e3259b14a84a759eef`. Re-running `parity_fixture_gen.py` on the committed tree left all of `parity_matrix.json`, `parity_traces.json`, `parity_arith.json` and `W2ParityFixtures.kt` byte-identical (2026-11-22, generator line `engine v2, commit afec3755273df5d278d7349e2438979cd3d09bcb, rows 16 (12 mission + 4 wall), arith 29, limits 5, trace lines 192`), so the pinned Kotlin is reproducible from the recorded TSV and not hand-typed.
+
+The generator grew an isolation gate for this step (`parity_fixture_gen.py:36-41`, `:183-185`, `:211-217`): the row split must be exactly 12 mission plus 4 wall, the scenarios carrying edge wall state among the authored rows must be exactly `6-reference` and `6-failing`, a mission 06 row with `wall_count` below 1 is refused, and any other authored row carrying wall state is refused.
+
+### 13.4 Nothing else moved
+
+`git diff --numstat -- fireline-engine/src/commonMain` is `98 3 Missions.kt` and that is the only entry: no rules, VM, world, packet, rover or `FirelineRules.kt` change, and `FIRELINE_ENGINE_VERSION` stays 2. The 14 pre-existing rows are identical before and after in every one of the 27 columns, cell by cell, including the mission 01-05 fingerprints `245faa6d10316e00`, `7cbfe49993c17318`, `d3ea47119fe3b101`, `2e88bd6f1f4ed91e`, `01663660e6731d0a`, `fee14c44c61f245a`, `acf4656261a3c008`, `51f0f7232dd88add`, `ba8e443d3c469c1d`, `89bceb4241170566`, their probe fingerprints, trace hashes and wall counts, and the four §12 wall rows `983902383703454a`, `28621a2b7f6d5c29`, `c5c75948d2b9ec6f`, `8204a0e863743898`. `parity_arith.tsv`, `limit_probe.tsv` and `parity_matrix.tsv` each changed their provenance header by exactly one line, `# commit 4bd81cac5a5b529c325e0ff788229a1f6d0a04e5` becoming `# commit afec3755273df5d278d7349e2438979cd3d09bcb`; the 29 arithmetic vectors and 5 limit probes are unchanged. `parity_matrix.json` grew by the two rows, `parity_traces.txt` from 182 to 208 lines (16 headers plus 192 trace lines), `snapshots.json` (`b44a2cb99070fdceac48c791727cb992`) and `crosscheck.tsv` (`9fa547511fade557a5d9eeb2c7df2f56`) are untouched (see §13.7 item 4).
+
+### 13.5 Close-out matrix and fixture gates
+
+```bash
+export JAVA_HOME="C:/Program Files/Android/Android Studio/jbr"
+"C:/Users/Clemens/.gradle/wrapper/dists/gradle-9.6.0-bin/42k10rwplmzkhuboz9kdazi7s/gradle-9.6.0/bin/gradle.bat" \
+  --offline --rerun-tasks -Dorg.gradle.java.home="C:/Program Files/Android/Android Studio/jbr" \
+  -Dorg.gradle.jvmargs=-Xmx3g -Dkotlin.daemon.jvmargs=-Xmx1g \
+  :rf8-core:jvmTest :rf8-core:wasmJsTest :fireline-engine:jvmTest :fireline-engine:wasmJsTest \
+  :fireline-web:wasmJsTest :app:testFreeDebugUnitTest :app:testProDebugUnitTest \
+  :fireline-app:testDebugUnitTest :fireline-app:assembleDebug :fireline-app:assembleRelease -x lintVitalRelease
+```
+
+exit 0, `BUILD SUCCESSFUL in 45s`, `176 actionable tasks: 176 executed` (the two `:fireline-app` assemble targets are here because §13.6 needs the debug APK). Result XMLs written by that build (53 files, mtimes 09:25:53 to 09:26:10 on 2026-11-22):
+
+| module | result dir | tests | failures | errors | skipped | XML files |
+|---|---|---|---|---|---|---|
+| `:rf8-core` | `jvmTest` | 15 | 0 | 0 | 0 | 1 |
+| `:rf8-core` | `wasmJsNodeTest` | 15 | 0 | 0 | 0 | 1 |
+| `:fireline-engine` | `jvmTest` | 192 | 0 | 0 | 0 | 19 |
+| `:fireline-engine` | `wasmJsNodeTest` | 192 | 0 | 0 | 0 | 19 |
+| `:fireline-web` | `wasmJsNodeTest` | 24 | 0 | 0 | 0 | 3 |
+| `:app` | `testFreeDebugUnitTest` | 3 | 0 | 0 | 0 | 1 |
+| `:app` | `testProDebugUnitTest` | 9 | 0 | 0 | 0 | 3 |
+| `:fireline-app` | `testDebugUnitTest` | 40 | 0 | 0 | 0 | 5 |
+
+Total 490 tests, 0 failures, 0 errors, 0 skipped, against the 488 of §12.6: +1 per `:fireline-engine` target (`thinWallGatesMovementAndWaterButNotFire`); `Step10AuthoredMissionsTest` is 12 per target, `EdgeWallsTest` stays 22 per target. The two web suites name the new mission inside their existing tests rather than adding cases, so `:fireline-web` stays 24: `ConsoleModelTest` `Triple(59, "61fe3d4c", 108 to 36)` in the six-mission best-run table and `pickerRowsCarryTheCommittedEngineV2BestRunForAllSixMissions`, `ConsoleRenderTest` `renderedPickerCarriesAllSixMissionCardsWithTheirCommittedBestRunAnchors` with `$61fe3d4c` in the anchor list. The 17 stale pre-KMP `build/test-results/test/` XMLs sit in directories this target list does not run and carry no mtime in the window. Fixture gates after the build: `python3 docs/web/fixtures/verify_snapshots.py` exit 0 (`ALL CHECKS PASSED`), `python3 docs/web/fixtures/verify_crosscheck.py` exit 0 (`CROSSCHECK PASSED`), `python3 docs/web/verify_layout_v1.py` exit 0 (`---- 22 checks, 0 failed`).
+
+### 13.6 Device check (emulator-5554, Medium_Phone)
+
+The APK under test is the one the matrix above produced: `fireline-app/build/outputs/apk/debug/fireline-app-debug.apk` md5 `04debd9da66e7db6b1f93c7663d84027`, and the installed `base.apk` read back over adb carries the same md5, so the device is provably running the build under test. Launch component `robofight.fireline/.app.MainActivity` (resolve-activity), `versionName=0.1`, `flags=[ DEBUGGABLE ... ]`.
+
+uiautomator dump of the MISSION tab (dump succeeded, `UI hierchary dumped to: /sdcard/pick2.xml`) lists six cards, and the sixth reads:
+
+```
+06  THIN WALL
+The wall here is only a line between two cells. It stops your MOVE and it stops your water, but the fire crosses it. Read AHEAD, turn into the refill lane, drown the lane on both sides of the wall, then walk the bypass to the exit.
+EXTINGUISH_ALL
+REACH_EXIT
+SEED 6027 (FIXED)  //  LIMIT 120 TICKS  //  WIND W x0  //  WATER 100
+no run recorded yet for engine v2
+```
+
+Missions 01-05 keep their cards, mission 02 keeps `BEST: SUCCESS  TICK 102`, and the four previously recorded empty states read `no run recorded yet for engine v2`, which is §11.4's wording for the new engine. `shared_prefs/fireline_ui.xml` read back with `run-as` still holds `mission`, `best.2.2`, `best.2.1`, `best.1.1`, `last_run`, `firmware`: nothing was cleared or rewritten by this step.
+
+Deliberate limit of this device proof: E3 has not landed, so the Android grid draws no edge segments yet. What was proven on device is the catalog and its card copy; the on-screen wall is an E3 acceptance item.
+
+### 13.7 Deviations and open items
+
+1. Order: E5 landed before E3 and E4 (§13 preamble). The §7 table's step order is kept as written; this record is the deviation note.
+2. Mission 06 is not a copy of a §12 fixture. It reuses the `wall-lane-move` lane and gate, and then diverges: the fixture's blocked lane runs out its 60-tick limit (`983902383703454a` at tick 60), while the mission adds the bypass lane, the refill firebreaks, the exit at (17,2) and a 120-tick limit, and its reference finishes at tick 59. The §12 rows keep their own pinned values; nothing in this step re-tunes them.
+3. The mission lane shape had to be re-tuned rather than lifted verbatim, which is why `wall-lane-move`'s tick-60 block does not appear in mission 06: the mission's rover needs a reachable bypass, and the `wall-lane-move` shape has none. Recorded here because a reader comparing §12.1 with §13.1 will see the same three walls and different outcomes.
+4. `docs/web/fixtures/snapshots.json` still carries 8 snapshots for missions 01 and 02 only, and mission 06 has none. Decision: its snapshots arrive with E4, not before. Reason: a snapshot of a thin-wall mission is wall-blind today. `TextGrid` renders cells, and a thin wall is not a cell, so a mission 06 snapshot would show a wall-free grid for the mission that is named after its wall. The snapshot schema has to carry the `WALL_VERT` 20x19 and `WALL_HORIZ` 19x20 rows (engine `Layout.wallVertRowMajor`/`wallHorizRowMajor`) for the data to be honest, and E4 needs exactly that data to draw the web overlay. E4 therefore owns: the two wall fields in `SnapshotFixtures.kt`, the corresponding checks in `verify_snapshots.py` and `verify_crosscheck.py`, the mission 06 snapshot set, the console edge overlay, and the `verify_layout_v1.py` edge gate.
+5. No challenge-code content. `CHALLENGE-CODES.md` is untouched: challenge codes are the Opcode Arena surface, and this is a FIRELINE mission.
+6. Carried forward from §10.8, unresolved by this step: edge walls are static layout state and are not part of `canonicalState`, so two layouts that agree on terrain, fire, rover and packets but differ in edges hash identically. Harmless while every mission source is fixed in code (this step proves the mission's own canonical text round trips with its walls, `6-reference`/`6-failing` `roundtrip` = yes), and a decision before The Circuit ships variable arena layouts, most likely a `walls=` line in the canonical state. Not taken here because it would move every fingerprint again with no content to show for it.

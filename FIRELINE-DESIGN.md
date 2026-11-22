@@ -144,6 +144,19 @@ Every cell has exactly one terrain kind:
 Terrain identifiers returned by `IN TILE` are the numeric IDs above. A civilian
 does not change the terrain ID.
 
+Thin edge walls are not a terrain kind and never appear in the table above. An
+edge wall is a layout segment on the border between two 4-adjacent cells, held in
+`Layout.vertEdge` (20 rows x 19 glyphs) and `Layout.horizEdge` (19 rows x 20
+glyphs) and written to canonical mission text as the optional `WALL_VERT` and
+`WALL_HORIZ` blocks after `FIRE` (`Layout.kt`, `PLAN-EDGE-WALLS.md` §5). It gates
+the rover `MOVE` as a silent no-op that still pays the 2 ticks, blocks a water
+packet at spawn and absorbs one in flight (`PACKET BLOCKED EDGE`, `PACKET SPENT
+EDGE`), and answers 1 for `AHEAD`. It does not gate fire: a spread attempt crosses
+an edge wall exactly as it crosses an open border, so a thin wall is never a
+firebreak (decision DW1, `PLAN-EDGE-WALLS.md` §4). Edge walls are static layout
+state, they are not part of `canonicalState()`, they do not change a cell's
+terrain id, and `IN TILE` never reports one.
+
 ### 3.3 Dynamic cell state
 
 Each cell additionally stores fire intensity `0..100`.
@@ -214,7 +227,10 @@ is a silent no-op after its normal two-tick instruction cost.
   advance a second cell on the creation tick;
 - on later ticks the packet advances one cell during water resolution;
 - maximum life is 20 resolution ticks;
-- a wall or boundary consumes the packet;
+- a wall, an edge wall, or a boundary consumes the packet (`PACKET SPENT EDGE`);
+- a packet whose spawn cell would sit beyond an edge wall is never created
+  (`PACKET BLOCKED EDGE`), while the `SHOOT` still costs its three ticks, its
+  heat, and no water;
 - the first burning cell contacted loses 25 intensity and consumes the packet;
 - intensity at or below zero becomes zero;
 - civilians, exits, refills, and the rover do not consume packets.
@@ -271,7 +287,10 @@ order bumps `FIRELINE_ENGINE_VERSION`.
 
 Each snapshot burning cell consumes exactly two spread bytes, even if all its
 neighbors are blocked. This fixed draw count prevents geometry from shifting
-the RNG stream unexpectedly.
+the RNG stream unexpectedly. Blocked here means the target cell is a wall cell or
+out of bounds: an edge wall between the burning cell and the target does not
+block the attempt and does not change the byte count (decision DW1,
+`PLAN-EDGE-WALLS.md` §4).
 
 1. Build this direction bag in order:
 
@@ -321,7 +340,7 @@ FIRELINE implements `RF8-PLATFORM-SPEC.md` without new opcodes.
 
 | Instruction | FIRELINE effect |
 |-------------|-----------------|
-| `MOVE` | Two ticks; attempt one forward cell on completion. Rescue by contact occurs afterward. |
+| `MOVE` | Two ticks; attempt one forward cell on completion. A boundary, wall cell, or edge wall ahead makes the attempt a silent no-op that still pays both ticks. Rescue by contact occurs afterward. |
 | `TURN L/R/#n` | Change facing using shared encoding. |
 | `SHOOT` | Three-tick suppressant discharge described in section 3.6. |
 | `SHIELD` | Two-tick thermal-shield activation; five protected resolution ticks; +20 heat. |
@@ -382,7 +401,7 @@ not visual line-of-sight sensors.
 | 8 | `HEAT` | Rover heat. |
 | 9 | `ENEMY_HP` | Selected fire intensity, or 255 when none. |
 | 10 | `RAND` | Next byte from sensor RNG. |
-| 11 | `AHEAD` | 1 for boundary/wall/protected asset ahead, otherwise 0. Civilians and fire do not block. |
+| 11 | `AHEAD` | 1 for boundary, wall cell, protected asset, or an edge wall on the border between the rover cell and the cell ahead, otherwise 0. Civilians and fire do not block. |
 
 This mapping lets a simple Arena hunter approach and spray the selected fire.
 
@@ -565,8 +584,10 @@ Changing this order is a FIRELINE engine-version bump.
 
 ## 9. Authored MVP missions
 
-Ship at least these five deterministic training missions. Exact wall maps are
+Ship at least these six deterministic training missions. Exact wall maps are
 content work, but each must pass the stated teaching and validation contract.
+Missions 01 to 05 shipped before the thin edge wall mechanic and carry no edge
+walls; mission 06 is the authored mission that teaches them.
 
 ### 9.1 `01 / NOZZLE CHECK`
 
@@ -601,6 +622,35 @@ content work, but each must pass the stated teaching and validation contract.
   solution.
 - Includes a refill station and starting water below 100.
 - Teaches the two-tick activation delay and five-tick active window.
+
+### 9.6 `06 / THIN WALL`
+
+- Objectives: `EXTINGUISH_ALL | REACH_EXIT`.
+- The layout carries no wall cells at all. Its only walls are three thin edge
+  walls: the vertical segment between (5,2) and (6,2) that closes the mission
+  lane, and the two horizontal segments on the north and south borders of the
+  spawn cell (2,2).
+- Row 1 and row 3 are refill lanes for `x = 2..17`, plus refill cells at (4,2)
+  and (7,2) inside the lane. A refill cell never ignites, so the only cells that
+  can burn are the pair the gate separates: (6,2), the starting fire, and (5,2).
+- Shape derived from the pinned `wall-lane-move` and `wall-open-lane` rows of
+  `docs/web/fixtures/parity_matrix.tsv` (`PLAN-EDGE-WALLS.md` §12): the same
+  lane and the same gate, and removing that one edge is what turns a blocked
+  route into a route that walks straight through the lane.
+- Teaches three facts at once: `AHEAD` answers 1 across an edge wall, `MOVE`
+  against one is a silent no-op that still pays its 2 ticks, and `SHOOT` never
+  puts water on the far side of one (`PACKET BLOCKED EDGE`), while fire spreads
+  across it (`FIRE IGNITES 5,2 floor from 6,2 dir=W`). The wall is a route
+  constraint, never a firebreak.
+- Reference firmware (108 bytes, 36 instructions) reads `AHEAD` on the gated
+  cell, turns into the refill bypass, drowns the burning lane cell and the cell
+  the fire reached through the wall, then walks the bypass to the exit and
+  finishes at tick 59 of the 120-tick limit with every fire out.
+- Documented failing firmware `spray through the thin wall` (15 bytes, 5
+  instructions) walks to the gated cell and shoots at the closed lane. Every
+  packet is refused at spawn, the rover never leaves the cell the fire crossed
+  into, and it dies there: recorded failure reason `ROVER_DESTROYED`.
+- Recorded values, anchors and the isolation proof: `PLAN-EDGE-WALLS.md` §13.
 
 Every authored mission requires:
 
@@ -721,6 +771,14 @@ The primary grid remains a chunky ASCII/text presentation. Suggested glyphs:
 | Fuel | `F` in amber |
 | Protected asset | `P` in violet/white |
 | Wall | `#` or solid block |
+
+Edge walls have no glyph in this table and none on the shipped grid: the run
+screen draws whole cells only, so the lane an edge wall closes looks like two
+open cells until the segment is drawn. `AHEAD` is the sensor that reports it and
+the mission events (`PACKET BLOCKED EDGE`) are the visible proof. Owning the
+segment look is a separate visual step (`PLAN-EDGE-WALLS.md` §7 steps E3 and E4;
+`DESIGN-FIRELINE.md` §4 owns the glyph language and is not changed by this
+content step).
 
 Avoid relying on color alone; glyph/intensity must remain readable in
 grayscale and for color-vision deficiencies.

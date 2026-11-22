@@ -18,8 +18,8 @@ import robofight.fireline.session.StepOutcome
  * is named on each assertion.
  *
  * Sources of truth (committed on this branch):
- *  - `parity_matrix.json` / `parity_matrix.tsv` - 14 rows: 10 authored mission
- *    rows (5 missions x reference + failing firmware) plus the four E2 wall
+ *  - `parity_matrix.json` / `parity_matrix.tsv` - 16 rows: 12 authored mission
+ *    rows (6 missions x reference + failing firmware) plus the four E2 wall
  *    fixture rows of `PLAN-EDGE-WALLS.md` §7 step E2, which no authored mission
  *    ships and which `:fireline-engine` asserts instead of this console gate.
  *    Used here for the mission rows: final_tick, status,
@@ -49,16 +49,16 @@ class ConsoleModelTest {
 
     /**
      * Fixture: `parity_matrix.json` rows `1-reference`, `2-reference`,
-     * `3-reference`, `4-reference`, `5-reference` (final_tick / status /
-     * final_hash / asm_bytes / asm_insns), stamped `# engine v2` in
+     * `3-reference`, `4-reference`, `5-reference`, `6-reference` (final_tick /
+     * status / final_hash / asm_bytes / asm_insns), stamped `# engine v2` in
      * `parity_matrix.tsv`. The picker must show the engine-v2 best run for all
-     * five authored missions (D3: all five missions run on the shipped engine).
+     * six authored missions (D3: every mission runs on the shipped engine).
      */
     @Test
-    fun pickerRowsCarryTheCommittedEngineV2BestRunForAllFiveMissions() {
+    fun pickerRowsCarryTheCommittedEngineV2BestRunForAllSixMissions() {
         val rows = model.pickerRows()
-        assertEquals(5, rows.size, "authored mission count (Missions.ALL)")
-        assertEquals(listOf(1, 2, 3, 4, 5), rows.map { it.id }, "picker order")
+        assertEquals(6, rows.size, "authored mission count (Missions.ALL)")
+        assertEquals(listOf(1, 2, 3, 4, 5, 6), rows.map { it.id }, "picker order")
 
         // scenario      final_tick status   final_hash(8) bytes insns
         val expected = listOf(
@@ -67,6 +67,7 @@ class ConsoleModelTest {
             Triple(38, "01663660", 72 to 24),   // 3-reference  01663660e6731d0a
             Triple(147, "acf46562", 105 to 35), // 4-reference  acf4656261a3c008
             Triple(45, "ba8e443d", 111 to 37), // 5-reference  ba8e443d3c469c1d
+            Triple(59, "61fe3d4c", 108 to 36), // 6-reference  61fe3d4c35449094
         )
         rows.forEachIndexed { index, row ->
             val (tick, hashShort, firmware) = expected[index]
@@ -105,7 +106,19 @@ class ConsoleModelTest {
         assertEquals(60, m1.timeLimit!!, "time_limit (snapshots 01-never-t30)")
         assertEquals(200, m1.tickLimit, "tick_limit (snapshots 01-never-t30)")
 
-        assertNull(model.row(6), "an id that is not authored has no card")
+        val m6 = model.row(6)!!
+        assertEquals("MISSION 06 / THIN WALL", m6.missionLabel, "mission label")
+        assertEquals("THIN WALL", m6.title, "title (parity_matrix 6-reference name)")
+        assertEquals(listOf("EXTINGUISH_ALL", "REACH_EXIT"), m6.objectiveLabels,
+            "objectives_readable (parity_matrix 6-reference objectives 5)")
+        assertEquals(6027, m6.seed, "seed (parity_matrix 6-reference seed)")
+        assertEquals(120, m6.timeLimit!!, "time_limit (parity_matrix 6-reference time_limit)")
+        assertEquals(300, m6.tickLimit, "max_ticks (parity_matrix 6-reference max_ticks)")
+        assertEquals("W", m6.windLabel, "wind_dir (parity_matrix 6-reference wind_dir 0 = DIR_W)")
+        assertEquals(0, m6.windForce, "wind_force (parity_matrix 6-reference wind_force)")
+        assertEquals(100, m6.startingWater, "starting_water (parity_matrix 6-reference starting_water)")
+
+        assertNull(model.row(7), "an id that is not authored has no card")
     }
 
     /**

@@ -1,6 +1,6 @@
 {
   "engineVersion": 2,
-  "sourceCommit": "4bd81cac5a5b529c325e0ff788229a1f6d0a04e5",
+  "sourceCommit": "afec3755273df5d278d7349e2438979cd3d09bcb",
   "traces": {
     "1-reference": {
       "probeTick": 12,
@@ -180,6 +180,42 @@
         "010 MOVE (1/2) | ROVER FIRE DAMAGE -4 (fire 100)",
         "011 MOVE (2/2) | ROVER FIRE DAMAGE -4 (fire 100)",
         "012 JMP 256 | ROVER FIRE DAMAGE -4 (fire 100)"
+      ]
+    },
+    "6-reference": {
+      "probeTick": 12,
+      "traceHash": "5f7fd7153968d3c2",
+      "lines": [
+        "001 MOVE (1/2) | ",
+        "002 MOVE (2/2) | ",
+        "003 MOVE (1/2) | ",
+        "004 MOVE (2/2) | ",
+        "005 MOVE (1/2) | ",
+        "006 MOVE (2/2) | ",
+        "007 IN port11 | ",
+        "008 JZ (skip) | ",
+        "009 TURN R | ",
+        "010 MOVE (1/2) | ",
+        "011 MOVE (2/2) | ",
+        "012 TURN L | "
+      ]
+    },
+    "6-failing": {
+      "probeTick": 12,
+      "traceHash": "aae04624e85d38cf",
+      "lines": [
+        "001 MOVE (1/2) | ",
+        "002 MOVE (2/2) | ",
+        "003 MOVE (1/2) | ",
+        "004 MOVE (2/2) | ",
+        "005 MOVE (1/2) | ",
+        "006 MOVE (2/2) | ",
+        "007 SHOOT (1/3) | ",
+        "008 SHOOT (2/3) | ",
+        "009 SHOOT (3/3) | PACKET BLOCKED EDGE 6,2",
+        "010 JMP 265 | ",
+        "011 SHOOT (1/3) | ",
+        "012 SHOOT (2/3) | "
       ]
     },
     "wall-lane-move": {

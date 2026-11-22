@@ -407,9 +407,10 @@ status block in the plan.
   failing firmware), arithmetic audit of `Long`/`Int` semantics on wasmJs and
   js, and the `MAX_TICKS` / source-size limit enforcement on the web input
   path. Gate: G1-G3, G6 green on both targets; fingerprint matrix checked in.
-  **DONE 2026-11-20, gate met.** Record: `docs/WEB-W2-RECORD.md`. The matrix is
+  **DONE 2026-11-20, gate met.** Record: `docs/WEB-W2-RECORD.md`. The matrix was
   10 rows (5 missions x reference + failing firmware) plus 120 golden trace
-  lines, generated from live engine state by `docs/web/fixtures/ParityMatrix.kt`
+  lines at that step (16 rows and 192 trace lines since mission 06,
+  `docs/web/fixtures/README.md`), generated from live engine state by `docs/web/fixtures/ParityMatrix.kt`
   and pinned by `parity_fixture_gen.py`; 29 arithmetic vectors and the
   `WebInputLimits` refusals (1200 lines / 8192 bytes / `MAX_TICKS`) are asserted
   by 19 new `commonTest` tests that run identically on `jvmTest` and
@@ -517,6 +518,11 @@ W4 is small. A rough read: W1 a session or two, W2 a session, W3 the largest
   five, which removes the content-drift risk in §13. Missions 04 and 05 stay in
   v1 because they exercise the console rather than just pass: the 147-tick wind
   solve under a 500-tick guard, and the destructive-fire failure path.
+  - **Note 2026-11-22 (engine v2, `PLAN-EDGE-WALLS.md` §13):** the authored catalog is six
+    missions since `06 THIN WALL` was added, the first authored mission that carries thin edge
+    walls. The decision's logic is unchanged and its wording above is kept as decided: the
+    console enumerates `Missions.ALL`, so both surfaces present the same missions, and the
+    fixture matrix now pins all twelve mission combinations (16 rows, `docs/web/fixtures/README.md`).
 - **D4 v1 depth (DECIDED 2026-11-20): the full loop.** Editor with line-level
   assembler errors, run surface, `.asm` import and export, `localStorage`
   library, cheat sheet, and `#run=` share permalinks (fragment-only, `FLW1-`

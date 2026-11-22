@@ -48,6 +48,8 @@ MISSIONS = [
      4004, "WIND E 2", "WATER 100", 500),
     (5, "HOT ZONE", "A burning corridor, a refill pocket, a civilian and an asset to protect. Cross it shielded: two ticks to raise, five ticks of protection.",
      5005, "WIND N 0", "WATER 60", 200),
+    (6, "THIN WALL", "The wall here is only a line between two cells. It stops your MOVE and it stops your water, but the fire crosses it. Read AHEAD, turn into the refill lane, drown the lane on both sides of the wall, then walk the bypass to the exit.",
+     6027, "WIND W 0", "WATER 100", 120),
 ]
 
 STARTER_SOURCE = """; RF-8: FIRELINE starter

@@ -8,8 +8,8 @@ import robofight.fireline.session.RunSummary
 
 /**
  * One authored mission rendered as a picker card (DESIGN-FIRELINE.md 5.2):
- * the MISSION empty state shows exactly the five cards of Missions.ALL, ids
- * zero-padded 01-05, with the engine's own briefing text, objective chips,
+ * the MISSION empty state shows exactly the six cards of Missions.ALL, ids
+ * zero-padded 01-06, with the engine's own briefing text, objective chips,
  * time limit, wind, starting water and the read-only seed. No `FL1-` mission
  * code affordance exists in v1 (DESIGN 5.2, open question 5), so the picker
  * has no stub cards.
@@ -18,7 +18,7 @@ import robofight.fireline.session.RunSummary
  * no copy and no numbers.
  */
 data class MissionCard(
-    /** Zero-padded mission id label ("01".."05", DESIGN 5.2). */
+    /** Zero-padded mission id label ("01".."06", DESIGN 5.2). */
     val idLabel: String,
     val missionId: Int,
     val name: String,
@@ -39,7 +39,7 @@ data class MissionCard(
 
 object MissionPickerModel {
 
-    /** The five authored missions in catalog order, each with its best badge. */
+    /** The six authored missions in catalog order, each with its best badge. */
     fun cards(bestOf: (Mission) -> RunSummary?): List<MissionCard> =
         Missions.ALL.map { cardFor(it, bestOf(it)) }
 

@@ -33,9 +33,13 @@ KT_OUT = os.path.join(
     "W2ParityFixtures.kt",
 )
 PROBE_TICK = 12
-EXPECTED_MISSION_ROWS = 10  # 5 authored missions x (reference + failing)
+EXPECTED_MISSION_ROWS = 12  # 6 authored missions x (reference + failing)
 EXPECTED_WALL_ROWS = 4  # PLAN-EDGE-WALLS.md §12: three walled layouts plus the wall removed
 EXPECTED_ROWS = EXPECTED_MISSION_ROWS + EXPECTED_WALL_ROWS
+# Step E5 (PLAN-EDGE-WALLS.md §13): mission 06 "THIN WALL" is the one authored
+# mission that carries edge walls. Every other authored row must still record
+# wall_count 0; that is the isolation gate for the missions shipped before E5.
+WALL_CARRYING_MISSION_SCENARIOS = {"6-reference", "6-failing"}
 WALL_SCENARIOS = ["wall-lane-move", "wall-nozzle-seal", "wall-lane-suppress", "wall-open-lane"]
 WALL_KINDS = ("wall", "wall-open")
 REQUIRED_COLUMNS = [
@@ -176,6 +180,10 @@ def main():
     if sorted(r[col["scenario"]] for r in wall_rows) != sorted(WALL_SCENARIOS):
         bad.append("wall scenarios are %s, expected %s"
                    % (sorted(r[col["scenario"]] for r in wall_rows), sorted(WALL_SCENARIOS)))
+    carried = sorted(r[col["scenario"]] for r in mission_rows if int(r[col["wall_count"]]) > 0)
+    if carried != sorted(WALL_CARRYING_MISSION_SCENARIOS):
+        bad.append("authored rows carrying edge walls are %s, expected %s (step E5, PLAN-EDGE-WALLS.md §13)"
+                   % (carried, sorted(WALL_CARRYING_MISSION_SCENARIOS)))
     for r in rows:
         sc = r[col["scenario"]]
         t = traces.get(sc)
@@ -199,7 +207,13 @@ def main():
             bad.append("%s: final tick %s exceeds the guard %s"
                        % (sc, r[col["final_tick"]], r[col["max_ticks"]]))
         if r[col["kind"]] not in WALL_KINDS:
-            if r[col["wall_count"]] != "0" or r[col["layout_source"]] != "-":
+            if r[col["layout_source"]] != "-":
+                bad.append("%s: authored mission row carries pinned layout text" % sc)
+            walls = int(r[col["wall_count"]])
+            if sc in WALL_CARRYING_MISSION_SCENARIOS:
+                if walls < 1:
+                    bad.append("%s: the step E5 teaching mission must carry edge walls" % sc)
+            elif walls != 0:
                 bad.append("%s: authored mission row carries wall state" % sc)
             continue
         raw_layout, raw_firmware = r[col["layout_source"]], r[col["firmware_source"]]

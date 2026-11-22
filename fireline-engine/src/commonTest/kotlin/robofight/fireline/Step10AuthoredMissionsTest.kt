@@ -2,13 +2,14 @@ package robofight.fireline
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import robofight.isa.decPad
 
 /**
- * §8.3 step 10 + FIRELINE-DESIGN.md §9/§13.2 acceptance tests for the five
- * authored MVP missions: validation contract, deterministic reference firmware,
+ * §8.3 step 10 + FIRELINE-DESIGN.md §9/§13.2 acceptance tests for the six
+ * authored free missions: validation contract, deterministic reference firmware,
  * documented failing firmware, and the §13.2 determinism battery per mission.
  */
 class Step10AuthoredMissionsTest {
@@ -16,10 +17,10 @@ class Step10AuthoredMissionsTest {
     private fun referenceOf(m: Mission) = FirelineRun.runWithGuard(m, m.descriptorForSource(m.referenceSource))
 
     @Test
-    fun allFiveMissionsExistWithImmutableIdsAndBriefings() {
-        assertEquals(listOf(1, 2, 3, 4, 5), Missions.ALL.map { it.id })
+    fun allSixMissionsExistWithImmutableIdsAndBriefings() {
+        assertEquals(listOf(1, 2, 3, 4, 5, 6), Missions.ALL.map { it.id })
         assertEquals(
-            listOf("NOZZLE CHECK", "CORRIDOR", "FIRST RESPONSE", "DOWNWIND", "HOT ZONE"),
+            listOf("NOZZLE CHECK", "CORRIDOR", "FIRST RESPONSE", "DOWNWIND", "HOT ZONE", "THIN WALL"),
             Missions.ALL.map { it.name },
         )
         for (m in Missions.ALL) {
@@ -165,6 +166,61 @@ class Step10AuthoredMissionsTest {
             "without the shield the corridor is lethal, which is the lesson")
     }
 
+    /**
+     * Mission 06 (FIRELINE-DESIGN.md §9.6, PLAN-EDGE-WALLS.md §13): the two facts
+     * a thin wall teaches. (1) It is not a cell: the cell behind it stays free
+     * terrain and a straight MOVE across the walled edge simply does not happen.
+     * (2) It gates water but not fire: every packet the documented failing variant
+     * fires at the lane is absorbed at the edge, while the fire crosses the very
+     * same edge and kills the rover standing behind it.
+     */
+    @Test
+    fun thinWallGatesMovementAndWaterButNotFire() {
+        val m = Missions.THIN_WALL
+        assertEquals(6, m.id)
+        assertEquals(Objectives.EXTINGUISH_ALL or Objectives.REACH_EXIT, m.objectives)
+        assertEquals(120, m.timeLimit, "same limit as mission 02: the route is a short walk")
+        assertEquals(0, m.windForce, "the crossing here is the wall's, not the wind's")
+        assertEquals(0, m.layout.terrain.count { it == TERRAIN_WALL }, "the mission carries no wall cells at all")
+        assertEquals(3, m.layout.edgeCount(), "the three edges the E2 lane fixtures carry (parity_matrix.tsv wall-lane-move)")
+        assertTrue(m.layout.wallBetween(5, 2, 6, 2), "the lane gate is the edge between (5,2) and (6,2)")
+        assertFalse(m.layout.wallBetween(5, 2, 5, 3), "the bypass south of the lane is open")
+        assertEquals(TERRAIN_FLOOR, m.layout.terrainAt(6, 2), "the cell behind the thin wall stays free terrain")
+        assertTrue(terrainPassable(m.layout.terrainAt(6, 2)), "a thin wall never makes a cell non-free (DW1/§3)")
+        assertEquals(1, m.layout.fire.count { it > 0 }, "one burning lane cell beyond the gate")
+
+        val naive = FirelineWorld(
+            m.descriptorForSource("       MOVE\n       MOVE\n       MOVE\n       MOVE\n       WAIT\n       JMP    fin\nfin:   WAIT\n       JMP    fin"),
+        )
+        naive.runUntilFinished(m.maxTicks)
+        assertEquals(5, naive.rover.x, "the always-forward bot stops on the west side of the gate")
+        assertEquals(2, naive.rover.y)
+        assertEquals(3, naive.rover.distanceMoved, "the blocked MOVE pays its ticks without stepping")
+
+        val failing = FirelineWorld(m.descriptorForSource(m.failingSources[0].second))
+        var blockedShots = 0
+        var crossedEdge = false
+        failing.onTick = { w ->
+            for (e in w.lastEvents) {
+                if (e.startsWith("PACKET BLOCKED EDGE")) blockedShots++
+                if (e.contains("IGNITES 5,2") && e.contains("from 6,2")) crossedEdge = true
+            }
+        }
+        failing.runUntilFinished(m.maxTicks)
+        assertTrue(blockedShots >= 3, "packets fired straight at a thin wall are absorbed at the edge ($blockedShots)")
+        assertTrue(crossedEdge, "fire spread from (6,2) westward across the walled edge into (5,2) (DW1)")
+        assertEquals(FailureReason.ROVER_DESTROYED, failing.failureReason,
+            "the fire crossed the wall the water could not cross, which is the lesson")
+
+        val reference = referenceOf(m)
+        assertEquals(RunStatus.SUCCESS, reference.status, reference.render())
+        assertEquals(0, reference.burningCells, "both lane cells, one on each side of the wall, are drowned")
+        assertEquals(0, reference.fireIntensitySum)
+        assertTrue(reference.tick <= m.timeLimit!!, "reference ${reference.tick} ticks inside the limit ${m.timeLimit}")
+        assertTrue(reference.firmwareBytes in 75..111, "firmware size in the range of missions 01-05: ${reference.firmwareBytes}")
+        assertTrue(reference.firmwareInstructions in 25..37, "instruction count in the range of missions 01-05: ${reference.firmwareInstructions}")
+    }
+
     // ---- §13.2 point 5 for authored content ----
     @Test
     fun authoredMissionsTerminateUnderTheirGuardAcrossASeedSweep() {
@@ -181,7 +237,7 @@ class Step10AuthoredMissionsTest {
     @Test
     fun missionCodesAndResultsRenderStably() {
         val results = Missions.referenceResults()
-        assertEquals(5, results.size)
+        assertEquals(6, results.size, "one reference result per authored mission (Missions.ALL)")
         for ((m, r) in Missions.ALL.zip(results)) {
             val text = FirelineRun.report(r)
             assertTrue(text.contains("mission " + decPad(m.id, 2)), text)

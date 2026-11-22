@@ -11,7 +11,7 @@ Java: Android Studio JBR + kotlinc.
 ## Files
 | file | role |
 |---|---|
-| `snapshots.json` | deliverable: `{"snapshots": [...]}`, 8 snapshots, labels `01-ref-t0`, `01-ref-t12`, `01-ref-final`, `01-never-t30`, `01-never-final`, `02-ref-t12`, `02-ref-t46`, `02-ref-final` (~26.5 KB) |
+| `snapshots.json` | deliverable: `{"snapshots": [...]}`, 8 snapshots, labels `01-ref-t0`, `01-ref-t12`, `01-ref-final`, `01-never-t30`, `01-never-final`, `02-ref-t12`, `02-ref-t46`, `02-ref-final` (~26.5 KB). Missions 01 and 02 only; mission 06 has no snapshot yet (`PLAN-EDGE-WALLS.md` §13.7 item 4) |
 | `snapshots.extra.json` | bonus: 2 snapshots - `01-ref-t13` (multi-tick SHOOT in flight, `instruction_ticks_remaining = 2`) and `01-ref-t15` (live water packet `{x:3,y:2,life:19,dir:E}`) |
 | `crosscheck.tsv` | committed evidence: the last `CrossCheck.kt` output, checked by `verify_crosscheck.py` |
 | `SnapshotFixtures.kt` | the generator (`main(args)`, package `fixtures`; `args[0]` = output path, default `snapshots.json` in the working dir) |
@@ -120,6 +120,39 @@ arith 29, limits 5, trace lines 168`. The ten authored mission fingerprints in t
 are unchanged by the wall rows: the same generator at commit `4bd81ca` reproduces the
 `ed93d89` values in every shared column.
 
+### Mission 06 `THIN WALL` rows (2026-11-22, engine v2, `PLAN-EDGE-WALLS.md` §13)
+
+The authored catalog is six missions. `Missions.kt:363` gained mission 06 `THIN WALL` (seed
+6027), the first authored mission that carries thin edge walls, and the matrix grew from 14 rows
+to 16. The same generator, run at commit `afec3755273df5d278d7349e2438979cd3d09bcb` with the
+mission in the working tree, recorded:
+
+| scenario | final tick | status / reason | final fingerprint | probe fingerprint | golden trace hash | firmware | wall edges | round trip |
+|---|---|---|---|---|---|---|---|---|
+| `6-reference` | 59 | SUCCESS / - | `61fe3d4c35449094` | `a85a699d9f1ef675` | `5f7fd7153968d3c2` | 108 B / 36 insn | 3 | yes |
+| `6-failing` (spray through the thin wall) | 59 | FAILURE / ROVER_DESTROYED | `42bdbe754583cd57` | `a5e475326ab2e2af` | `aae04624e85d38cf` | 15 B / 5 insn | 3 | yes |
+
+Mission rules behind both rows, recorded as columns: objectives `EXTINGUISH_ALL|REACH_EXIT` (5),
+time limit 120, survive until unset, starting water 100, wind `W` x0, tick guard 300, rover spawn
+(2,2) facing east, exit (17,2), zero wall cells and three edge walls: the gate on the edge right
+of (5,2) plus the north and south edges of the spawn cell. The mission carries no `WALL_VERT` or
+`WALL_HORIZ` text in the TSV because its sources are committed in `Missions.kt`, like every other
+authored row; the engine's own `wall_count` column reads 3.
+
+Isolation: the 14 rows recorded above are identical in all 27 columns, cell by cell, after these
+two rows were appended (`PLAN-EDGE-WALLS.md` §13.4). Generator output after this step
+(`rows 16 (12 mission + 4 wall), arith 29, limits 5, trace lines 192`): `parity_matrix.tsv` md5
+`f7b950f13df715bc651b955647fbd8d0`, `parity_traces.txt` `c53090daef81b1a457fd8d21b20fbc1f`
+(208 lines), `parity_arith.tsv` `4344825cf9b453dfbfb3ebc8778463a1`, `limit_probe.tsv`
+`802dda7c0e6303a42da49326f0a50335`; `parity_fixture_gen.py` re-run on the committed tree leaves
+`parity_matrix.json`, `parity_traces.json`, `parity_arith.json` and `W2ParityFixtures.kt`
+(`54d936cc384de4e3259b14a84a759eef`) byte-identical.
+
+`snapshots.json` still carries 8 snapshots for missions 01 and 02 and mission 06 has none. A
+snapshot of a thin-wall mission would be wall-blind today: `TextGrid` renders cells, a thin wall
+is not a cell, and the snapshot schema carries no `WALL_VERT`/`WALL_HORIZ` rows yet. That work is
+owned by `PLAN-EDGE-WALLS.md` §7 step E4 (§13.7 item 4), together with the console edge overlay.
+
 ## Field notes / legends
 
 - `terrain`: 20x20 authoring glyphs - `.` floor, `#` wall, `F` fuel, `W` refill, `E` exit,
@@ -162,13 +195,13 @@ engine's determinism instead of re-deriving it (docs/FIRELINE-WEB.md §4, §9 W2
 | file | role |
 |---|---|
 | `ParityMatrix.kt` | the generator (`package fixtures`, `main(args)`; `args[0]` = output dir). Compiles against `:rf8-core` + `:fireline-engine` commonMain. Records: fingerprint matrix + 12-tick golden traces (`FirelineRun.eventTrace`), 64/32-bit arithmetic vectors, `WebInputLimits` probe. Asserts runner == step-by-step per row, and aborts if a firmware fails to assemble. Since E2 it also carries the four wall-carrying layouts as canonical mission text (`FIRELINE LAYOUT 20` header, `TERRAIN` 20x20, `FIRE` 20x20, `WALL_VERT` 20 rows x 19 glyphs, `WALL_HORIZ` 19 rows x 20 glyphs, `ROVER x,y,dir`), builds them through `Layout.fromCanonicalText` + `Mission.requireValid`, checks `fromCanonicalText(toCanonicalText(layout))` byte identity per row, and refuses to emit a row whose authored text is not the canonical text the engine emits. |
-| `parity_matrix.tsv` | 14 rows: 10 authored mission rows (5 missions x reference + failing firmware) plus the four E2 wall fixture rows of `PLAN-EDGE-WALLS.md` §7 step E2. Columns: probe tick + mid-run fingerprint, trace hash, final tick / status / failure reason / fingerprint, assembler bytes+instructions, the mission rules the fingerprint depends on (seed, objectives, time limit, survive until, starting water, wind dir x force, tick guard), `wall_count` (the engine's own `Layout.edgeCount`), the recorded layout and firmware text for the wall rows (`-` for authored rows, whose sources are committed in `Missions.kt`), and the measured canonical text `roundtrip`. Header comments carry `# commit` and `# engine v`. |
-| `parity_traces.txt` | the 14 golden traces verbatim (12 lines each, 168 trace lines, 182 lines including the per-scenario `probe=` / `trace_hash=` headers). |
+| `parity_matrix.tsv` | 16 rows: 12 authored mission rows (6 missions x reference + failing firmware) plus the four E2 wall fixture rows of `PLAN-EDGE-WALLS.md` §7 step E2. Columns: probe tick + mid-run fingerprint, trace hash, final tick / status / failure reason / fingerprint, assembler bytes+instructions, the mission rules the fingerprint depends on (seed, objectives, time limit, survive until, starting water, wind dir x force, tick guard), `wall_count` (the engine's own `Layout.edgeCount`), the recorded layout and firmware text for the wall rows (`-` for authored rows, whose sources are committed in `Missions.kt`), and the measured canonical text `roundtrip`. Header comments carry `# commit` and `# engine v`. |
+| `parity_traces.txt` | the 16 golden traces verbatim (12 lines each, 192 trace lines, 208 lines including the per-scenario `probe=` / `trace_hash=` headers). |
 | `parity_arith.tsv` | 29 arithmetic vectors: engine LCG streams, FNV-1a parameters and hashes, plus Int/Long overflow, shift, remainder, truncation behaviors every container must reproduce. |
 | `limit_probe.tsv` | legal vs oversized source, and `WebInputLimits.prepare` outcomes (oversized and over-cap tick budget refused **before** assembly). |
-| `parity_fixture_gen.py` | reads the TSVs, refuses to write if they contradict each other (14 rows in the expected 10 + 4 split, trace hash must equal the matrix `trace_hash`, 12 trace lines each, 16-hex digests, all firmware assembling, every `roundtrip` true, authored rows carry no wall state, wall rows carry layout and firmware text whose `#` glyph count equals the engine `wall_count` and whose section shapes are `TERRAIN` 20x20, `FIRE` 20x20, `WALL_VERT` 20x19, `WALL_HORIZ` 19x20), then writes the JSON fixtures and the pinned Kotlin fixture file. |
+| `parity_fixture_gen.py` | reads the TSVs, refuses to write if they contradict each other (16 rows in the expected 12 mission + 4 wall split, trace hash must equal the matrix `trace_hash`, 12 trace lines each, 16-hex digests, all firmware assembling, every `roundtrip` true, authored rows carry no wall state except the two mission 06 rows which must carry `wall_count` at least 1, wall rows carry layout and firmware text whose `#` glyph count equals the engine `wall_count` and whose section shapes are `TERRAIN` 20x20, `FIRE` 20x20, `WALL_VERT` 20x19, `WALL_HORIZ` 19x20), then writes the JSON fixtures and the pinned Kotlin fixture file. |
 | `parity_matrix.json`, `parity_arith.json`, `parity_traces.json` | the same data for a browser container to check itself against. Each wall row also carries decoded `layoutText` and `firmwareText` next to the escaped TSV columns. |
-| `../fireline-engine/src/commonTest/kotlin/robofight/fireline/W2ParityFixtures.kt` | the pinned Kotlin fixtures (`internal` vals), generated - never hand-typed: `PARITY_FIXTURE_ROWS` (14 rows incl. the rule columns), `PARITY_WALL_LAYOUT_TEXTS`, `PARITY_WALL_FIRMWARE_TEXTS`, `PARITY_GOLDEN_TRACES`, `PARITY_ARITH_VECTORS`, `PARITY_LIMIT_PROBE`, plus the row and scenario counts. |
+| `../fireline-engine/src/commonTest/kotlin/robofight/fireline/W2ParityFixtures.kt` | the pinned Kotlin fixtures (`internal` vals), generated - never hand-typed: `PARITY_FIXTURE_ROWS` (16 rows incl. the rule columns), `PARITY_WALL_LAYOUT_TEXTS`, `PARITY_WALL_FIRMWARE_TEXTS`, `PARITY_GOLDEN_TRACES`, `PARITY_ARITH_VECTORS`, `PARITY_LIMIT_PROBE`, plus the row and scenario counts. |
 | `../fireline-engine/src/commonTest/kotlin/robofight/fireline/W2FixtureMissions.kt` | hand-written helper (not generated): rebuilds the mission each row describes, from `Missions.byId` for authored rows and from the pinned canonical layout text plus the recorded rule columns for wall rows, so one fixture set drives both targets. |
 | `../fireline-engine/src/commonTest/kotlin/robofight/fireline/W2WallParityTest.kt` | the E2 wall gate (5 tests): wall rows are pinned and their glyph count equals `Layout.edgeCount`, every wall row reproduces its recorded probe and final fingerprint when recomputed from the pinned text, the canonical text round trip keeps the fingerprint byte-identically, the removed wall is the only difference between `wall-lane-move` and `wall-open-lane`, and the wall gates appear in the pinned golden traces. |
 

@@ -1,12 +1,15 @@
 package robofight.fireline
 
 /**
- * The five authored MVP missions (FIRELINE-DESIGN.md §9.1-§9.5).
+ * The six authored free missions (FIRELINE-DESIGN.md §9.1-§9.6).
  *
  * Layouts are ASCII cell arrays in version control (§9 "ASCII source
  * representation"): 20x20 rows, `.` floor, `#` wall, `F` fuel, `W` refill,
  * `E` exit, `P` protected asset, `R` rover spawn, `C` civilian. Fire rows use
- * the authored levels `1`=25, `2`=50, `3`=75, `4`=100.
+ * the authored levels `1`=25, `2`=50, `3`=75, `4`=100. Mission 06 additionally
+ * carries the two thin edge wall blocks of PLAN-EDGE-WALLS.md §4 (WALL_VERT
+ * 20x19, WALL_HORIZ 19x20); missions 01-05 carry neither block, so every edge
+ * of theirs is open.
  *
  * Mission ID + name are immutable; changing a layout under an existing ID is a
  * content compatibility change (§9) and needs a new ID.
@@ -41,6 +44,26 @@ object Missions {
 
     /** A wall segment spanning x0..x1 on row y. */
     private fun wallRow(y: Int, x0: Int, x1: Int) = (x0..x1).map { Triple(it, y, GLYPH_WALL) }
+
+    /**
+     * WALL_VERT rows (PLAN-EDGE-WALLS.md §4): `row to column` puts a thin wall on
+     * the edge to the RIGHT of cell (column, row). Missing pairs stay open, so a
+     * mission only names the edges it actually walls.
+     */
+    private fun vertEdgeRows(vararg walls: Pair<Int, Int>): List<String> =
+        (0 until WALL_VERT_ROWS).map { y ->
+            (0 until VERT_EDGE_COLUMNS).map { x ->
+                if (walls.any { it.first == y && it.second == x }) EDGE_GLYPH_WALL else EDGE_GLYPH_OPEN
+            }.joinToString("")
+        }
+
+    /** WALL_HORIZ rows: `row to column` puts a thin wall on the edge BELOW cell (column, row). */
+    private fun horizEdgeRows(vararg walls: Pair<Int, Int>): List<String> =
+        (0 until WALL_HORIZ_ROWS).map { y ->
+            (0 until GRID).map { x ->
+                if (walls.any { it.first == y && it.second == x }) EDGE_GLYPH_WALL else EDGE_GLYPH_OPEN
+            }.joinToString("")
+        }
 
     /**
      * Shared reactive extinguishing pattern: shoot at the selected burning cell
@@ -318,7 +341,79 @@ object Missions {
         maxTicks = 400,
     )
 
-    val ALL: List<Mission> = listOf(NOZZLE_CHECK, CORRIDOR, FIRST_RESPONSE, DOWNWIND, HOT_ZONE)
+    // ---- 9.6 ----
+    // The thin wall mission (PLAN-EDGE-WALLS.md §7 step E5). The layout carries
+    // NO wall cells: the only walls are three thin edges, the same three the
+    // pinned E2 fixture rows carry (`docs/web/fixtures/parity_matrix.tsv`
+    // `wall-lane-move` / `wall-open-lane`: WALL_VERT row 2 char 5, the edge right
+    // of (5,2), plus the spawn cell's north and south edges at WALL_HORIZ rows 1
+    // and 2 char 2). The lane gate is what the mission is named for: it stops the
+    // rover's straight MOVE, it stops a water packet at spawn and absorbs one in
+    // flight, and AHEAD answers 1 across it, exactly like a wall cell would -
+    // while fire spreads across it (decision DW1), so the burning lane cell
+    // (6,2) lights the lane cell on the rover's side of the wall.
+    //
+    // Refill cells ring the lane: row 1 and row 3 for x=2..17, plus (4,2) and
+    // (7,2) ON the lane. A refill cell never ignites, so the crossing can only
+    // ever be (6,2) -> (5,2) and back: exactly the two cells the reference
+    // solution drowns, one on each side of the wall, and row 3 is the safe
+    // bypass lane the rover shoots the lane from. Seed 6027 is the seed whose
+    // spread stream crosses the gate at tick 15 (a W attempt westward across the
+    // walled edge) and never relights the source cell after it is drowned.
+    val THIN_WALL = Mission(
+        id = 6,
+        name = "THIN WALL",
+        briefing = "The wall here is only a line between two cells. It stops your MOVE and it stops your water, but the fire crosses it. Read AHEAD, turn into the refill lane, drown the lane on both sides of the wall, then walk the bypass to the exit.",
+        layout = Layout.decode(
+            terrainRows = field(
+                2, 2,
+                (2..17).map { Triple(it, 1, GLYPH_REFILL) } +
+                    (2..17).map { Triple(it, 3, GLYPH_REFILL) } +
+                    listOf(
+                        Triple(4, 2, GLYPH_REFILL),                            // lane firebreak west of the gate
+                        Triple(7, 2, GLYPH_REFILL),                           // lane firebreak east of the fire
+                        Triple(17, 2, GLYPH_EXIT),                            // exit at the end of the lane
+                    ),
+            ),
+            fireRows = fireAt(listOf(Triple(6, 2, '1'))),
+            roverDir = DIR_E,
+            vertEdgeRows = vertEdgeRows(2 to 5),                              // the lane gate right of (5,2)
+            horizEdgeRows = horizEdgeRows(1 to 2, 2 to 2),                    // the spawn cell cannot be left north or south
+        ),
+        seed = 6027,
+        objectives = Objectives.EXTINGUISH_ALL or Objectives.REACH_EXIT,
+        timeLimit = 120,
+        startingWater = 100,
+        windDir = DIR_W,
+        windForce = 0,
+        referenceSource =
+            "       MOVE\n       MOVE\n       MOVE\n" +                    // (2,2) -> (5,2): the lane cell west of the thin wall
+                "       IN     AHEAD\n" +                                // the thin wall answers 1, the same sentinel a wall cell gives (§6.2)
+                "       JZ     straight\n" +                            // empty ahead: go straight. Here the lane is closed
+                "       TURN   R\n" +                                  // E -> S: the wall is not negotiable, the bypass is
+                "straight:\n       MOVE\n" +                            // (5,2) -> (5,3) onto the refill lane
+                "       TURN   L\n       MOVE\n" +                     // S -> E, step to (6,3) under the burning cell
+                "       TURN   L\n" +                                  // E -> N
+                "       SHOOT\n       SHOOT\n" +                       // drown (6,2): the packet spawns on it, no edge to cross
+                "       TURN   L\n       MOVE\n" +                     // N -> W, back to (5,3)
+                "       TURN   R\n" +                                  // W -> N
+                "       SHOOT\n       SHOOT\n" +                       // drown (5,2): the cell the fire reached THROUGH the wall
+                "       TURN   R\n" +                                  // N -> E, walk the refill bypass east
+                "       MOVE\n       MOVE\n       MOVE\n       MOVE\n" +
+                "       MOVE\n       MOVE\n       MOVE\n       MOVE\n" +   // (5,3) -> (17,3)
+                "       MOVE\n       MOVE\n       MOVE\n       MOVE\n" +
+                "       TURN   L\n" +                                  // E -> N
+                "       MOVE\n" +                                      // (17,3) -> (17,2) the exit
+                "       WAIT\n       JMP    fin\nfin:   WAIT\n       JMP    fin",
+        failingSources = listOf(
+            Triple("spray through the thin wall",
+                "       MOVE\n       MOVE\n       MOVE\nloop:  SHOOT\n       JMP    loop",
+                FailureReason.ROVER_DESTROYED),
+        ),
+        maxTicks = 300,
+    )
+
+    val ALL: List<Mission> = listOf(NOZZLE_CHECK, CORRIDOR, FIRST_RESPONSE, DOWNWIND, HOT_ZONE, THIN_WALL)
         .map { it.requireValid() }
 
     fun byId(id: Int): Mission? = ALL.firstOrNull { it.id == id }

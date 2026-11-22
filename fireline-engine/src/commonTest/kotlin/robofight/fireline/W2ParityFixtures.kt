@@ -7,7 +7,7 @@ package robofight.fireline
  * input-limit probe, asserted identically by `:fireline-engine` on `jvm` and `wasmJs`.
  *
  * GENERATED - never typed by hand. `docs/web/fixtures/ParityMatrix.kt` records every
- * value from live engine state on the JVM (engine v2, commit 4bd81cac5a5b529c325e0ff788229a1f6d0a04e5),
+ * value from live engine state on the JVM (engine v2, commit afec3755273df5d278d7349e2438979cd3d09bcb),
  * `docs/web/fixtures/parity_fixture_gen.py` wrote this file from that output.
  * Raw form of the same data: `parity_matrix.tsv`, `parity_traces.txt`,
  * `parity_arith.tsv`, `limit_probe.tsv`; JSON form for a browser container:
@@ -21,10 +21,10 @@ package robofight.fireline
 
 internal const val PARITY_GENERATOR: String = "docs/web/fixtures/ParityMatrix.kt"
 internal const val PARITY_ENGINE_VERSION: Int = 2
-internal const val PARITY_SOURCE_COMMIT: String = "4bd81cac5a5b529c325e0ff788229a1f6d0a04e5"
+internal const val PARITY_SOURCE_COMMIT: String = "afec3755273df5d278d7349e2438979cd3d09bcb"
 internal const val PARITY_PROBE_TICK: Int = 12
-internal const val PARITY_EXPECTED_ROWS: Int = 14
-internal const val PARITY_EXPECTED_MISSION_ROWS: Int = 10
+internal const val PARITY_EXPECTED_ROWS: Int = 16
+internal const val PARITY_EXPECTED_MISSION_ROWS: Int = 12
 internal const val PARITY_EXPECTED_WALL_ROWS: Int = 4
 internal val PARITY_WALL_SCENARIOS: List<String> = listOf("wall-lane-move", "wall-nozzle-seal", "wall-lane-suppress", "wall-open-lane")
 
@@ -73,6 +73,8 @@ internal val PARITY_FIXTURE_ROWS: List<ParityFixtureRow> = listOf(
     ParityFixtureRow("4-failing", 4, "DOWNWIND", "failing", "ignores the burning line", 12, "07fc73be7bf8f31e", "99752e4c059a058e", 500, "FAILURE", "TIME_EXPIRED", "51f0f7232dd88add", 9, 3, 4004, 7, 500, null, 100, 2, 2, 700, 0, true),
     ParityFixtureRow("5-reference", 5, "HOT ZONE", "reference", "reference", 12, "426c4fdd8f395eef", "317eca23f0149509", 45, "SUCCESS", "-", "ba8e443d3c469c1d", 111, 37, 5005, 22, 200, null, 60, 1, 0, 400, 0, true),
     ParityFixtureRow("5-failing", 5, "HOT ZONE", "failing", "no shield, straight through", 12, "2b88919b27fcd1e1", "def56526d10c1cf2", 29, "FAILURE", "ROVER_DESTROYED", "89bceb4241170566", 6, 2, 5005, 22, 200, null, 60, 1, 0, 400, 0, true),
+    ParityFixtureRow("6-reference", 6, "THIN WALL", "reference", "reference", 12, "a85a699d9f1ef675", "5f7fd7153968d3c2", 59, "SUCCESS", "-", "61fe3d4c35449094", 108, 36, 6027, 5, 120, null, 100, 0, 0, 300, 3, true),
+    ParityFixtureRow("6-failing", 6, "THIN WALL", "failing", "spray through the thin wall", 12, "a5e475326ab2e2af", "aae04624e85d38cf", 59, "FAILURE", "ROVER_DESTROYED", "42bdbe754583cd57", 15, 5, 6027, 5, 120, null, 100, 0, 0, 300, 3, true),
     ParityFixtureRow("wall-lane-move", 101, "WALL LANE", "wall", "lane move loop", 12, "4ce6f21b96b15e4f", "88b5c429de62c944", 60, "FAILURE", "TIME_EXPIRED", "983902383703454a", 6, 2, 6001, 4, 60, null, 100, 0, 0, 200, 3, true),
     ParityFixtureRow("wall-nozzle-seal", 102, "SEALED NOZZLE", "wall", "single shoot", 12, "f72074b3a2cbae1e", "b87628c5ec530355", 60, "FAILURE", "TIME_EXPIRED", "28621a2b7f6d5c29", 9, 3, 6002, 4, 60, null, 100, 0, 0, 200, 1, true),
     ParityFixtureRow("wall-lane-suppress", 103, "WALL LANE SUPPRESS", "wall", "single shoot", 12, "afb0ccd208010c01", "e762879cfcc1a486", 60, "FAILURE", "TIME_EXPIRED", "c5c75948d2b9ec6f", 9, 3, 6003, 4, 60, null, 100, 0, 0, 200, 3, true),
@@ -240,6 +242,34 @@ internal val PARITY_GOLDEN_TRACES: Map<String, List<String>> = mapOf(
         "010 MOVE (1/2) | ROVER FIRE DAMAGE -4 (fire 100)",
         "011 MOVE (2/2) | ROVER FIRE DAMAGE -4 (fire 100)",
         "012 JMP 256 | ROVER FIRE DAMAGE -4 (fire 100)",
+    ),
+    "6-reference" to listOf(
+        "001 MOVE (1/2) | ",
+        "002 MOVE (2/2) | ",
+        "003 MOVE (1/2) | ",
+        "004 MOVE (2/2) | ",
+        "005 MOVE (1/2) | ",
+        "006 MOVE (2/2) | ",
+        "007 IN port11 | ",
+        "008 JZ (skip) | ",
+        "009 TURN R | ",
+        "010 MOVE (1/2) | ",
+        "011 MOVE (2/2) | ",
+        "012 TURN L | ",
+    ),
+    "6-failing" to listOf(
+        "001 MOVE (1/2) | ",
+        "002 MOVE (2/2) | ",
+        "003 MOVE (1/2) | ",
+        "004 MOVE (2/2) | ",
+        "005 MOVE (1/2) | ",
+        "006 MOVE (2/2) | ",
+        "007 SHOOT (1/3) | ",
+        "008 SHOOT (2/3) | ",
+        "009 SHOOT (3/3) | PACKET BLOCKED EDGE 6,2",
+        "010 JMP 265 | ",
+        "011 SHOOT (1/3) | ",
+        "012 SHOOT (2/3) | ",
     ),
     "wall-lane-move" to listOf(
         "001 MOVE (1/2) | ",

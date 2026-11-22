@@ -65,12 +65,12 @@ class ConsoleRenderTest {
         bandCells(html, 0).map { it.first } to bandCells(html, 1).map { it.first }
 
     /**
-     * Fixture: `parity_matrix.json` rows `1-reference` .. `5-reference`
+     * Fixture: `parity_matrix.json` rows `1-reference` .. `6-reference`
      * (final_hash), asserted in live wasm by `ConsoleModelTest`. The picker the
-     * shell renders must carry all five cards and all five anchors.
+     * shell renders must carry all six cards and all six anchors.
      */
     @Test
-    fun renderedPickerCarriesAllFiveMissionCardsWithTheirCommittedBestRunAnchors() {
+    fun renderedPickerCarriesAllSixMissionCardsWithTheirCommittedBestRunAnchors() {
         val html = ConsoleRender.renderConsoleHtml(model, null)
         val text = plainText(html)
 
@@ -86,12 +86,12 @@ class ConsoleRenderTest {
             assertTrue(text.contains("OPEN IN CONSOLE"), "card action label (golden master choose_calls_html)")
         }
 
-        // The five committed engine-v2 anchors, spelled out rather than derived.
-        val anchors = listOf("\$245faa6d", "\$d3ea4711", "\$01663660", "\$acf46562", "\$ba8e443d")
+        // The six committed engine-v2 anchors, spelled out rather than derived.
+        val anchors = listOf("\$245faa6d", "\$d3ea4711", "\$01663660", "\$acf46562", "\$ba8e443d", "\$61fe3d4c")
         anchors.forEach { anchor ->
-            assertTrue(text.contains(anchor), "picker carries $anchor (parity_matrix 1..5-reference)")
+            assertTrue(text.contains(anchor), "picker carries $anchor (parity_matrix 1..6-reference)")
         }
-        assertEquals(5, Regex("<article class=\"mcard\"").findAll(html).toList().size, "five cards, no more")
+        assertEquals(6, Regex("<article class=\"mcard\"").findAll(html).toList().size, "six cards, no more")
         assertTrue(html.contains("FL:&gt; SELECT A CALL"), "picker prompt wording (§15.2 item 7, golden master)")
     }
 
@@ -261,6 +261,6 @@ class ConsoleRenderTest {
         assertFalse(html.contains("class=\"fields\""), "no readout bands before a mission is opened")
         assertFalse(html.contains(">RUN<"), "no run controls before a mission is opened")
         assertTrue(html.contains("FL:&gt; SELECT A CALL"), "picker prompt present")
-        assertEquals(5, Regex("<article class=\"mcard\"").findAll(html).toList().size, "five cards")
+        assertEquals(6, Regex("<article class=\"mcard\"").findAll(html).toList().size, "six cards")
     }
 }

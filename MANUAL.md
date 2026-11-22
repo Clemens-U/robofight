@@ -571,6 +571,15 @@ These drive the robot and carry the real tick costs (§7). A heat op that is
 | `WAIT` | 1 | do nothing this tick (idle; heat cools) |
 | `NOP` | 1 | do nothing — same as `WAIT`, for padding / timing |
 
+FIRELINE drills that no-op row in mission 06, `THIN WALL`. That grid contains no
+wall cells at all: its only walls are three thin edge walls, and one of them
+closes the lane straight ahead of the rover. `MOVE` down that lane does nothing
+and still spends its 2 ticks, `AHEAD` reads 1, and `SHOOT` puts no water on the
+far side of the line (`PACKET BLOCKED EDGE`). The fire on the far side is not
+stopped by the line, so standing in the cell the fire crossed into is how that
+run ends. Read `AHEAD`, turn into the refill lane beside the wall, and drown the
+gated lane on both sides of the line.
+
 ### 8.5 Data movement (`MOV` / `XCH`)
 | Mnemonic | Effect |
 |----------|--------|
