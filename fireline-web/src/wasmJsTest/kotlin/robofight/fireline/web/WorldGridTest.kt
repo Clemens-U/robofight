@@ -89,20 +89,20 @@ class WorldGridTest {
      * that order, ahead of the firmware column, and the legend appears once.
      */
     @Test
-    fun worldColumnRendersWindThenGridThenLegendThenEventLog() {
+    fun worldColumnRendersWindThenGridThenLegendThenPacing() {
         val html = ConsoleRender.renderConsoleHtml(model, corridor())
         val world = worldColumn(html)
         val firm = html.substringAfter("<div class=\"pairfirm\">")
 
         val markers = listOf("class=\"wind\"", "<div class=\"grid\">", "class=\"legend\"",
-            "<h4 style=\"margin-top:.7rem\">EVENT LOG")
+            "<div class=\"fields pacing\">")
         val positions = markers.map { world.indexOf(it) }
         positions.forEachIndexed { index, position ->
             assertTrue(position >= 0, "${markers[index]} present in the world column (§15.2 item 2)")
         }
-        assertEquals(positions.sorted(), positions, "world column order wind/grid/legend/event log, got $positions (§15.2 item 2)")
-        assertTrue(world.indexOf("<h4 style=\"margin-top:.7rem\">EVENT LOG") < html.indexOf("<div class=\"pairfirm\""),
-            "EVENT LOG closes the world column before the firmware column (§15.2 item 2)")
+        assertEquals(positions.sorted(), positions, "world column order wind/grid/legend/pacing, got $positions (§15.2 item 2, pacing per W3 record 11 f)")
+        assertTrue(world.indexOf("<div class=\"fields pacing\">") < html.indexOf("<div class=\"pairfirm\""),
+            "the pacing block closes the world column before the firmware column (W3 record 11 f)")
         assertTrue(html.indexOf("class=\"wind\"") < html.indexOf("<div class=\"grid\">"),
             "WIND line sits above the grid (console_pair markup)")
 
@@ -349,7 +349,7 @@ class WorldGridTest {
 
         assertEquals(1, Regex("<div class=\"legend\">").findAll(html).toList().size, "one legend block on the page (§15.4)")
         assertTrue(world.indexOf("<div class=\"legend\">") > world.indexOf("<div class=\"grid\">"), "legend sits under the grid (§15.4 'under the grid, in the world column')")
-        assertTrue(world.indexOf("<div class=\"legend\">") < world.indexOf("<h4 style=\"margin-top:.7rem\">EVENT LOG"), "legend sits above the EVENT LOG (§15.2 item 2)")
+        assertTrue(world.indexOf("<div class=\"legend\">") < world.indexOf("<div class=\"fields pacing\">"), "legend sits above the pacing block (W3 record 11 f)")
         val bandBlocks = html.split("<div class=\"fields\">").drop(1)
         assertEquals(2, bandBlocks.size, "two readout bands (verify_layout_v1)")
         bandBlocks.forEach { band ->

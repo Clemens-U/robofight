@@ -22,10 +22,11 @@ import robofight.isa.decPad
  * lists below are byte-equal to `VM_CELLS` / `TELEMETRY_CELLS` in
  * `docs/web/verify_layout_v1.py`, and `ConsoleRenderTest` re-asserts them.
  *
- * `TICK n / limit`, `ROVER at x n y n facing L` and the `next:` / `exec:`
- * preview reuse the wording of the shipped Android MISSION surface
- * (`MissionRunSurface.updateReadouts`) so the two containers describe the same
- * `MissionSession` state with the same words.
+ * `TICK n / limit` and `ROVER at x n y n facing L` reuse the wording of the shipped
+ * Android MISSION surface (`MissionRunSurface.updateReadouts`) so the two containers
+ * describe the same `MissionSession` state with the same words. The `next:` / `exec:`
+ * preview of that surface is not rendered here: the shell dropped it (W3 record 11 d),
+ * the same fact is carried by the `>` marker and the `LAST OP` / `OP TICKS LEFT` cells.
  *
  * Deliberate omissions of this shell step (recorded in docs/WEB-W3-RECORD.md):
  * the hero, `FL:> RELEASE STATUS`, the four-cell strip,
@@ -46,9 +47,7 @@ object ConsoleRender {
 
     // ---- element ids the wasm entry point (`Main.kt`) binds handlers to ----
     const val ID_CONSOLE = "fl-console"
-    const val ID_EVENTS = "fl-events"
     const val ID_SOURCE = "fl-source"
-    const val ID_NEXT = "fl-next"
     const val ID_RUN = "fl-btn-run"
     const val ID_STEP = "fl-btn-step"
     const val ID_RESET = "fl-btn-reset"
@@ -103,11 +102,7 @@ object ConsoleRender {
     /** §15.3: firmware pane height `21 * 15 + 1` = 316px (written as the rule). */
     const val SOURCE_PANE_HEIGHT_PX = 21 * 15 + 1
 
-    /** Visible EVENT LOG window. The engine's own tail bound is
-     *  `MissionSession.EVENT_TAIL` (24 lines); the console shows the newest 8. */
-    const val EVENT_LOG_LINES = 8
-
-    /** §15.2 item 3 frozen cell list (`verify_layout_v1.py` VM_CELLS). */
+        /** §15.2 item 3 frozen cell list (`verify_layout_v1.py` VM_CELLS). */
     val STATE_BAND_CELLS = listOf(
         "A", "X", "Y", "SP", "PC", "LAST OP", "FLAGS Z", "FLAGS N", "FLAGS C",
         "OP TICKS LEFT", "VM FAULT", "TICK",
@@ -186,7 +181,7 @@ object ConsoleRender {
         sb.append(missionHeader(row, run.firmwareName))
         sb.append(objectivesLine(run, row))
         sb.append("<div class=\"pair\">")
-        sb.append(worldColumn(run, row))
+        sb.append(worldColumn(run, row, state))
         sb.append(firmwareColumn(run, state))
         sb.append("</div>")
         sb.append("</div></div>")
@@ -220,44 +215,52 @@ object ConsoleRender {
     /** World column of §15.2 item 2 in the frozen order: the `WIND` line
      *  (authored mission values from `MissionRow`), the 20x20 world grid, the
      *  read-only status line directly under the grid (amendment, W3 record 11 b),
-     *  the symbol legend, then the EVENT LOG. Every cell glyph comes from
+     *  the symbol legend, then the pacing block (`SPEED` / `PANIC`, amendment 11 f,
+     *  the bordered block that replaced the EVENT LOG). Every cell glyph comes from
      *  `TextGrid.glyphAt` over the session's own world (`WorldGrid`). */
-    private fun worldColumn(run: ConsoleRun, row: MissionRow): String {
+    private fun worldColumn(run: ConsoleRun, row: MissionRow, state: ConsoleUiState): String {
         // Statement form for the same reason as `firmwareColumn`: this chain's tail
-        // carries `statusLine(run)`, `legendHtml()` and `eventLog(run)`.
+        // carried `statusLine(run)` and `legendHtml()` and dropped them when it was
+        // one long `+` chain.
         val sb = StringBuilder("<div class=\"pairworld\">")
         sb.append("<div class=\"wind\">WIND ").append(escapeHtml(row.windLabel))
             .append("&nbsp;&nbsp;FORCE ").append(row.windForce).append("</div>")
         sb.append(WorldGrid.gridHtml(run.currentWorld))
         sb.append(statusLine(run))
         sb.append(WorldGrid.legendHtml())
-        sb.append("<h4 style=\"margin-top:.7rem\">EVENT LOG</h4>")
-        sb.append("<ul class=\"events\" id=\"").append(ID_EVENTS).append("\" aria-label=\"EVENT LOG\">")
-        sb.append(eventLog(run)).append("</ul>")
+        // The EVENT LOG section is gone (amendment, W3 record 11 f). The pacing
+        // block takes its slot at the end of the world column.
+        sb.append(pacingBlock(state))
         return sb.append("</div>").toString()
     }
 
     /**
-     * `NNN <op> | <events>` lines exactly as the engine wrote them
-     * (`MissionSession.eventLog` via `ConsoleRun.logTail`), newest first, newest
-     * item carrying the `newest` class. The mockup splits the tick number into a
-     * `<u>` column; the console renders the engine's line verbatim so the log
-     * text on screen is byte-identical to the log text the app prints.
+     * The pacing block: the `SPEED 1 / 5 / 20 / 50 ticks per second` choices and
+     * the `PANIC uncapped, no speed limit` toggle, the same controls and wording
+     * §15.4 defines, now in the world column at the grid's width where the EVENT
+     *  LOG used to be (amendment, W3 record 11 f). It renders as a bordered
+     *  `.fields` band, the same box family as the two readout bands, and keeps the
+     *  golden master's chip look and the 49 dp touch targets.
      */
-    private fun eventLog(run: ConsoleRun): String {
-        val lines = run.logTail(EVENT_LOG_LINES)
-        // `events_html` fallback: `<li class="newest"><u>tick</u>no event on this tick</li>`
-        if (lines.isEmpty()) return "<li class=\"newest\"><u>" + decPad(run.tick, 3) + "</u>no event on this tick</li>"
-        return lines.mapIndexed { index, line ->
-            "<li class=\"" + (if (index == 0) "newest" else "") + "\">" + escapeHtml(line) + "</li>"
-        }.joinToString("")
+    private fun pacingBlock(state: ConsoleUiState): String {
+        val sb = StringBuilder("<div class=\"fields pacing\"><div class=\"inforow\"><span>")
+        sb.append("<b>SPEED</b> ").append(SPEED_CHOICES.joinToString(" / "))
+            .append(" ticks per second&nbsp;")
+        for (speed in SPEED_CHOICES) {
+            sb.append(speedChip(speed, state)).append(' ')
+        }
+        sb.append("&nbsp;&nbsp;<b>").append(PANIC_LABEL).append("</b> uncapped, no speed limit ")
+        sb.append(button(panicButtonId(state.panic), panicLabel(state.panic), active = state.panic))
+        sb.append("</span></div>")
+        return sb.append("</div>").toString()
     }
 
     /** Firmware column: heading, the single `pre.source` pane (one scrollable
-     *  box, §15.7), the `next:`/`exec:` preview, the one control block, the
-     *  assembler note, and directly under them the RF-8 STATE band at the column's
-     *  own width (amendment, W3 record 11 a), so the state readout sits flush with
-     *  the firmware field it belongs to.
+     *  box, §15.7), the one control block, the RF-8 STATE band at the column's own
+     *  width, and the assembler note last (amendments, W3 record 11 a/d/e): the
+     *  `next:`/`exec:` preview line is gone, the state readout sits flush with the
+     *  firmware field it belongs to, and the assembler verdict reads as the tail of
+     *  the whole column.
      *
      *  In edit mode the source pane is replaced by one `<textarea>` of the same
      *  frozen height, so the page still has exactly one scrollable box (§15.6
@@ -277,11 +280,9 @@ object ConsoleRender {
         val sb = StringBuilder("<div class=\"pairfirm\">")
         sb.append("<h4>FIRMWARE: ").append(escapeHtml(run.firmwareName)).append("</h4>")
         sb.append(pane)
-        sb.append("<div class=\"flags\" id=\"").append(ID_NEXT).append("\">")
-        sb.append(escapeHtml(run.nextEventPreview())).append("</div>")
         sb.append(controlBlock(state))
-        sb.append(assemblerNote(state))
         sb.append(fieldsBand(STATE_BAND_TITLE, stateBandCells(run)))
+        sb.append(assemblerNote(state))
         return sb.append("</div>").toString()
     }
 
@@ -298,13 +299,13 @@ object ConsoleRender {
             "<input id=\"" + ID_EDITOR_NAME + "\" type=\"text\" spellcheck=\"false\" autocomplete=\"off\"" +
             " placeholder=\"NAME.ASM\"></div>"
 
-    /** The control block, the one place §15.4 allows for `RUN` / `STEP` /
-     *  `RESET`, `SPEED 1/5/20/50` and `PANIC`. Structure and wording are
-     *  `run_controls()` of `docs/web/gen_web_mockups.py`: a `runrow` of the three
-     *  commands, then an `inforow` carrying the tick speed and PANIC. The editor's
-     *  APPLY / CANCEL sit in the same block so no second control row appears. The
-     *  share `LINK` left this block (amendment, W3 record 11 c); it renders once,
-     *  in the full-width `linkblock` under TELEMETRY. */
+    /** The control block, the one place §15.4 allows for `RUN` / `STEP` / `RESET`.
+     *  Structure and wording are `run_controls()` of `docs/web/gen_web_mockups.py`:
+     *  a `runrow` of the three commands. The editor's APPLY / CANCEL sit in the
+     *  same block so no second control row appears. Two rows left this block: the
+     *  share `LINK` (amendment 11 c, now the full-width block under TELEMETRY) and
+     *  the `SPEED` / `PANIC` pacing row (amendment 11 f, now the pacing block in
+     *  the world column). Each still occurs exactly once on the page. */
     private fun controlBlock(state: ConsoleUiState): String {
         val sb = StringBuilder("<div class=\"consolecontrols\"><div class=\"runrow\">")
         sb.append("<button type=\"button\" class=\"btn run\" id=\"").append(ID_RUN).append("\">RUN</button>")
@@ -315,13 +316,6 @@ object ConsoleRender {
         } else {
             sb.append(button(ID_APPLY, "APPLY")).append(button(ID_EDITOR_CANCEL, "CANCEL"))
         }
-        sb.append("</div><div class=\"inforow\">")
-        sb.append("<span><b>SPEED</b> ").append(SPEED_CHOICES.joinToString(" / "))
-            .append(" ticks per second&nbsp;")
-            .append(SPEED_CHOICES.joinToString(" ") { speedChip(it, state) })
-            .append("&nbsp;&nbsp;<b>").append(PANIC_LABEL).append("</b> uncapped, no speed limit ")
-            .append(button(panicButtonId(state.panic), panicLabel(state.panic), active = state.panic))
-            .append("</span>")
         sb.append("</div>")
         sb.append(statusNote(state))
         return sb.append("</div>").toString()

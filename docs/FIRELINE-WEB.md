@@ -742,11 +742,11 @@ call prompt, three commands that are not run commands).
 
 ### 15.2a Dated shell deviation (2026-11-23, owner-directed, `docs/WEB-W3-RECORD.md` 11)
 
-The live browser console (`fireline-web/console.html`, wasm shell) moves three regions.
-The golden master, `console_pair()` / `statusbar()` / `run_controls()` of
-`docs/web/gen_web_mockups.py`, and the mockups below were NOT moved by this change, so
-§15.6 item 1 is met by the mockups and NOT by the console shell until the master and the
-generator are amended in step (a documented open item, not silent drift):
+The live browser console (`fireline-web/console.html`, wasm shell) moves or removes six
+regions. The golden master, `console_pair()` / `statusbar()` / `run_controls()` /
+`events_html()` of `docs/web/gen_web_mockups.py`, and the mockups below were NOT moved by
+this change, so §15.6 item 1 is met by the mockups and NOT by the console shell until the
+master and the generator are amended in step (a documented open item, not silent drift):
 
 1. **RF-8 STATE band**: no longer a full-width band; it renders inside the firmware column,
    directly under the source pane, controls and assembler note, at that column's width
@@ -760,6 +760,21 @@ generator are amended in step (a documented open item, not silent drift):
    band, and only while a run state is shared. 15.4's single-occurrence rule keeps holding
    (one `LINK`, one `COPY`, one `DOWNLOAD .ASM` on the page), only its "only place" column
    changes for this row.
+4. **`next:` / `exec:` preview line**: removed from the shell entirely. The instruction in
+   flight is already carried by the `>` marker in the firmware pane, the `LAST OP` and
+   `OP TICKS LEFT` cells of the STATE band and the event line on the prompt row, so the
+   console shows no `next:` text at all.
+5. **Assembler note**: last in the firmware column, under the RF-8 STATE band, instead of
+   directly under the control block. It stays the one `0 errors` / editor-error line of §12a
+   and keeps its id.
+6. **EVENT LOG**: the log section is gone from the shell, together with its heading and its
+   `<ul>` element. Its slot at the end of the world column is taken by a bordered **pacing
+   block** (`.fields.pacing`) that holds the `SPEED 1 / 5 / 20 / 50 ticks per second` choices
+   and `PANIC uncapped, no speed limit`, i.e. the §15.4 controls with the master's wording,
+   chip look and 49 dp targets, only at the world column's width. Recorded consequence: the
+   failure reason name (`TIME_EXPIRED`) was previously visible on screen only as the last log
+   line; the page now shows failure through the `failed` objective chips, while the reason
+   stays available in the model and in the share link.
 
 The 15.7 rejection of "a second run/status bar under the monitor" is untouched: the status
 line still occurs exactly once and stays read-only.
@@ -785,7 +800,7 @@ Each of these appears exactly once on the page:
 
 | item | only place |
 |---|---|
-| `RUN` / `STEP` / `RESET`, `SPEED 1/5/20/50`, `PANIC`, share `LINK` with `COPY` and `DOWNLOAD .ASM` | the control block under the firmware pane (console shell since 15.2a: `RUN`/`STEP`/`RESET`/`SPEED`/`PANIC` only; `LINK`, `COPY` and `DOWNLOAD .ASM` moved to the full-width block under TELEMETRY, still exactly once) |
+| `RUN` / `STEP` / `RESET`, `SPEED 1/5/20/50`, `PANIC`, share `LINK` with `COPY` and `DOWNLOAD .ASM` | the control block under the firmware pane (console shell since 15.2a: its control block carries `RUN`/`STEP`/`RESET` only; `SPEED` and `PANIC` moved to the pacing block in the world column, `LINK`/`COPY`/`DOWNLOAD .ASM` to the full-width block under TELEMETRY, each still exactly once) |
 | symbol legend (wall, rover + facing, fire display bands 1..24 / 25..49 / 50..74 / 75..100, packet, refill, exit, civilian, fuel, protected asset, layer order) | under the grid, in the world column |
 | state fingerprint | the status line |
 | `HP` / `WATER` / `HEAT` / `SHIELD` | the status line (and as registers only, never as a `VITALS` row in TELEMETRY) |

@@ -583,7 +583,8 @@ the shell deviation written up as `docs/FIRELINE-WEB.md` 15.2a, which is the bin
 15.2 and 15.3 for the wasm console only. No numeric value was invented for the shell: each moved
 region inherits the width of the column it now lives in.
 
-Measured in the harness (dev server, fresh wasm, viewport 770x471, mission 02 selected). At this
+Measured in the harness for amendments 11 a-c (dev server, fresh wasm, viewport 770x471, mission 02
+selected). At this
 width the 900px media rule has already collapsed the pair grid to one column, so all three regions
 share the content column; the alignment result is the same at 900px and above, where the pair grid
 is live and each region keeps its own column's width:
@@ -632,10 +633,50 @@ the band positions themselves (`indexOf("<div class=\"fields\"><h4>" + band titl
 guessed column slice, because a slice boundary drawn at the first `</div><div class="fields">` sits
 inside the control block and produced a false negative.
 
-### 11.3 Matrix for this step
+### 11.3 The same session's follow-up: three more moves (11 d, 11 e, 11 f)
+
+The owner looked at the amended console and asked for three more changes, recorded in
+`docs/FIRELINE-WEB.md` 15.2a items 4-6:
+
+- **11 d**: the `next:` / `exec:` preview line is removed from the shell. The instruction in
+  flight is already shown by the `>` marker in the firmware pane, the `LAST OP` and
+  `OP TICKS LEFT` cells of the STATE band and the prompt line's event, so the line was a
+  fourth copy of one fact. `fl-next` is no longer rendered and no handler referenced it.
+- **11 e**: the assembler note moved to the end of the firmware column, under the RF-8 STATE
+  band, so the column reads firmware, controls, state, verdict.
+- **11 f**: the EVENT LOG section (heading, `<ul>`, its 8 newest lines) is gone. Its slot at
+  the end of the world column is taken by a bordered pacing block `.fields.pacing` that holds
+  the `SPEED 1 / 5 / 20 / 50 ticks per second` choices and `PANIC uncapped, no speed limit`.
+  Wording, ids, the `chip on` look and the 49 dp touch targets are unchanged; the CSS moved
+  from `.consolecontrols .inforow`/`.chip` to `.fields.pacing .inforow`/`.chip` so only the
+  container changed. `fl-events`, `eventLog()` and `EVENT_LOG_LINES` were deleted, not hidden.
+
+Consequence found by the tests, not by reading: the failure reason name was on screen only as
+the last log line. `ConsoleRenderTest.mission01NeverShootsRenderCarriesTimeExpiredAndItsAnchor`
+failed once the log was gone, i.e. `TIME_EXPIRED` had no second carrier. It is now asserted at
+the model (`run.failureReason()`) and at the `bad` objective chips, and the spec records that
+the page no longer prints the reason name; the reason is still in the share link.
+
+Tests moved with the shell: `W3RenderTest` gained `nextPreviewAndEventLogAreGoneAndPacingTakesTheLogSlot`
+(absence of `fl-next`, `<ul class="events">` and the heading; exactly one `.fields.pacing`, inside the
+world column, under the grid, before `pairfirm`, with the §15.4 wording and one PANIC button);
+`WorldGridTest.worldColumnRendersWindThenGridThenLegendThenEventLog` became `...ThenPacing`;
+`ConsoleRenderTest` log-line assertions now assert `run.logTail(1)` on the model, and its
+single-occurrence gate asserts the assembler note under the state band and the single control block
+inside the firmware region.
+
+Measured in the same harness after the follow-up (fresh wasm, 1 426 100 B, viewport 770x471, mission 02 open).
+No region invents a width: grid 51 / 246 wide (grid table), status line 51 / 653, pacing block 51 / 653
+with all four speed chips 49 tall, control block 51 / 653 h49 (`RUN`/`STEP`/`RESET`/`EDIT` 49 tall),
+state band 51 / 653, assembler note 51 / 653, TELEMETRY band and LINK band 37 / 681 each.
+DOM order on the page: grid 581, status line 824, legend 901, pacing block 959, control block 1373,
+RF-8 STATE band 1422, assembler note 1615, TELEMETRY 1700, LINK 1892. No `fl-next`, no
+`<ul class="events">`, no `EVENT LOG` text anywhere in the shell (39 779 chars of shell HTML), no
+horizontal overflow.
+
+### 11.4 Matrix for this step
 
 Full matrix on this tree with `--rerun-tasks --no-build-cache` (`BUILD SUCCESSFUL`, `RC=0`, counts
-read from the per-target result XMLs): 536 tests, 0 failures, 0 errors, i.e. the 534 of section 10.7
-plus the two new layout assertions in `W3RenderTest` (that suite is 10 → 12 tests). `:fireline-web`
-wasmJsTest is 55 (ConsoleModel 8, ConsoleRender 8, WorldGrid 8, W3Render 12, W3LibraryDraft 8,
-W3Permalink 8, W3Interop 3) on both the wasmJs and the node target.
+read from the per-target result XMLs): 536 tests for amendment 11 a-c, and 537 for 11 a-f,
+0 failures, 0 errors. `:fireline-web` wasmJsTest 56 per target (ConsoleModel 8, ConsoleRender 8,
+WorldGrid 8, W3Render 13, W3LibraryDraft 8, W3Permalink 8, W3Interop 3).

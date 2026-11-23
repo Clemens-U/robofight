@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import robofight.fireline.FailureReason
 import robofight.fireline.RunStatus
 
 /**
@@ -150,8 +151,8 @@ class ConsoleRenderTest {
             "MOVE (1/2) is still in flight at tick 30 (Vm.lastOp position, not the ISA cost table)")
         assertTrue(html.contains("<div class=\"fcell\"><span>TICK</span><b>30</b></div>"), "TICK cell")
         assertTrue(html.contains("<div class=\"grid\">"), "world column renders the 20x20 grid in place of the old kv readout (§15.2 item 2)")
-        assertTrue(html.indexOf("class=\"legend\"") < html.indexOf("<h4 style=\"margin-top:.7rem\">EVENT LOG"),
-            "the symbol legend sits between grid and EVENT LOG (§15.2 item 2)")
+        assertTrue(html.indexOf("class=\"legend\"") < html.indexOf("<div class=\"fields pacing\">"),
+            "the symbol legend sits between the grid and the pacing block (§15.2 item 2, 11 f)")
         assertFalse(text.contains("MISSION SUCCESS"), "nothing finished at tick 30 (snapshots 02-ref-t46 is mid-run)")
 
         // Control case: at fixture-pinned tick 46 the op in flight is `JMP 286`,
@@ -175,8 +176,8 @@ class ConsoleRenderTest {
 
         assertEquals(102, run.tick, "run driven to the committed finish (parity_matrix 2-reference)")
         assertTrue(text.contains("MISSION 02 / CORRIDOR // TICK 102"), "prompt line at the finish")
-        assertTrue(html.contains("102 MOVE (2/2) | MISSION SUCCESS"),
-            "EVENT LOG line verbatim from MissionSession.eventLog (snapshots 02-ref-final recent_events)")
+        assertEquals("102 MOVE (2/2) | MISSION SUCCESS", run.logTail(1).first(),
+            "finish log line kept in the model (snapshots 02-ref-final recent_events); the shell no longer prints a log")
         assertTrue(html.contains("fingerprint \$d3ea4711"),
             "status line fingerprint (snapshots 02-ref-final d3ea47119fe3b101)")
         assertTrue(html.contains("<span class=\"ok\">EXTINGUISH_ALL done</span>"), "objective chip done (ResultModel.objectiveChips)")
@@ -198,9 +199,12 @@ class ConsoleRenderTest {
         val html = ConsoleRender.renderConsoleHtml(model, run)
         val text = plainText(html)
 
-        assertTrue(text.contains("TIME_EXPIRED"), "failure reason name reaches the page (parity_matrix 1-failing)")
-        assertTrue(html.contains("060 JMP 256 | MISSION FAILURE TIME_EXPIRED"),
-            "EVENT LOG line verbatim (snapshots 01-never-final recent_events)")
+        assertEquals(FailureReason.TIME_EXPIRED, run.failureReason(), "failure reason kept in the model (parity_matrix 1-failing)")
+        assertTrue(html.contains("<span class=\"bad\">EXTINGUISH_ALL failed</span>"),
+            "the failure shows as failed objective chips; with the EVENT LOG gone (W3 record 11 f) the page no longer prints the reason name")
+        assertEquals(-1, html.indexOf("<ul class=\"events\""), "no EVENT LOG markup on the page (W3 record 11 f)")
+        assertEquals("060 JMP 256 | MISSION FAILURE TIME_EXPIRED", run.logTail(1).first(),
+            "failure log line kept in the model (snapshots 01-never-final recent_events)")
         assertTrue(html.contains("<div class=\"fcell\"><span>LAST OP</span><b>JMP 256</b></div>"), "LAST OP cell (snapshots 01-never-final vm.last_op)")
         assertTrue(html.contains("fingerprint \$7cbfe499"), "status line fingerprint (snapshots 01-never-final 7cbfe49993c17318)")
         assertTrue(html.contains("<span class=\"bad\">EXTINGUISH_ALL failed</span>"), "objective chip failed on FAILURE (objectives_html shape)")
@@ -246,8 +250,8 @@ class ConsoleRenderTest {
         assertEquals(1, Regex("fingerprint").findAll(html).toList().size, "one state fingerprint, on the status line (§15.4)")
         assertEquals(2, Regex("<div class=\"fields\">").findAll(html).toList().size, "two readout bands only (§15.2 items 3-4)")
         // §15.2a shell deviation (W3 record 11): the STATE band is the firmware column's
-        // band, the status line is the world column's grid footer, and the state band is
-        // the last thing in the firmware column, under the assembler note.
+        // band, the status line is the world column's grid footer, and the assembler note
+        // is the last thing in the firmware column, under the state band (11 e).
         val firmStart = html.indexOf("<div class=\"pairfirm\">")
         val stateBandAt = html.indexOf("<div class=\"fields\"><h4>" + ConsoleRender.STATE_BAND_TITLE)
         val telemetryAt = html.indexOf("<div class=\"fields\"><h4>" + ConsoleRender.TELEMETRY_BAND_TITLE)
@@ -261,8 +265,8 @@ class ConsoleRenderTest {
         assertTrue(stateBandAt in firmStart until telemetryAt, "RF-8 STATE band inside the firmware column (15.2a 1)")
         assertTrue(stateBandAt > html.indexOf("<div class=\"consolecontrols\""),
             "state band sits under the control block (15.2a 1)")
-        assertTrue(stateBandAt > html.indexOf("id=\"fl-asmnote\""),
-            "state band sits under the assembler note (15.2a 1)")
+        assertTrue(html.indexOf("id=\"fl-asmnote\"") > stateBandAt,
+            "the assembler note sits under the state band (15.2a 1, 11 e)")
         assertFalse(html.contains("<div class=\"fields linkblock\">"),
             "LINK block rendered although nothing is shared")
         assertFalse(html.contains("<a class=\"btn"), "no anchor run controls: the shell uses real buttons (§15.4 labels unchanged)")

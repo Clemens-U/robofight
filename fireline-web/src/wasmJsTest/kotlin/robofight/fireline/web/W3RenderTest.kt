@@ -43,14 +43,17 @@ class W3RenderTest {
         for (id in listOf(ConsoleRender.ID_RUN, ConsoleRender.ID_STEP, ConsoleRender.ID_RESET)) {
             assertEquals(1, countOf(html, "id=\"$id\""), "duplicate control id $id")
         }
-        assertEquals(1, countOf(html, "<div class=\"consolecontrols\">"), "second control block")
+        // The control block itself is the firmware column's; the pacing block in the
+        // world column is not a control block and carries no run row (11 f).
+        val firmRegion = html.substringAfter("<div class=\"pairfirm\">")
+        assertEquals(1, countOf(firmRegion, "<div class=\"consolecontrols\""), "second control block")
         // §15.4: no second run bar anywhere on the page.
-        assertEquals(1, countOf(html, "<div class=\"runrow\">"), "second run row")
+        assertEquals(1, countOf(html, "<div class=\"runrow\""), "second run row")
     }
 
-    /** §15.2a (W3 record 11 a): the RF-8 STATE band belongs to the firmware column,
-     *  directly under the assembler note, at that column's width; the shell keeps
-     *  exactly two readout bands. */
+    /** §15.2a (W3 record 11 a with 11 e): the RF-8 STATE band belongs to the firmware
+     *  column, directly under the controls and above the assembler note, at that
+     *  column's width; the shell keeps exactly two readout bands. */
     @Test
     fun stateBandMovesIntoTheFirmwareColumnUnderTheControls() {
         val html = render()
@@ -63,9 +66,31 @@ class W3RenderTest {
         assertTrue(firmStart in 0 until stateBandAt, "no STATE band inside the firmware column")
         assertTrue(stateBandAt < telemetryAt, "TELEMETRY must follow the firmware column's band")
         assertTrue(stateBandAt > html.indexOf("<div class=\"consolecontrols\""), "STATE band above the controls")
-        assertTrue(stateBandAt > html.indexOf("id=\"${ConsoleRender.ID_ASSEMBLER_NOTE}\""), "STATE band above the assembler note")
+        assertTrue(html.indexOf("id=\"${ConsoleRender.ID_ASSEMBLER_NOTE}\"") > stateBandAt,
+            "the assembler note sits under the STATE band (11 e)")
         assertTrue(firmCol.contains(ConsoleRender.STATE_BAND_TITLE), "STATE band missing from the firmware column region")
         assertTrue(!worldCol.contains(ConsoleRender.STATE_BAND_TITLE), "STATE band rendered in the world column")
+    }
+
+    /** W3 record 11 d and 11 f: the `next:`/`exec:` preview line is gone, the EVENT LOG
+     *  list is gone, and the `SPEED`/`PANIC` row renders as the bordered pacing block in
+     *  the world column, at the grid's width, in the slot the log used to hold. */
+    @Test
+    fun nextPreviewAndEventLogAreGoneAndPacingTakesTheLogSlot() {
+        val html = render()
+        assertEquals(-1, html.indexOf("id=\"fl-next\""), "the next:/exec: preview line still renders")
+        assertEquals(-1, html.indexOf("<ul class=\"events\""), "the EVENT LOG list still renders")
+        assertEquals(-1, html.indexOf(">EVENT LOG<"), "the EVENT LOG heading still renders")
+        assertEquals(1, countOf(html, "<div class=\"fields pacing\">"), "the pacing block must render exactly once")
+        val world = html.substringAfter("<div class=\"pairworld\">").substringBefore("<div class=\"pairfirm\">")
+        assertTrue(world.contains("<div class=\"fields pacing\">"), "pacing block not inside the world column")
+        assertTrue(world.indexOf("<div class=\"fields pacing\">") > world.indexOf("<div class=\"grid\">"),
+            "pacing block sits under the grid, at that column's width (11 f)")
+        assertTrue(html.indexOf("<div class=\"fields pacing\">") < html.indexOf("<div class=\"pairfirm\">"),
+            "pacing block precedes the firmware column")
+        assertEquals(1, countOf(html, "<b>SPEED</b> 1 / 5 / 20 / 50 ticks per second"), "speed wording")
+        assertEquals(1, countOf(html, "<b>PANIC</b> uncapped, no speed limit"), "panic wording")
+        assertEquals(1, countOf(html, "id=\"${ConsoleRender.ID_PANIC}\""), "panic button")
     }
 
     @Test
