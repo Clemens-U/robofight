@@ -768,13 +768,28 @@ master and the generator are amended in step (a documented open item, not silent
    directly under the control block. It stays the one `0 errors` / editor-error line of §12a
    and keeps its id.
 6. **EVENT LOG**: the log section is gone from the shell, together with its heading and its
-   `<ul>` element. Its slot at the end of the world column is taken by a bordered **pacing
-   block** (`.fields.pacing`) that holds the `SPEED 1 / 5 / 20 / 50 ticks per second` choices
-   and `PANIC uncapped, no speed limit`, i.e. the §15.4 controls with the master's wording,
-   chip look and 49 dp targets, only at the world column's width. Recorded consequence: the
-   failure reason name (`TIME_EXPIRED`) was previously visible on screen only as the last log
-   line; the page now shows failure through the `failed` objective chips, while the reason
-   stays available in the model and in the share link.
+   `<ul>` element. The `SPEED 1 / 5 / 20 / 50 ticks per second` choices and
+   `PANIC uncapped, no speed limit` (the §15.4 controls with the master's wording) survive in
+   the pacing row described in item 8. Recorded consequence: the failure reason name
+   (`TIME_EXPIRED`) was previously visible on screen only as the last log line; the page now
+   shows failure through the `failed` objective chips, while the reason stays available in the
+   model and in the share link.
+7. **Equal half-width columns, anchored on the grid square**: the pair grid is
+   `minmax(0,1fr) minmax(0,1fr)` with the 1.2rem gap, so each column is half of the console
+   body's content width minus half the gap, and the grid fills its whole column. Everything
+   else derives from that one anchor (`console.html` custom properties):
+   `--col = (100vw - 74.56px - 19.2px) / 2` (74.56px is the body margin, page padding, console
+   border and consolebody padding chain, 19.2px is the 1.2rem gap), `--cell = (col - 5px) / 21`
+   clamped to 11..34px, `--grid-h = 21 * --cell + 2px`, and the firmware pane
+   `--pane-h = max(180px, --grid-h - 354px)` where 354px is the chrome under the pane in that
+   column (h4 + run row + pacing row + STATE band + assembler note). Both columns therefore
+   end at the same y. The frozen 15.3 ratio survives as the 21-cell structure; its absolute
+   15px cell and 316px pane no longer apply to the shell. Collapsed mode (pair grid to one
+   column under 900px) keeps 11px cells and does not honour the anchor.
+8. **Pacing row without a box**: `SPEED` and `PANIC` render as a plain row (`.pacing`) directly
+   under the run row inside the firmware column, with no panel border and no panel background,
+   and with smaller buttons: speed/PANIC chips 28px tall, run buttons 34px minimum on desktop.
+   The 49dp gate keeps holding for touch pointers through the `pointer: coarse` block.
 
 The 15.7 rejection of "a second run/status bar under the monitor" is untouched: the status
 line still occurs exactly once and stays read-only.
@@ -784,13 +799,13 @@ line still occurs exactly once and stays read-only.
 | rule | value |
 |---|---|
 | page column / content width | 1276px / 1236px |
-| pair grid | `minmax(0,1fr)` + `minmax(320px,1.1fr)`, 1.2rem gap |
-| world grid | 21 rows x 20 columns of 15px cells (grid height 317px) |
-| firmware pane height | 316px (`21 * 15 + 1`), scrolls internally |
+| pair grid | `minmax(0,1fr)` + `minmax(320px,1.1fr)`, 1.2rem gap (shell since 15.2a 7: two `minmax(0,1fr)` columns) |
+| world grid | 21 rows x 20 columns of 15px cells (grid height 317px) (shell since 15.2a 7: half the body content width, `--cell` 11..34px) |
+| firmware pane height | 316px (`21 * 15 + 1`), scrolls internally (shell since 15.2a 7: `21 * --cell + 2px`, the same ratio at the anchor width) |
 | flush pairing | grid bottom and pane bottom at the same y (measured delta 0px) |
 | readout bands | full content width, one wrapping row of 12 cells, 132px tall each |
 | band cell | flex basis 118px, padding 3px/6px, 4px gap, label 9.5px above value 13px |
-| run buttons | 74-80 x 49px minimum height (house 48dp gate) |
+| run buttons | 74-80 x 49px minimum height (house 48dp gate) (shell since 15.2a 8: 34px on desktop, 49px under `pointer: coarse`; pacing chips 28px / 49px) |
 | TELEMETRY to status line | 13px gap, no element between them |
 | no horizontal overflow | `scrollWidth == clientWidth` at 1312px and at 420px |
 
@@ -834,7 +849,10 @@ tick 46 state with `CORRIDOR-REF.ASM`:
 5. no horizontal overflow at 1312px and 420px, and no run control below 49px;
 6. the palette passes the gates recorded in §14.2 (text >= 4.5, non-text >= 3.0,
    fire ramp monotone under protanopia and deuteranopia), with the documented
-   empty-cell-dot exemption.
+   empty-cell-dot exemption;
+7. the console shell's CSS keeps the 15.2a items 7 and 8 (equal half columns, grid square
+   at half the body width, pane height `21 * --cell + 2px`, unboxed pacing row, 49px touch
+   override), checked by `shell_css_gate_for_15_2a()` of the same script.
 
 ### 15.7 Rejected designs (do not re-propose without an amendment)
 

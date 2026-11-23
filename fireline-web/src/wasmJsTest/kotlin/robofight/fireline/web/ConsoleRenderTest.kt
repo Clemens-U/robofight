@@ -151,8 +151,8 @@ class ConsoleRenderTest {
             "MOVE (1/2) is still in flight at tick 30 (Vm.lastOp position, not the ISA cost table)")
         assertTrue(html.contains("<div class=\"fcell\"><span>TICK</span><b>30</b></div>"), "TICK cell")
         assertTrue(html.contains("<div class=\"grid\">"), "world column renders the 20x20 grid in place of the old kv readout (§15.2 item 2)")
-        assertTrue(html.indexOf("class=\"legend\"") < html.indexOf("<div class=\"fields pacing\">"),
-            "the symbol legend sits between the grid and the pacing block (§15.2 item 2, 11 f)")
+        assertTrue(html.indexOf("class=\"statusbar\"") < html.indexOf("class=\"legend\""),
+            "the status line sits between the grid and the symbol legend (15.2a 2)")
         assertFalse(text.contains("MISSION SUCCESS"), "nothing finished at tick 30 (snapshots 02-ref-t46 is mid-run)")
 
         // Control case: at fixture-pinned tick 46 the op in flight is `JMP 286`,
@@ -229,7 +229,7 @@ class ConsoleRenderTest {
         assertFalse(html.contains("alert(1)</script>"), "no closed tag smuggled through (escapeHtml)")
         assertTrue(html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"),
             "the line renders as escaped text inside the source pane")
-        assertTrue(html.contains("<pre class=\"source\" id=\"fl-source\" style=\"--src-height:316px\">"),
+        assertTrue(html.contains("<pre class=\"source\" id=\"fl-source\">"),
             "single source pane with the §15.3 height lock (21 * 15 + 1)")
         assertTrue(html.contains("<span><u>01</u> ; &lt;script&gt;alert(1)&lt;/script&gt;</span>"),
             "line number, then the escaped source text (source_pane shape)")

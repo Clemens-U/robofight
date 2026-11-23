@@ -680,3 +680,63 @@ Full matrix on this tree with `--rerun-tasks --no-build-cache` (`BUILD SUCCESSFU
 read from the per-target result XMLs): 536 tests for amendment 11 a-c, and 537 for 11 a-f,
 0 failures, 0 errors. `:fireline-web` wasmJsTest 56 per target (ConsoleModel 8, ConsoleRender 8,
 WorldGrid 8, W3Render 13, W3LibraryDraft 8, W3Permalink 8, W3Interop 3).
+
+
+## 12. Same session, third shell amendment: the grid square becomes the layout anchor (2026-11-23)
+
+Owner-directed (`docs/FIRELINE-WEB.md` 15.2a items 7 and 8). The pair grid was
+`minmax(0,1fr) + minmax(320px,1.1fr)` while the grid table stayed a fixed 15px lattice inside the
+left column, so the grid was neither half the width nor matched to the firmware column.
+
+### 12.1 The anchor and what derives from it
+
+`--col = max(320px, (100vw - 74.56px - 19.2px) / 2)` is the pair column: half of the console
+body's content width (74.56px is the chrome chain: body margin 2x18, page padding 2x19.2, console
+border 2, consolebody padding 2x12.8) minus half of the 1.2rem gap. `--cell = clamp(11px, 34px,
+(col - 5px) / 21)`, `--grid-h = 21 * --cell + 2px`, `--pane-h = max(180px, --grid-h - 354px)`,
+where 354px is the chrome under the pane in the firmware column (h4 25 + margin 8 + run row 34 +
+gap 8 + pacing 56 + gap 6.4 + band 179 + band margin 12.8 + note 56 + note margin 8). The pair
+grid is two `minmax(0,1fr)` tracks, the grid fills its column, and the pane takes the grid height
+minus its chrome, so the two columns end at the same y.
+
+### 12.2 Measured in the harness (window 1400x1000, viewport 1370, mission 02 open)
+
+body content 1272; pair tracks 613.422px each; grid 54 / 613 x 635; world column 54 / 613;
+firmware column 687 / 613; grid width / body content = 0.482 (the column, i.e. half the available
+width minus half the gap); firmware column / body content = 0.482 (equal); pane 281 = grid height
+minus the 354px chrome; world content 794 = box 794, firmware content 794 = box 794, column bottom
+delta 0px; speed/PANIC chips 28px, run buttons 34px; pacing row border 0px, background transparent;
+no horizontal overflow, no column overflow.
+
+Collapsed mode (window 800x600, viewport 770, single column pair): grid 233 x 233 with the 11px
+floor, columns 653, pane 232 from the 900px media rule, no overflow. The anchor rule is a
+two-column rule and does not apply when the pair grid collapses; recorded rather than hidden.
+
+### 12.3 Iteration trail (what did not work, so it is not repeated)
+
+- `max-width:50%` on `.pairworld` shrinks the column to half of its grid track (613 -> 307), it is
+  not half of the body: a percentage there is resolved against the track, not the page. Reverted.
+- Sizing the columns from a fixed `--grid-h` plus magic constants for the status line and the
+  legend clipped the legend (`scrollHeight 897` against a 816px box) because the legend's wrap
+  height changes with the column width. Reverted; the pane formula carries the alignment instead.
+- `Emulation.setDeviceMetricsOverride` does not reflow this harness (`innerWidth` changes, media
+  queries and layout do not). `Browser.setWindowBounds` on the browser window does.
+
+### 12.4 Static gate and tests
+
+`docs/web/verify_layout_v1.py` gained `shell_css_gate_for_15_2a()`: 9 checks on the harness CSS
+(equal half tracks, the `--col` anchor, cells derived from it, the pane formula, no inline pane
+height, unboxed pacing row, 28px chips, 34px run buttons, 49px touch override). The frozen mockup
+checks are untouched: 31 checks, 0 failed.
+
+Tests moved with the shell: `ConsoleRender.sourcePane`/`editorPane` no longer emit an inline
+`--src-height` (`SOURCE_PANE_HEIGHT_PX` stays the frozen 15px reference the mockups use),
+`WorldGridTest.worldColumnRendersWindThenGridThenStatusLineThenLegend` replaces the pacing marker
+(the world column is wind/grid/status line/legend), `W3RenderTest` gained
+`nextPreviewAndEventLogAreGoneAndPacingIsAPlainRowInTheFirmwareColumn` (unboxed `.pacing`, inside
+the firmware column, under the run row, above the STATE band, still exactly two readout bands) and
+its editor assertion now requires the absence of `--src-height:`.
+
+Full matrix on this tree with `--rerun-tasks --no-build-cache` (`BUILD SUCCESSFUL`, `RC=0`, counts
+from the per-target result XMLs): 537 tests, 0 failures, 0 errors, same totals as 11.4. Engine
+modules show no diff; `FIRELINE_ENGINE_VERSION` stays 2.

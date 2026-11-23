@@ -228,9 +228,8 @@ object ConsoleRender {
         sb.append(WorldGrid.gridHtml(run.currentWorld))
         sb.append(statusLine(run))
         sb.append(WorldGrid.legendHtml())
-        // The EVENT LOG section is gone (amendment, W3 record 11 f). The pacing
-        // block takes its slot at the end of the world column.
-        sb.append(pacingBlock(state))
+        // The EVENT LOG section is gone (amendment, W3 record 11 f). The world column is
+        // wind, grid, status line and legend only, so the column height is the grid's.
         return sb.append("</div>").toString()
     }
 
@@ -242,8 +241,10 @@ object ConsoleRender {
      *  `.fields` band, the same box family as the two readout bands, and keeps the
      *  golden master's chip look and the 49 dp touch targets.
      */
+    /** The pacing row: no readout band around it (W3 record 11 g), a plain row of the
+     *  firmware column under the run row. Wording and ids are the master's. */
     private fun pacingBlock(state: ConsoleUiState): String {
-        val sb = StringBuilder("<div class=\"fields pacing\"><div class=\"inforow\"><span>")
+        val sb = StringBuilder("<div class=\"pacing\"><div class=\"inforow\"><span>")
         sb.append("<b>SPEED</b> ").append(SPEED_CHOICES.joinToString(" / "))
             .append(" ticks per second&nbsp;")
         for (speed in SPEED_CHOICES) {
@@ -281,6 +282,9 @@ object ConsoleRender {
         sb.append("<h4>FIRMWARE: ").append(escapeHtml(run.firmwareName)).append("</h4>")
         sb.append(pane)
         sb.append(controlBlock(state))
+        // SPEED / PANIC as a plain row directly under the run row (W3 record 11 g): the
+        // controls sit together in the firmware column, the row carries no panel box.
+        sb.append(pacingBlock(state))
         sb.append(fieldsBand(STATE_BAND_TITLE, stateBandCells(run)))
         sb.append(assemblerNote(state))
         return sb.append("</div>").toString()
@@ -292,8 +296,7 @@ object ConsoleRender {
      *  to it. */
     private fun editorPane(draftSource: String): String =
         "<textarea class=\"source editor\" id=\"" + ID_EDITOR_SOURCE +
-            "\" spellcheck=\"false\" autocomplete=\"off\" autocapitalize=\"off\" wrap=\"off\"" +
-            " style=\"--src-height:" + SOURCE_PANE_HEIGHT_PX + "px\">" +
+            "\" spellcheck=\"false\" autocomplete=\"off\" autocapitalize=\"off\" wrap=\"off\">" +
             escapeHtml(draftSource) + "</textarea>" +
             "<div class=\"editorname\"><label for=\"" + ID_EDITOR_NAME + "\">store name</label>" +
             "<input id=\"" + ID_EDITOR_NAME + "\" type=\"text\" spellcheck=\"false\" autocomplete=\"off\"" +
@@ -392,7 +395,10 @@ object ConsoleRender {
      *  break the page. */
     private fun sourcePane(sourceLines: List<String>, currentLine: Int): String {
         val sb = StringBuilder("<pre class=\"source\" id=\"").append(ID_SOURCE)
-            .append("\" style=\"--src-height:").append(SOURCE_PANE_HEIGHT_PX).append("px\">")
+            // No inline pane height: the shell sizes the pane from the grid anchor
+            // (console.html --pane-h, W3 record 11 g). SOURCE_PANE_HEIGHT_PX stays the
+            // frozen 15px-ratio reference the mockups use.
+            .append("\">")
         sourceLines.forEachIndexed { index, line ->
             val lineNo = index + 1
             val now = currentLine > 0 && lineNo == currentLine

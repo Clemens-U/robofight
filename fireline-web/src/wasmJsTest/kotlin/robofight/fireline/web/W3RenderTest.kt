@@ -43,8 +43,8 @@ class W3RenderTest {
         for (id in listOf(ConsoleRender.ID_RUN, ConsoleRender.ID_STEP, ConsoleRender.ID_RESET)) {
             assertEquals(1, countOf(html, "id=\"$id\""), "duplicate control id $id")
         }
-        // The control block itself is the firmware column's; the pacing block in the
-        // world column is not a control block and carries no run row (11 f).
+        // The control block is the firmware column's; the pacing row is a plain row, not
+        // a control block, and carries no run row (11 f/g).
         val firmRegion = html.substringAfter("<div class=\"pairfirm\">")
         assertEquals(1, countOf(firmRegion, "<div class=\"consolecontrols\""), "second control block")
         // §15.4: no second run bar anywhere on the page.
@@ -72,22 +72,25 @@ class W3RenderTest {
         assertTrue(!worldCol.contains(ConsoleRender.STATE_BAND_TITLE), "STATE band rendered in the world column")
     }
 
-    /** W3 record 11 d and 11 f: the `next:`/`exec:` preview line is gone, the EVENT LOG
-     *  list is gone, and the `SPEED`/`PANIC` row renders as the bordered pacing block in
-     *  the world column, at the grid's width, in the slot the log used to hold. */
+    /** W3 record 11 d, f and g: the `next:`/`exec:` preview line is gone, the EVENT LOG
+     *  list is gone, and the `SPEED`/`PANIC` row is a plain unboxed row of the firmware
+     *  column under the run row, still inside the shell's two readout bands. */
     @Test
-    fun nextPreviewAndEventLogAreGoneAndPacingTakesTheLogSlot() {
+    fun nextPreviewAndEventLogAreGoneAndPacingIsAPlainRowInTheFirmwareColumn() {
         val html = render()
         assertEquals(-1, html.indexOf("id=\"fl-next\""), "the next:/exec: preview line still renders")
         assertEquals(-1, html.indexOf("<ul class=\"events\""), "the EVENT LOG list still renders")
         assertEquals(-1, html.indexOf(">EVENT LOG<"), "the EVENT LOG heading still renders")
-        assertEquals(1, countOf(html, "<div class=\"fields pacing\">"), "the pacing block must render exactly once")
-        val world = html.substringAfter("<div class=\"pairworld\">").substringBefore("<div class=\"pairfirm\">")
-        assertTrue(world.contains("<div class=\"fields pacing\">"), "pacing block not inside the world column")
-        assertTrue(world.indexOf("<div class=\"fields pacing\">") > world.indexOf("<div class=\"grid\">"),
-            "pacing block sits under the grid, at that column's width (11 f)")
-        assertTrue(html.indexOf("<div class=\"fields pacing\">") < html.indexOf("<div class=\"pairfirm\">"),
-            "pacing block precedes the firmware column")
+        assertEquals(1, countOf(html, "<div class=\"pacing\">"), "the pacing row must render exactly once")
+        assertEquals(2, countOf(html, "<div class=\"fields\">"), "the pacing row is not a readout band")
+        val firm = html.substringAfter("<div class=\"pairfirm\">")
+        val controlsAt = firm.indexOf("<div class=\"consolecontrols\"")
+        val pacingAt = firm.indexOf("<div class=\"pacing\">")
+        val stateBandAt = firm.indexOf("<div class=\"fields\"><h4>" + ConsoleRender.STATE_BAND_TITLE)
+        assertTrue(pacingAt >= 0, "pacing row not inside the firmware column (11 g)")
+        assertTrue(pacingAt > controlsAt, "the pacing row sits under the run row")
+        assertTrue(pacingAt < stateBandAt, "the pacing row sits above the RF-8 STATE band")
+        assertEquals(-1, html.indexOf("<div class=\"fields pacing\">"), "the bordered pacing block is gone (11 g)")
         assertEquals(1, countOf(html, "<b>SPEED</b> 1 / 5 / 20 / 50 ticks per second"), "speed wording")
         assertEquals(1, countOf(html, "<b>PANIC</b> uncapped, no speed limit"), "panic wording")
         assertEquals(1, countOf(html, "id=\"${ConsoleRender.ID_PANIC}\""), "panic button")
@@ -167,7 +170,8 @@ class W3RenderTest {
         assertTrue(html.contains("id=\"${ConsoleRender.ID_EDITOR_CANCEL}\""), html)
         assertFalse(html.contains("id=\"${ConsoleRender.ID_EDIT}\""), "EDIT and APPLY both offered")
         // §15.3 frozen pane height is inherited by the editor.
-        assertTrue(html.contains("--src-height:316px"), html)
+        assertEquals(-1, html.indexOf("--src-height:"),
+            "the shell carries no inline pane height; console.html sizes it from the grid anchor (11 g)")
     }
 
     @Test

@@ -113,7 +113,54 @@ def main():
     dashes = re.findall(r"[\u2014\u2013]", h)
     check("copy: no em dash or en dash", not dashes, "%d found" % len(dashes))
 
+    # 8. dated shell deviation 15.2a items 7-8 (docs/WEB-W3-RECORD.md 11 g): the live
+    #    console harness, not the frozen mockups, is measured against these rules.
+    shell_css_gate_for_15_2a()
+
     return report()
+
+
+SHELL = HERE.parent.parent / "fireline-web" / "console.html"
+
+
+def shell_css_gate_for_15_2a():
+    """Static gate for the wasm console shell's CSS (15.2a 7 and 8)."""
+    if not SHELL.exists():
+        check("15.2a 7 shell harness present", False, str(SHELL))
+        return
+    c = SHELL.read_text(encoding="utf-8")
+
+    def rule(sel):
+        i = c.find(sel)
+        return c[i:c.find("}", i)] if i >= 0 else ""
+
+    pair = rule(".pair{")
+    check("15.2a 7 pair grid is two equal half columns",
+          "grid-template-columns:minmax(0,1fr) minmax(0,1fr)" in pair, pair[:80])
+    check("15.2a 7 pair column is half the body content width",
+          "--col:max(320px, calc((100vw - 74.56px - 19.2px) / 2))" in pair)
+    check("15.2a 7 grid cells derive from the anchor width",
+          "repeat(20, var(--cell, 15px))" in rule(".grid{") and
+          "grid-auto-rows:var(--cell, 15px)" in rule(".grid{"))
+    check("15.2a 7 pane height keeps the frozen 21-cell ratio",
+          "height:var(--pane-h,316px)" in rule(".pairfirm pre.source{") and
+          "--grid-h:calc(21 * var(--cell) + 2px)" in pair and
+          "--cell:max(11px, min(34px, calc((var(--col) - 5px) / 21)))" in pair and
+          "--pane-h:max(180px, calc(var(--grid-h) - var(--firm-chrome)))" in pair and
+          "max-width:var(--grid-h,317px)" in rule(".grid{"))
+    check("15.2a 7 shell panes carry no inline height",
+          "--src-height" not in c or "var(--src-height" in c)
+
+    pacing = rule(".pacing .chip.btn{")
+    check("15.2a 8 pacing row renders without a panel box",
+          ".pacing .chip.btn{" in c and "fields pacing" not in c)
+    check("15.2a 8 pacing chips are 28px on desktop", "min-height:28px" in pacing, pacing[:80])
+    check("15.2a 8 run buttons are 34px on desktop",
+          "min-height:34px" in rule(".consolecontrols .runrow .btn{"))
+    coarse = c[c.find("@media (pointer: coarse)"):]
+    check("15.4 49dp gate keeps holding for touch pointers",
+          ".pacing .chip.btn{min-height:49px}" in coarse or
+          ".pacing .chip.btn{min-height:49px}" in coarse.replace(" ", ""))
 
 
 def report():
