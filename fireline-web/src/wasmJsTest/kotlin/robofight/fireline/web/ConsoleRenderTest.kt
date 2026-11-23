@@ -245,8 +245,26 @@ class ConsoleRenderTest {
         assertEquals(1, Regex("<pre class=\"source\"").findAll(html).toList().size, "one source pane, none nested (§15.7)")
         assertEquals(1, Regex("fingerprint").findAll(html).toList().size, "one state fingerprint, on the status line (§15.4)")
         assertEquals(2, Regex("<div class=\"fields\">").findAll(html).toList().size, "two readout bands only (§15.2 items 3-4)")
-        assertTrue(html.indexOf("class=\"statusbar\"") > html.lastIndexOf("class=\"fields\""),
-            "status line sits directly after the TELEMETRY band (§15.2 item 5)")
+        // §15.2a shell deviation (W3 record 11): the STATE band is the firmware column's
+        // band, the status line is the world column's grid footer, and the state band is
+        // the last thing in the firmware column, under the assembler note.
+        val firmStart = html.indexOf("<div class=\"pairfirm\">")
+        val stateBandAt = html.indexOf("<div class=\"fields\"><h4>" + ConsoleRender.STATE_BAND_TITLE)
+        val telemetryAt = html.indexOf("<div class=\"fields\"><h4>" + ConsoleRender.TELEMETRY_BAND_TITLE)
+        val firmCol = html.substring(firmStart, telemetryAt)
+        val worldCol = html.substringAfter("<div class=\"pairworld\">").substringBefore("<div class=\"pairfirm\">")
+        assertTrue(worldCol.contains("class=\"statusbar\""), "status line inside the world column")
+        assertTrue(worldCol.indexOf("class=\"statusbar\"") > worldCol.indexOf("class=\"grid\""),
+            "status line sits after the grid inside the world column (15.2a 2)")
+        assertTrue(worldCol.indexOf("class=\"statusbar\"") < worldCol.indexOf("class=\"legend\""),
+            "status line sits before the symbol legend (15.2a 2)")
+        assertTrue(stateBandAt in firmStart until telemetryAt, "RF-8 STATE band inside the firmware column (15.2a 1)")
+        assertTrue(stateBandAt > html.indexOf("<div class=\"consolecontrols\""),
+            "state band sits under the control block (15.2a 1)")
+        assertTrue(stateBandAt > html.indexOf("id=\"fl-asmnote\""),
+            "state band sits under the assembler note (15.2a 1)")
+        assertFalse(html.contains("<div class=\"fields linkblock\">"),
+            "LINK block rendered although nothing is shared")
         assertFalse(html.contains("<a class=\"btn"), "no anchor run controls: the shell uses real buttons (§15.4 labels unchanged)")
         assertEquals(3, Regex("<button type=\"button\" class=\"btn ").findAll(html).toList().size, "RUN/STEP/RESET are three buttons")
         assertFalse(Regex("[\u2014\u2013]").containsMatchIn(html), "no em dash or en dash in console copy (verify_layout_v1 copy rule)")

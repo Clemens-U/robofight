@@ -8,9 +8,9 @@ import kotlin.test.assertTrue
 
 /**
  * Gate for the W3 render surface of the §12a D4 full loop: the pacing row
- * (`SPEED 1/5/20/50`, `PANIC`), the share row (`LINK` + `COPY` + `DOWNLOAD .ASM`),
- * the editor (textarea replacing the source pane, line-level assembler errors)
- * and the §8 library block.
+ * (`SPEED 1/5/20/50`, `PANIC`), the share block (`LINK` + `COPY` + `DOWNLOAD .ASM`
+ * as its own full-width block under TELEMETRY, §15.2a), the editor (textarea
+ * replacing the source pane, line-level assembler errors) and the §8 library block.
  *
  * What these tests protect is the §15.4 single-occurrence rule and §15.6 item 4
  * (exactly one scrollable box): every control the frozen layout puts in the one
@@ -46,6 +46,26 @@ class W3RenderTest {
         assertEquals(1, countOf(html, "<div class=\"consolecontrols\">"), "second control block")
         // §15.4: no second run bar anywhere on the page.
         assertEquals(1, countOf(html, "<div class=\"runrow\">"), "second run row")
+    }
+
+    /** §15.2a (W3 record 11 a): the RF-8 STATE band belongs to the firmware column,
+     *  directly under the assembler note, at that column's width; the shell keeps
+     *  exactly two readout bands. */
+    @Test
+    fun stateBandMovesIntoTheFirmwareColumnUnderTheControls() {
+        val html = render()
+        assertEquals(2, countOf(html, "<div class=\"fields\">"), "the shell still renders two readout bands")
+        val firmStart = html.indexOf("<div class=\"pairfirm\">")
+        val stateBandAt = html.indexOf("<div class=\"fields\"><h4>" + ConsoleRender.STATE_BAND_TITLE)
+        val telemetryAt = html.indexOf("<div class=\"fields\"><h4>" + ConsoleRender.TELEMETRY_BAND_TITLE)
+        val firmCol = html.substring(firmStart, telemetryAt)
+        val worldCol = html.substringAfter("<div class=\"pairworld\">").substringBefore("<div class=\"pairfirm\">")
+        assertTrue(firmStart in 0 until stateBandAt, "no STATE band inside the firmware column")
+        assertTrue(stateBandAt < telemetryAt, "TELEMETRY must follow the firmware column's band")
+        assertTrue(stateBandAt > html.indexOf("<div class=\"consolecontrols\""), "STATE band above the controls")
+        assertTrue(stateBandAt > html.indexOf("id=\"${ConsoleRender.ID_ASSEMBLER_NOTE}\""), "STATE band above the assembler note")
+        assertTrue(firmCol.contains(ConsoleRender.STATE_BAND_TITLE), "STATE band missing from the firmware column region")
+        assertTrue(!worldCol.contains(ConsoleRender.STATE_BAND_TITLE), "STATE band rendered in the world column")
     }
 
     @Test
@@ -91,6 +111,25 @@ class W3RenderTest {
         assertTrue(html.contains("DOWNLOAD .ASM"), html)
         // §8: the payload is a fragment, never a query string.
         assertFalse(html.contains("?run="), html)
+    }
+
+    /** §15.2a (W3 record 11 c): LINK is a full-width block of its own under
+     *  TELEMETRY, not a line of the control block, and it still occurs once. */
+    @Test
+    fun shareLinkRendersAsItsOwnFullWidthBlockUnderTelemetry() {
+        val run = model.openMission(2, model.missions.first { it.id == 2 }.referenceSource, "CORRIDOR-REF.ASM")
+        val state = ConsoleUiState(shareLink = Permalink.fragmentFor(run.mission, run.firmwareName, run.session.firmwareSource))
+        val html = ConsoleRender.renderConsoleHtml(model, run, state)
+        val console = html.substringAfter("<div class=\"console\"").substringBefore("<div class=\"fields\">")
+        assertFalse(console.contains("<span class=\"link\">"), "LINK still inside the monitor panel / control block")
+        val telemetry = html.indexOf("<h4>" + ConsoleRender.TELEMETRY_BAND_TITLE + "</h4>")
+        val link = html.indexOf("<div class=\"fields linkblock\">")
+        assertTrue(telemetry >= 0 && link > telemetry, "LINK block sits after the TELEMETRY band")
+        assertTrue(html.indexOf("<div class=\"cols\">") > link, "LINK block sits before the explanation tables")
+        assertEquals(1, countOf(html, "<div class=\"fields linkblock\">"), "duplicate LINK block")
+        assertEquals(1, countOf(html, "<span class=\"link\">"), "duplicate share row")
+        // Nothing shared: no block, no empty band.
+        assertFalse(render().contains("linkblock"), "LINK block rendered with no share link")
     }
 
     @Test

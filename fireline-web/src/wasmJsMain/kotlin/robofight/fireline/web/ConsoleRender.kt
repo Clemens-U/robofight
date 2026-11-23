@@ -129,10 +129,14 @@ object ConsoleRender {
 
     // ------------------------------------------------------------- entry point
     /**
-     * The whole console shell: monitor panel, both readout bands, the status
-     * line, the two explanation tables and the mission picker. With `run == null`
-     * only the picker renders (nothing is open yet), which is the same
-     * `FL:&gt; SELECT A CALL` prompt the frozen layout uses for the picker.
+     * The whole console shell: monitor panel (with the RF-8 STATE band inside the
+     * firmware column and the status line inside the world column), the TELEMETRY
+     * band, the full-width LINK block, the two explanation tables and the mission
+     * picker. With `run == null` only the picker renders (nothing is open yet),
+     * which is the same `FL:&gt; SELECT A CALL` prompt the frozen layout uses for
+     * the picker. Region order is §15.2 as amended by `docs/WEB-W3-RECORD.md` 11
+     * (state band under the firmware pane, status line under the grid, LINK as its
+     * own full-width block).
      */
     fun renderConsoleHtml(
         model: ConsoleModel,
@@ -143,9 +147,8 @@ object ConsoleRender {
         if (run != null) {
             out.append(promptLine(run))
             out.append(consolePanel(model, run, state))
-            out.append(fieldsBand(STATE_BAND_TITLE, stateBandCells(run)))
             out.append(fieldsBand(TELEMETRY_BAND_TITLE, telemetryBandCells(run)))
-            out.append(statusLine(run))
+            out.append(linkBlock(state))
             out.append(explanationColumns(run))
         }
         out.append(missionPicker(model))
@@ -216,16 +219,23 @@ object ConsoleRender {
 
     /** World column of §15.2 item 2 in the frozen order: the `WIND` line
      *  (authored mission values from `MissionRow`), the 20x20 world grid, the
-     *  symbol legend, then the EVENT LOG. Every cell glyph comes from
+     *  read-only status line directly under the grid (amendment, W3 record 11 b),
+     *  the symbol legend, then the EVENT LOG. Every cell glyph comes from
      *  `TextGrid.glyphAt` over the session's own world (`WorldGrid`). */
-    private fun worldColumn(run: ConsoleRun, row: MissionRow): String =
-        "<div class=\"pairworld\">" +
-            "<div class=\"wind\">WIND " + escapeHtml(row.windLabel) + "&nbsp;&nbsp;FORCE " + row.windForce + "</div>" +
-            WorldGrid.gridHtml(run.currentWorld) +
-            WorldGrid.legendHtml() +
-            "<h4 style=\"margin-top:.7rem\">EVENT LOG</h4>" +
-            "<ul class=\"events\" id=\"" + ID_EVENTS + "\" aria-label=\"EVENT LOG\">" + eventLog(run) + "</ul>" +
-            "</div>"
+    private fun worldColumn(run: ConsoleRun, row: MissionRow): String {
+        // Statement form for the same reason as `firmwareColumn`: this chain's tail
+        // carries `statusLine(run)`, `legendHtml()` and `eventLog(run)`.
+        val sb = StringBuilder("<div class=\"pairworld\">")
+        sb.append("<div class=\"wind\">WIND ").append(escapeHtml(row.windLabel))
+            .append("&nbsp;&nbsp;FORCE ").append(row.windForce).append("</div>")
+        sb.append(WorldGrid.gridHtml(run.currentWorld))
+        sb.append(statusLine(run))
+        sb.append(WorldGrid.legendHtml())
+        sb.append("<h4 style=\"margin-top:.7rem\">EVENT LOG</h4>")
+        sb.append("<ul class=\"events\" id=\"").append(ID_EVENTS).append("\" aria-label=\"EVENT LOG\">")
+        sb.append(eventLog(run)).append("</ul>")
+        return sb.append("</div>").toString()
+    }
 
     /**
      * `NNN <op> | <events>` lines exactly as the engine wrote them
@@ -244,8 +254,10 @@ object ConsoleRender {
     }
 
     /** Firmware column: heading, the single `pre.source` pane (one scrollable
-     *  box, §15.7), the `next:`/`exec:` preview, the one control block, and the
-     *  assembler note.
+     *  box, §15.7), the `next:`/`exec:` preview, the one control block, the
+     *  assembler note, and directly under them the RF-8 STATE band at the column's
+     *  own width (amendment, W3 record 11 a), so the state readout sits flush with
+     *  the firmware field it belongs to.
      *
      *  In edit mode the source pane is replaced by one `<textarea>` of the same
      *  frozen height, so the page still has exactly one scrollable box (§15.6
@@ -258,12 +270,19 @@ object ConsoleRender {
         } else {
             editorPane(state.editDraft.source)
         }
-        return "<div class=\"pairfirm\"><h4>FIRMWARE: " + escapeHtml(run.firmwareName) + "</h4>" +
-            pane +
-            "<div class=\"flags\" id=\"" + ID_NEXT + "\">" + escapeHtml(run.nextEventPreview()) + "</div>" +
-            controlBlock(state) +
-            assemblerNote(state) +
-            "</div>"
+        // Statement form with explicit appends, not one long `+` chain: the W3
+        // close-out proved Kotlin 2.3.20's wasm backend folds a `+` chain whose tail
+        // carries function calls (here: `fieldsBand(...)`) and silently drops those
+        // operands from the emitted output. The same class as the truncated speed chip.
+        val sb = StringBuilder("<div class=\"pairfirm\">")
+        sb.append("<h4>FIRMWARE: ").append(escapeHtml(run.firmwareName)).append("</h4>")
+        sb.append(pane)
+        sb.append("<div class=\"flags\" id=\"").append(ID_NEXT).append("\">")
+        sb.append(escapeHtml(run.nextEventPreview())).append("</div>")
+        sb.append(controlBlock(state))
+        sb.append(assemblerNote(state))
+        sb.append(fieldsBand(STATE_BAND_TITLE, stateBandCells(run)))
+        return sb.append("</div>").toString()
     }
 
     /** The editor surface (§12a D4): the draft source in one textarea, the
@@ -280,11 +299,12 @@ object ConsoleRender {
             " placeholder=\"NAME.ASM\"></div>"
 
     /** The control block, the one place §15.4 allows for `RUN` / `STEP` /
-     *  `RESET`, `SPEED 1/5/20/50`, `PANIC` and the share `LINK` with `COPY` and
-     *  `DOWNLOAD .ASM`. Structure and wording are `run_controls()` of
-     *  `docs/web/gen_web_mockups.py`: a `runrow` of the three commands, then an
-     *  `inforow` carrying the tick speed, PANIC and the share link. The editor's
-     *  APPLY / CANCEL sit in the same block so no second control row appears. */
+     *  `RESET`, `SPEED 1/5/20/50` and `PANIC`. Structure and wording are
+     *  `run_controls()` of `docs/web/gen_web_mockups.py`: a `runrow` of the three
+     *  commands, then an `inforow` carrying the tick speed and PANIC. The editor's
+     *  APPLY / CANCEL sit in the same block so no second control row appears. The
+     *  share `LINK` left this block (amendment, W3 record 11 c); it renders once,
+     *  in the full-width `linkblock` under TELEMETRY. */
     private fun controlBlock(state: ConsoleUiState): String {
         val sb = StringBuilder("<div class=\"consolecontrols\"><div class=\"runrow\">")
         sb.append("<button type=\"button\" class=\"btn run\" id=\"").append(ID_RUN).append("\">RUN</button>")
@@ -302,7 +322,6 @@ object ConsoleRender {
             .append("&nbsp;&nbsp;<b>").append(PANIC_LABEL).append("</b> uncapped, no speed limit ")
             .append(button(panicButtonId(state.panic), panicLabel(state.panic), active = state.panic))
             .append("</span>")
-        sb.append(shareRow(state))
         sb.append("</div>")
         sb.append(statusNote(state))
         return sb.append("</div>").toString()
@@ -329,6 +348,16 @@ object ConsoleRender {
             "<span class=\"link\"><b>LINK</b> <code>" + escapeHtml(state.shareLink) + "</code>" +
                 button(ID_COPY, "COPY") + button(ID_DOWNLOAD, "DOWNLOAD .ASM") + "</span>"
         }
+
+    /** The share row as its own full-width block below the TELEMETRY band
+     *  (amendment, W3 record 11 c): the permalink is a 500+ character payload, and
+     *  as a control-block line it was squeezed into the firmware column. Empty
+     *  while no run state is shared, so no empty band appears. */
+    private fun linkBlock(state: ConsoleUiState): String {
+        val row = shareRow(state)
+        if (row.isEmpty()) return ""
+        return "<div class=\"fields linkblock\">" + row + "</div>"
+    }
 
     /** Assembler note: the clean `0 errors` fact of a run that reached here, or
      *  the editor's line-level refusal (§12a D4). */

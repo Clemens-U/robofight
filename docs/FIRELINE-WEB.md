@@ -740,6 +740,30 @@ the other is not a change, it is drift.
 Above the monitor sits the hero (eyebrow, `PROGRAM THE RESPONSE`, lede, current
 call prompt, three commands that are not run commands).
 
+### 15.2a Dated shell deviation (2026-11-23, owner-directed, `docs/WEB-W3-RECORD.md` 11)
+
+The live browser console (`fireline-web/console.html`, wasm shell) moves three regions.
+The golden master, `console_pair()` / `statusbar()` / `run_controls()` of
+`docs/web/gen_web_mockups.py`, and the mockups below were NOT moved by this change, so
+§15.6 item 1 is met by the mockups and NOT by the console shell until the master and the
+generator are amended in step (a documented open item, not silent drift):
+
+1. **RF-8 STATE band**: no longer a full-width band; it renders inside the firmware column,
+   directly under the source pane, controls and assembler note, at that column's width
+   (`minmax(320px,1.1fr)`), flush left and right with the firmware field.
+2. **Status line**: no longer directly below TELEMETRY; it renders inside the world column,
+   directly below the 20x20 grid (before the symbol legend), at that column's width
+   (`minmax(0,1fr)`). The 15.3 lock `TELEMETRY to status line: 13px gap` does not apply to
+   the shell; the shell lock is `grid bottom to status line: same column, 0.6rem gap`.
+3. **Share `LINK`** (with `COPY` and `DOWNLOAD .ASM`): no longer a line of the control block;
+   it renders as its own full-width block (`.fields.linkblock`) directly below the TELEMETRY
+   band, and only while a run state is shared. 15.4's single-occurrence rule keeps holding
+   (one `LINK`, one `COPY`, one `DOWNLOAD .ASM` on the page), only its "only place" column
+   changes for this row.
+
+The 15.7 rejection of "a second run/status bar under the monitor" is untouched: the status
+line still occurs exactly once and stays read-only.
+
 ### 15.3 Binding numeric rules (desktop, measured 1312px viewport)
 
 | rule | value |
@@ -761,7 +785,7 @@ Each of these appears exactly once on the page:
 
 | item | only place |
 |---|---|
-| `RUN` / `STEP` / `RESET`, `SPEED 1/5/20/50`, `PANIC`, share `LINK` with `COPY` and `DOWNLOAD .ASM` | the control block under the firmware pane |
+| `RUN` / `STEP` / `RESET`, `SPEED 1/5/20/50`, `PANIC`, share `LINK` with `COPY` and `DOWNLOAD .ASM` | the control block under the firmware pane (console shell since 15.2a: `RUN`/`STEP`/`RESET`/`SPEED`/`PANIC` only; `LINK`, `COPY` and `DOWNLOAD .ASM` moved to the full-width block under TELEMETRY, still exactly once) |
 | symbol legend (wall, rover + facing, fire display bands 1..24 / 25..49 / 50..74 / 75..100, packet, refill, exit, civilian, fuel, protected asset, layer order) | under the grid, in the world column |
 | state fingerprint | the status line |
 | `HP` / `WATER` / `HEAT` / `SHIELD` | the status line (and as registers only, never as a `VITALS` row in TELEMETRY) |

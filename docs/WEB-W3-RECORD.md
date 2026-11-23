@@ -575,3 +575,67 @@ W3 is closed with this step: the browser console is a usable FIRELINE console th
 shared `MissionSession`, keeps its own firmware library, imports and exports the same `.ASM` bytes
 the Android app keeps, and opens a run from a share link. W4 (landing page and hosting) is
 deliberately not touched here.
+
+## 11. Dated shell amendment: three regions move (2026-11-23)
+
+The owner viewed the console in Edge on a real window and directed three layout moves. They are
+the shell deviation written up as `docs/FIRELINE-WEB.md` 15.2a, which is the binding exception to
+15.2 and 15.3 for the wasm console only. No numeric value was invented for the shell: each moved
+region inherits the width of the column it now lives in.
+
+Measured in the harness (dev server, fresh wasm, viewport 770x471, mission 02 selected). At this
+width the 900px media rule has already collapsed the pair grid to one column, so all three regions
+share the content column; the alignment result is the same at 900px and above, where the pair grid
+is live and each region keeps its own column's width:
+
+| region | box | x / width | follows |
+|---|---|---|---|
+| world column (`pairworld`) | 51 / 653px | after the mission rail |
+| 20x20 grid | 51 / 246px, height 233px | inside the world column |
+| status line (`statusbar`) | 51 / 653px, y 824 | grid bottom 814, same column, 0.6rem gap, legend below it |
+| firmware column (`pairfirm`) | 51 / 653px | source pane, controls, assembler note |
+| RF-8 STATE band | 51 / 653px, y 1549 | assembler note bottom 1549, flush left and right with the firmware field |
+| TELEMETRY band | 37 / 681px | full shell band width |
+| share LINK block | 37 / 681px, y 1963 | TELEMETRY bottom 1950, 13px band gap as in 15.3 |
+
+`git diff --name-only` over `fireline-engine`, `rf8-core`, `fireline-app`, `app`, `engine` is empty
+for this step; `FIRELINE_ENGINE_VERSION` stays 2. Five tracked files change: `docs/FIRELINE-WEB.md`
+(15.2a plus the 15.4 "only place" row), `fireline-web/console.html` (two CSS rules), `ConsoleRender.kt`,
+`ConsoleRenderTest.kt`, `W3RenderTest.kt`.
+
+### 11.1 The dev harness server, two requirements
+
+`python -m http.server` cannot serve this page. It reports `.mjs` as `text/plain`, and Edge/Chrome
+refuse a module import with a non-JavaScript MIME type: every request logs 200 while `#fl-shell`
+stays empty, which reads as "the page renders nothing to do". A second trap is caching: with only
+`Last-Modified`, a rebuilt wasm can be replayed from the browser's disk cache, so the old layout
+looks like a failed edit (this session observed a 2026-11-22 module on a 2026-11-23 build). The
+harness server therefore maps `.mjs` to `text/javascript` and `.wasm` to `application/wasm` and
+answers 200s with `Cache-Control: no-store`. Verify with
+`curl -sI <url>/build/compileSync/wasmJs/main/developmentLibrary/kotlin/opcode-arena-fireline-web.mjs`.
+
+### 11.2 The wasm builder defect this step hit again
+
+The first rebuild of the amended shell dropped the function-call operands at the tail of the long
+`+` chains that build `pairfirm` and `pairworld`: `stateBandMovesIntoTheFirmwareColumnUnderTheControls`
+failed with the STATE band absent from the firmware column while `linkBlock()`, added in the same
+step, rendered correctly. `build/classes/kotlin/wasmJs/main/default/ir/strings.knt` contained the new
+literals and the layout strings, so the front end was fine and only the emitted output was truncated.
+This is the class already recorded in 10.5 (the truncated `class="chip btn on</span></div>` tag), and a
+full `--rerun-tasks --no-build-cache` build after `rm -rf fireline-web/build` did not clear it. The fix
+is structural, not a rebuild: `firmwareColumn()` and `worldColumn()` now append to a `StringBuilder`
+statement by statement instead of folding one `+` chain. Shell builders must not end a `+` chain with a
+function call.
+
+`firmwareColumn()` and `worldColumn()` are the two shell builders written this way; the tests anchor on
+the band positions themselves (`indexOf("<div class=\"fields\"><h4>" + band title)`) rather than on a
+guessed column slice, because a slice boundary drawn at the first `</div><div class="fields">` sits
+inside the control block and produced a false negative.
+
+### 11.3 Matrix for this step
+
+Full matrix on this tree with `--rerun-tasks --no-build-cache` (`BUILD SUCCESSFUL`, `RC=0`, counts
+read from the per-target result XMLs): 536 tests, 0 failures, 0 errors, i.e. the 534 of section 10.7
+plus the two new layout assertions in `W3RenderTest` (that suite is 10 → 12 tests). `:fireline-web`
+wasmJsTest is 55 (ConsoleModel 8, ConsoleRender 8, WorldGrid 8, W3Render 12, W3LibraryDraft 8,
+W3Permalink 8, W3Interop 3) on both the wasmJs and the node target.
