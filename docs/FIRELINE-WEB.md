@@ -715,8 +715,8 @@ the other is not a change, it is drift.
 
 1. `FL:> LIVE MONITOR // MISSION nn / NAME // TICK n` prompt.
 2. **Live monitor** (`.console` > `.consolebody`): titlebar (`MISSION nn//NAME`,
-   `T+0000nnnn`), mission header (name, firmware name and config, seed), the
-   objectives line, then the **paired run surface** (`.pair`):
+   `T+0000nnnn`) (shell since 15.2a item 11: no titlebar), mission header (name, firmware name
+   and config, seed), the objectives line, then the **paired run surface** (`.pair`):
    - **left, world column**: `WIND`, the 20x20 grid, the symbol legend, `EVENT LOG`.
    - **right, firmware column**: `FIRMWARE: NAME.ASM` source pane, the single
      control block (see 15.2 item 2 and 15.4), assembler note.
@@ -803,17 +803,25 @@ master and the generator are amended in step (a documented open item, not silent
    under the run row inside the firmware column, with no panel border and no panel background,
    and with smaller buttons: speed/PANIC chips 28px tall, run buttons 34px minimum on desktop.
    The 49dp gate keeps holding for touch pointers through the `pointer: coarse` block.
-9. **One-line pacing row**: the row renders as a single nowrap flex line
-   `SPEED [1] [5] [20] [50] ticks per second` + a flexible space + `PANIC` + its hint + the
-   toggle (owner rule 2026-11-23, replacing 15.4's slash-list rendering for the shell). The four
-   choice cells are equal-width button cells (`flex:1 1 42px`, clamped 30..64px); the selected
-   cell keeps the master's `SELECTED` wording in the markup and in `aria-pressed="true"` while
-   the yellow fill paints the selection; one filler cell absorbs the slack so the row never
-   overflows. One line was measured at every width from 586px (Chrome's minimum window) to
-   1370px; below 700px the cells clamp at 26px, below 600px the PANIC hint text is dropped.
+9. **Pacing rows, each on one line** (owner rules 2026-11-23, replacing 15.4's slash-list
+   rendering for the shell): `DIV.pacing` holds two nowrap flex rows. Row 1
+   `SPEED [1] [5] [20] [50] ticks per second` followed by the slack filler
+   (`#fl-pacing-fill`);   row 2 (class `inforow pacingpanic`, separated by
+   `--gap-related`) `PANIC` + `uncapped, no speed limit` + the toggle. Neither row wraps at any
+   width the layout is measurable at (586px, Chrome's minimum window on this host, up to 1370px):
+   labels, unit and hint are rigid (`white-space:nowrap`, `flex:0 0 auto`), the four choice cells
+   are equal-width button cells (`flex:1 1 42px`, clamped 30..64px; 26px minimum below 700px), and
+   the selected cell keeps the master's `SELECTED` wording in the markup and in
+   `aria-pressed="true"` while the yellow fill is what paints the selection (`clip-path` hides the
+   wording). Below 600px the PANIC hint text is dropped so a row's rigid cells cannot overflow.
 10. **Vertical rhythm**: the shell's block gaps come from two tokens, `--gap-major: 12.8px`
     (between blocks) and `--gap-related: 8px` (inside a block or against a neighbour that
     belongs to it), so the measured gap between any two shell blocks is 13px or 8px.
+11. **No titlebar**: the console renders no `.titlebar` (owner request 2026-11-23). 15.2 item 2's
+    `MISSION nn//NAME` / `T+0000nnnn` header row is gone from the shell because both facts already
+    render below it (`mhead` mission label, objline `tick n/limit` chip, status line `TICK n`); the
+    master keeps that wording in `console_pair` and the mockups are unchanged. Consequently
+    `--row-offset` was re-measured from 84px to 120px (see item 7a and `docs/WEB-W3-RECORD.md` 15).
 
 The 15.7 rejection of "a second run/status bar under the monitor" is untouched: the status
 line still occurs exactly once and stays read-only.

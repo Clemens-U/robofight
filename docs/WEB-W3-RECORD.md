@@ -218,7 +218,7 @@ Three failures appeared first; all three were test-authoring errors except one r
 gap. The diagnosis method was to dump the actual rendered HTML from inside the wasm test:
 asserting `ROVER at x` against raw markup fails because label and value are separate `<td>`s
 (assert against tag-stripped text instead); the titlebar was genuinely missing the frozen
-`://` colon (fixed in the render); and an inverted `assertFalse(html.contains("class=\"btn"))`
+`://` colon (fixed in the render); and an inverted `assertFalse(html.contains("class="btn"))`
 matched the correct buttons (assert instead: no `<a class="btn"` and exactly three
 `<button type="button" class="btn …">`). One copy divergence was fixed too: an empty event log
 now renders `no event on this tick`, matching the mockup's fallback verbatim.
@@ -629,7 +629,7 @@ statement by statement instead of folding one `+` chain. Shell builders must not
 function call.
 
 `firmwareColumn()` and `worldColumn()` are the two shell builders written this way; the tests anchor on
-the band positions themselves (`indexOf("<div class=\"fields\"><h4>" + band title)`) rather than on a
+the band positions themselves (`indexOf("<div class="fields"><h4>" + band title)`) rather than on a
 guessed column slice, because a slice boundary drawn at the first `</div><div class="fields">` sits
 inside the control block and produced a false negative.
 
@@ -784,7 +784,7 @@ properties of the new rule.
 
 ## 14. W3 shell layout amendment 14 (2026-11-23): the pacing row is one line, and every shell gap is one of two tokens
 
-Owner request, verbatim (with a screenshot of the old row): "Change the \"SPEED\" row. Always in
+Owner request, verbatim (with a screenshot of the old row): "Change the "SPEED" row. Always in
 one line, like: SPEED [  1 ]  [  5 ] [ 20 ] [ 50 ] ticks per second ### And again, take care of
 the visible gaps between rows, blocks, section etc." The screenshot showed the failure mode: the
 `5 SELECTED` label was much wider than the other chips, `50` wrapped onto a second line, and the
@@ -890,4 +890,87 @@ W3Interop 3), app 3+9, fireline-app 40, engine 15. `docs/web/verify_layout_v1.py
   above the band). Recorded in 13 and still open.
 - The mockups and `docs/web/gen_web_mockups.py` keep the §15.4 slash-list pacing wording; only the
   wasm shell changed. §15.6 item 1 is met by the mockups, not the shell (standing open item).
+
+
+
+## 15. W3 shell layout amendment 15 (2026-11-23): PANIC gets its own line, the titlebar is gone
+
+Owner request, verbatim (two screenshots, one of the pacing row, one of the console header):
+"Almost perfect. (1) The "PANIC" row needs a line break to start at a new line. (2) The top
+"MISSION 02://CORRIDOR" header is not required. Remove it completely."
+
+### 15.1 What changed
+
+- `pacingBlock()` now emits two rows inside `DIV.pacing`: `DIV.inforow` (SPEED label, the four
+  choice cells, the unit label, the slack filler `#fl-pacing-fill`) and
+  `DIV.inforow.pacingpanic` (PANIC label, `uncapped, no speed limit`, the toggle, an inert gap).
+  Each row is nowrap and each was proven to be one line (record 14's rule stands per row); the gap
+  between the two rows is `--gap-related` (8px measured).
+- `consolePanel()` no longer renders the titlebar (`MISSION nn//NAME` + `T+0000nnnn`) and
+  `console.html` no longer carries `.titlebar` rules. `mhead` (mission label + briefing), the
+  objline tick chip and the status line `TICK n` already carry those facts. `decPad` stays in use
+  (source pane line numbers, library option labels).
+
+### 15.2 Alignment had to be re-measured again
+
+Adding a 28px pacing line plus an 8px gap pushed the STATE band 36px down, and removing the 38px
+titlebar does not change any gap inside the pair. A probe sweep over `--row-offset` in the live page
+(`document.querySelector('.pair').style.setProperty('--row-offset', N)` then reading
+`band.top - statusline.top`) came out exactly linear: 100:20, 104:16, 108:12, 112:8, 116:4,
+**120:0**, 124:-4, 128:-8. So `--row-offset:120px` (was 84px) and `--pane-h` follows it. Re-measured
+in the shell at viewport 1370: `align = 0px`, rows 28px + 28px, both 613px wide (the firmware
+column is 613px).
+
+### 15.3 Measurements after the amendment
+
+| window | viewport | SPEED row | PANIC row | chips | row lines | overflow |
+|---|---|---|---|---|---|---|
+| 1400 | 1370 | 28px, 613px | 28px, 613px | 64,64,64,64 (+64) | 1 + 1 | none (1355/1355) |
+| 900 | 870 | 28px, 753px | 28px, 753px | 64,64,64,64 (+64) | 1 + 1 | none (855/855) |
+| 700 | 670 | 28px, 553px | 28px, 553px | 64,64,64,64 (+64) | 1 + 1 | none (655/655) |
+| 620 | 590 | 28px, 473px | 28px, 473px | 64,64,64,64 (+64) | 1 + 1 | none |
+| 586 | 556 | 28px, 439px | 28px, 439px | 61,61,61,61 (+64) | 1 + 1 | none (541/541) |
+
+Cell extents inside the 439px column at viewport 556 (the tightest case): SPEED line ends at x439
+(label 0-36, cells 43-104, 113-174, 184-244, 254-315, unit 324-439, filler 0 wide); PANIC line ends
+at x107 (label 0-36, toggle 43-107, hint hidden below 600px). No row spills past its column at any
+measured width. Gap audit at every width: pane->run 13, run->SPEED 8, SPEED->PANIC 8,
+PANIC->band 13, band->note 13, grid->status 13, status->legend 13, obj->pair 8. The one gap not
+carried by the tokens is `mhead->objline` = 10px, inherited unchanged from the master's
+`.mhead{padding:0 0 .5rem;margin-bottom:.6rem}`; left as the master's own measure.
+
+### 15.4 Stale-artifact trap (this is why the first measurement lied)
+
+After the Kotlin edit and a `wasmJsTest` run, the browser still rendered the OLD shell (one pacing
+row, a titlebar, `.titlebar` count 1). The build was fine (`strings.knt` IR carried `pacingpanic`,
+`compileSync` wasm re-written at 17:27) and the dev server sends `Cache-Control: no-store`, but the
+page kept importing a module that no longer matched the file. Recovery: start the static server on a
+NEW port with the same `docs`-independent root (`fireline-web/`) and navigate there; the fresh page
+rendered `titlebar els 0` and the two rows. Rule: when the DOM contradicts a green build, prove the
+artifact (file timestamp + IR literal) and then re-fetch from a fresh origin before touching the
+markup again.
+
+### 15.5 Gate status
+
+`ConsoleRenderTest` now asserts the removal (`MISSION 01://NOZZLE CHECK` absent, no
+`<div class="titlebar">`, no `T+0000`, `MISSION 01 / NOZZLE CHECK` present in `mhead`).
+`W3RenderTest` asserts two rows: exactly one `<div class="inforow">` (SPEED) plus one
+`<div class="inforow pacingpanic">` (PANIC), the SPEED cell order by ascending index, no PANIC
+token on the SPEED line and no speed cell on the PANIC line; the toggle test reads the panic row by
+its class. `docs/web/verify_layout_v1.py` gained the two checks (own panic row, no `.titlebar` rule)
+and asserts `--row-offset:120px`: 37 checks, 0 failed. Full matrix (`--rerun-tasks --no-build-cache`,
+per-target XMLs): 537 tests, 0 failures, 0 errors, 0 skipped, identical in shape to record 14's
+matrix (app 12 / engine 15 / fireline-app 40 / fireline-engine 384 / fireline-web 56 / rf8-core 30),
+log `$TMPDIR/w3_rec15_matrix.log`, `--rerun-tasks --no-build-cache`, `RC=0`.
+
+### 15.6 What is still open
+
+- `--row-offset:120px` is measured at viewport 1370 only; the equality holds as long as the 180px
+  pane floor is not active. Below 900px the pair collapses to one column and the top-edge rule does
+  not apply (the two rows are still one line each).
+- EDIT mode: unmeasured after the titlebar removal, still open from record 13.
+- The TELEMETRY band's second row (12 cells across a 10-cell track) leaves a wide empty middle
+  between `WIND_DIR` and `WIND_FORCE`. It comes from the golden master's band geometry, not from
+  this amendment; flagged for the owner, not changed.
+
 

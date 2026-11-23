@@ -53,9 +53,8 @@ h4{margin:0 0 .4rem;color:var(--dim);font-size:11px;letter-spacing:.14em;font-we
 .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem}
 .row.wide-left{grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr)}
 .console{border:1px solid var(--line);background:var(--screen);margin:0 0 1rem}
-.titlebar{display:flex;justify-content:space-between;gap:1rem;border-bottom:1px solid var(--line);
-  padding:.45rem .8rem;color:var(--dim);font-size:12px;letter-spacing:.06em}
-.titlebar b{color:var(--bright);font-weight:normal}
+/* W3 record 15: the shell has no titlebar (the mission name and tick render in the mission
+   header and the objline), so .titlebar has no rule here any more. */
 .consolebody{padding:.8rem}
 .mhead{display:flex;justify-content:space-between;flex-wrap:wrap;gap:.4rem 1rem;
   border-bottom:1px solid var(--line);padding:0 0 .5rem;margin-bottom:.6rem}
@@ -160,14 +159,14 @@ footer{border-top:1px solid var(--line);padding-top:.7rem;margin-top:1rem;font-s
      25px the firmware column's heading adds at the top of the other column, less the 8px that
      collapses between the pane and the run row), and under the pane the firmware column carries
      --row-offset plus that same 25px before the STATE band (4px collapsed gap + 34px run row +
-     8px gap + one 28px pacing line + 8px gap + its 12.8px margin, collapsed against the band's
-     own margin). The constant is measured, not derived from declarations, because the margins
-     collapse. The two rows start at the same y at any width where the 180px pane floor is not
-     active (measured at viewport 1370: band top == status line top). */
+     8px gap + the 28px SPEED line + 8px gap + the 28px PANIC line + its 12.8px margin, collapsed
+     against the band's own margin). The constant is measured, not derived from declarations,
+     because the margins collapse. The two rows start at the same y at any width where the 180px
+     pane floor is not active (measured at viewport 1370: band top == status line top). */
   --col:max(320px, calc((100vw - 74.56px - 19.2px) / 2));
   --cell:max(11px, min(34px, calc((var(--col) - 5px) / 21)));
   --grid-h:calc(21 * var(--cell) + 2px);
-  --row-offset:84px;
+  --row-offset:120px;
   --pane-h:max(180px, calc(var(--grid-h) - var(--row-offset)))}
 .pairworld{min-width:0}
 .pairworld h4,.pairfirm h4{margin-bottom:.5rem}
@@ -209,10 +208,10 @@ footer{border-top:1px solid var(--line);padding-top:.7rem;margin-top:1rem;font-s
    than before, 28px tall on desktop instead of the house 49px. Coarse pointers get the
    49dp target back in the touch gate below. */
 .pacing{margin-top:var(--gap-related);margin-bottom:var(--gap-related)}
-/* One line, never a wrap (W3 record 14): SPEED, the four choice cells, the unit label, a
-   flexible space, PANIC, its hint and the toggle. Labels and unit text are rigid (nowrap,
-   flex-shrink 0); the four cells are equal and stretchable between 30px and 1fr so the whole
-   row fits the firmware column at every width the two-column layout is used at. */
+/* Two lines, each one nowrap row (W3 records 14 and 15): line 1 SPEED + the four choice cells
+   + the unit label + slack filler; line 2 PANIC + its hint + the toggle. Labels and unit text are
+   rigid (nowrap, flex-shrink 0); the four cells are equal and stretchable between 30px and 1fr so
+   each row fits the firmware column at every width the layout is used at. */
 .pacing .inforow{display:flex;flex-wrap:nowrap;align-items:center;gap:.45rem;font-size:12px;
   color:var(--dim);min-width:0}
 .pacing .speedlabel,.pacing .paniclabel,.pacing .speedunit,.pacing .panichint{white-space:nowrap;
@@ -224,8 +223,9 @@ footer{border-top:1px solid var(--line);padding-top:.7rem;margin-top:1rem;font-s
    the yellow fill is the selection, and equal cell widths keep the row on one line */
 .pacing .chip.btn small{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);
   white-space:nowrap}
+.pacing .inforow.pacingpanic{margin-top:var(--gap-related)}
 .pacing .gap{flex:1 1 0;min-width:0}
-.pacing .fill{display:none}
+.pacing .fill{flex:1 1 auto;min-width:0}
 .pacing .inforow b{color:var(--yellow);font-weight:normal}
 .pacing .chip.btn.on{background:var(--yellow);color:#1a1005;border-color:var(--yellow)}
 /* W3 full loop: editor, pacing chips, share status and the §8 library. The
@@ -268,7 +268,7 @@ textarea.source.editor{width:100%;box-sizing:border-box;height:var(--pane-h,316p
 /* very narrow columns: the row stays on one line, the cells shrink instead of wrapping
    (owner rule, W3 record 14: SPEED [1] [5] [20] [50] ticks per second is always one line).
    Below 600px the PANIC hint text is dropped (its wording stays in the markup and in the
-   mockups) so the rigid cells of the row never overflow the column. */
+   mockups) so the rigid cells of a row never overflow the column. */
 @media(max-width:700px){.pacing .chip.btn{min-width:26px;padding:3px 2px}
   .pacing .gap{display:none}}
 @media(max-width:600px){.pacing .panichint{display:none}}

@@ -209,8 +209,12 @@ class ConsoleRenderTest {
         assertTrue(html.contains("fingerprint \$7cbfe499"), "status line fingerprint (snapshots 01-never-final 7cbfe49993c17318)")
         assertTrue(html.contains("<span class=\"bad\">EXTINGUISH_ALL failed</span>"), "objective chip failed on FAILURE (objectives_html shape)")
         assertTrue(text.contains("tick 60/60"), "objline tick chip at the time limit (snapshots 01-never-* time_limit 60)")
-        assertTrue(html.contains("MISSION 01://NOZZLE CHECK"),
-            "titlebar wording (console_pair `MISSION %02d://%s`, gen_web_mockups.py line 675)")
+        assertEquals(-1, html.indexOf("MISSION 01://NOZZLE CHECK"),
+            "the shell has no titlebar any more (W3 record 15); the master keeps that wording in " +
+                "console_pair (gen_web_mockups.py line 675) and the mockups")
+        assertEquals(-1, html.indexOf("<div class=\"titlebar\""), "no titlebar element in the shell")
+        assertEquals(-1, html.indexOf("T+0000"), "no titlebar tick counter in the shell")
+        assertTrue(html.contains("MISSION 01 / NOZZLE CHECK"), "mission header wording (mhead)")
         assertTrue(html.contains("never shoots.ASM"), "firmware name of the authored failing variant (openFailingFirmware)")
     }
 

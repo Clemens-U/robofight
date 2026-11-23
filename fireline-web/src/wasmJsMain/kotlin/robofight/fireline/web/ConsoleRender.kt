@@ -36,7 +36,7 @@ import robofight.isa.decPad
  * `TextGrid` / `FirelineWorld` reads, which is also why `ConsoleRender` never
  * derives a glyph itself. The `kv` readout that stood in place of the grid in
  * the first shell step is gone: `TICK` already appears on the prompt line, the
- * titlebar, the objectives line and the RF-8 STATE band, and the rover position
+ * objectives line and the RF-8 STATE band, and the rover position
  * now appears in the grid itself plus the `X`/`Y` cells. The `SPEED`/`PANIC`
  * row, the share `LINK` with `COPY` and `DOWNLOAD .ASM`, the editor and the
  * `localStorage` firmware library are no longer omissions either: they are the
@@ -176,9 +176,9 @@ object ConsoleRender {
             ?: error("console run for mission ${run.missionId} has no picker row")
         val sb = StringBuilder()
         sb.append("<div class=\"console\" id=\"").append(ID_CONSOLE).append("\">")
-        sb.append("<div class=\"titlebar\"><span>")
-            .append(escapeHtml("MISSION " + decPad(row.id, 2) + "://" + row.title)).append("</span>")
-            .append("<span>T+0000").append(decPad(run.tick, 4)).append("</span></div>")
+        // The titlebar of 15.2 item 2 is gone from the shell (owner request 2026-11-23,
+        // W3 record 15): the mission name and the tick already render in the mission header
+        // and in the objline/status line, so the duplicate orange header row was dropped.
         sb.append("<div class=\"consolebody\">")
         sb.append(missionHeader(row, run.firmwareName))
         sb.append(objectivesLine(run, row))
@@ -239,28 +239,32 @@ object ConsoleRender {
      * The pacing row: the `SPEED 1 / 5 / 20 / 50 ticks per second` choices and the
      * `PANIC uncapped, no speed limit` toggle, the same controls and wording §15.4
      * defines. It has no readout band around it (W3 record 11 g) and it renders as
-     * ONE grid line in the fixed order the owner asked for (W3 record 14):
-     * `SPEED [1] [5] [20] [50] ticks per second ... PANIC uncapped ... [PANIC]`, the
-     * grid cells alternating with two inert gap cells (`.gap`, one of them the 1fr
-     * filler `ID_PACING_FILL`) so the line's width is fixed by CSS and a choice can
-     * never be pushed to a second line. `ID_SPEED_UNIT` marks the unit label;
-     * neither the gap cells nor the unit label is a control.
+     * TWO lines, each of them one nowrap row (W3 records 14 and 15): line 1
+     * `SPEED [1] [5] [20] [50] ticks per second`, line 2 `PANIC uncapped, no speed limit
+     * [PANIC]`. Neither line ever wraps: cells alternate with two inert gap cells (`.gap`,
+     * one of them the slack filler `ID_PACING_FILL`) so each line's width is fixed by CSS and
+     * a choice can never be pushed to a second line of its own. `ID_SPEED_UNIT` marks the unit
+     * label; neither the gap cells nor the unit label is a control.
      */
     private fun pacingBlock(state: ConsoleUiState): String {
-        val sb = StringBuilder("<div class=\"pacing\"><div class=\"inforow\">")
+        val sb = StringBuilder("<div class=\"pacing\">")
+        sb.append("<div class=\"inforow\">")
         sb.append("<b class=\"speedlabel\">SPEED</b>")
         for (speed in SPEED_CHOICES) {
             sb.append(speedChip(speed, state))
         }
         sb.append("<span class=\"speedunit\" id=\"").append(ID_SPEED_UNIT)
             .append("\">ticks per second</span>")
-        sb.append("<span class=\"gap\"></span>")
+        sb.append("<span class=\"gap fill\" id=\"").append(ID_PACING_FILL).append("\"></span>")
+        sb.append("</div>")
+        sb.append("<div class=\"inforow pacingpanic\">")
         sb.append("<b class=\"paniclabel\">").append(PANIC_LABEL).append("</b>")
         sb.append("<span class=\"panichint\">uncapped, no speed limit</span>")
         sb.append(button(panicButtonId(state.panic), panicLabel(state.panic), active = state.panic))
-        sb.append("<span class=\"gap fill\" id=\"").append(ID_PACING_FILL).append("\"></span>")
+        sb.append("<span class=\"gap\"></span>")
         sb.append("</div>")
-        return sb.append("</div>").toString()
+        sb.append("</div>")
+        return sb.toString()
     }
 
     /** Firmware column: heading, the single `pre.source` pane (one scrollable

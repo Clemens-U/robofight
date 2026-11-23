@@ -146,7 +146,7 @@ def shell_css_gate_for_15_2a():
           "height:var(--pane-h,316px)" in rule(".pairfirm pre.source{") and
           "--grid-h:calc(21 * var(--cell) + 2px)" in pair and
           "--cell:max(11px, min(34px, calc((var(--col) - 5px) / 21)))" in pair and
-          "--row-offset:84px" in pair and
+          "--row-offset:120px" in pair and
           "--pane-h:max(180px, calc(var(--grid-h) - var(--row-offset)))" in pair and
           "max-width:var(--grid-h,317px)" in rule(".grid{"))
     check("15.2a 7 shell panes carry no inline height",
@@ -173,6 +173,10 @@ def shell_css_gate_for_15_2a():
           "flex:1 1 42px" in pacing and "max-width:64px" in pacing, pacing[:90])
     check("15.2a 9 SELECTED wording stays in the markup but is not painted",
           ".pacing .chip.btn small{" in c and "clip-path:inset(50%)" in rule(".pacing .chip.btn small{"))
+    check("15.2a 11 PANIC is its own row under the SPEED row",
+          ".pacing .inforow.pacingpanic{margin-top:var(--gap-related)}" in c)
+    check("15.2a 11 the shell renders no titlebar",
+          ".titlebar{" not in c, "titlebar rule present" if ".titlebar{" in c else "")
     check("15.2a 10 one declared vertical rhythm for the shell",
           "--gap-major:12.8px" in c and "--gap-related:8px" in c and
           c.count("var(--gap-major)") >= 5 and c.count("var(--gap-related)") >= 2,

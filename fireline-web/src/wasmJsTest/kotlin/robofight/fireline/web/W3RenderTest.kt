@@ -97,9 +97,10 @@ class W3RenderTest {
         assertEquals(1, countOf(html, "<span class=\"panichint\">uncapped, no speed limit</span>"),
             "panic wording of 15.4 kept in the hint cell")
         assertEquals(1, countOf(html, "id=\"${ConsoleRender.ID_PANIC}\""), "panic button")
-        // W3 record 14: one grid/flex line, the four choice cells in fixed order, an inert gap
-        // cell and the 1fr filler cell. No cell may render as a readout band.
-        assertEquals(1, countOf(html, "<div class=\"inforow\">"), "pacing carries exactly one row")
+        // W3 records 14 and 15: two nowrap lines. Line 1 carries the four choice cells in fixed
+        // order plus the filler cell, line 2 is its own row and carries only the PANIC controls.
+        assertEquals(1, countOf(html, "<div class=\"inforow\">"), "the SPEED line")
+        assertEquals(1, countOf(html, "<div class=\"inforow pacingpanic\">"), "the PANIC line")
         assertEquals(1, countOf(html, "<span class=\"gap fill\" id=\"${ConsoleRender.ID_PACING_FILL}\">"),
             "filler cell")
         assertEquals(4, countOf(html, "id=\"${ConsoleRender.ID_SPEED_PREFIX}"), "speed cells")
@@ -113,13 +114,14 @@ class W3RenderTest {
                 "id=\"${ConsoleRender.speedButtonId(5)}\"",
                 "id=\"${ConsoleRender.speedButtonId(20)}\"",
                 "id=\"${ConsoleRender.speedButtonId(50)}\"",
-                "id=\"${ConsoleRender.ID_SPEED_UNIT}\"",
-                "<b class=\"paniclabel\">PANIC</b>",
-                "id=\"${ConsoleRender.ID_PANIC}\"")) {
+                "id=\"${ConsoleRender.ID_SPEED_UNIT}\"")) {
             val found = row.indexOf(token)
-            assertTrue(found > at, "pacing row order broken at $token: $row")
+            assertTrue(found > at, "SPEED line order broken at $token: $row")
             at = found
         }
+        assertEquals(-1, row.indexOf(ConsoleRender.ID_PANIC), "the PANIC controls are not on the SPEED line")
+        val panicRow = html.substringAfter("<div class=\"inforow pacingpanic\">")
+        assertEquals(-1, panicRow.indexOf(ConsoleRender.ID_SPEED_PREFIX), "the SPEED choices are not on the PANIC line")
     }
 
     @Test
@@ -150,7 +152,7 @@ class W3RenderTest {
     @Test
     fun panicRowCarriesTheGoldenMasterWordingAndToggles() {
         val html = render()
-        val infoRow = html.substringAfter("<div class=\"inforow\">").substringBefore("<div class=\"flags")
+        val infoRow = html.substringAfter("<div class=\"inforow pacingpanic\">").substringBefore("<div class=\"flags")
         assertTrue(infoRow.contains("<b class=\"paniclabel\">PANIC</b>"), "A label: $infoRow")
         assertTrue(infoRow.contains("<span class=\"panichint\">uncapped, no speed limit</span>"), "A wording: $infoRow")
         assertTrue(infoRow.contains("id=\"${ConsoleRender.ID_PANIC}\""), "B button: $infoRow")
