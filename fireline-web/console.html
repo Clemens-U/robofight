@@ -149,17 +149,22 @@ footer{border-top:1px solid var(--line);padding-top:.7rem;margin-top:1rem;font-s
 .pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1.2rem;
   align-items:stretch;margin-top:.5rem;
   /* Anchor: the pair column, which the two equal tracks make exactly half of the console
-     body's content width (body content = 100vw - 74.56px chrome, per column half of the
+     body content width (body content = 100vw - 74.56px chrome, per column half of the
      1.2rem gap). Everything else derives from it: the grid square fills the column, so the
      grid is always half the available width, and the firmware column has the same width.
-     The firmware pane takes the grid height minus the chrome that sits under it in that
-     column (h4 + run row + pacing row + STATE band + assembler note), which keeps the two
-     columns' bottom edges at the same y. */
+     The firmware pane is sized so that the RF-8 STATE band starts exactly where the world
+     column's VITALS/STATE status line starts. Both offsets are the same 100px: the status
+     line sits 100px below the grid's bottom edge (12.8px margin-top, plus the 17px firmware
+     heading and its 8px margin at the top of the other column, less the 8px that collapses
+     between the pane and the run row), and under the pane the firmware column carries 100px
+     of its own chrome (4px collapsed gap + 34px run row + 8px gap + 56px pacing row + 0px
+     collapsed gap to the band). The two rows start at the same y at any width where the 180px
+     pane floor is not active (measured at viewport 1370: band top == status line top). */
   --col:max(320px, calc((100vw - 74.56px - 19.2px) / 2));
   --cell:max(11px, min(34px, calc((var(--col) - 5px) / 21)));
   --grid-h:calc(21 * var(--cell) + 2px);
-  --firm-chrome:354px;
-  --pane-h:max(180px, calc(var(--grid-h) - var(--firm-chrome)))}
+  --row-offset:100px;
+  --pane-h:max(180px, calc(var(--grid-h) - var(--row-offset)))}
 .pairworld{min-width:0}
 .pairworld h4,.pairfirm h4{margin-bottom:.5rem}
 .pairfirm pre.source{max-height:none;height:var(--pane-h,316px);overflow:auto}
@@ -223,7 +228,7 @@ textarea.source.editor{width:100%;box-sizing:border-box;height:var(--pane-h,316p
 .consolecontrols .runrow .chip.btn{font-size:14px;padding:0 14px}
 .flstatus{margin-top:.5rem;color:var(--yellow);font-size:12px}
 .librarycontrols,.librarytarget{display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;
-  font-size:11px;color:var(--dim);margin-top:.6rem;--world-extra:78px}
+  font-size:11px;color:var(--dim);margin-top:.6rem}
 .librarycontrols .chip.btn,.librarytarget .chip.btn{font-family:inherit;font-size:13px;padding:.4rem .8rem;
   min-height:49px;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer}
 .importlabel{display:inline-flex;gap:.4rem;align-items:center}
@@ -237,10 +242,9 @@ textarea.source.editor{width:100%;box-sizing:border-box;height:var(--pane-h,316p
 .libentry .libmeta{font-size:12px;color:var(--dim)}
 .libentry .mini{font-family:inherit;border:1px solid var(--line);background:var(--panel2);color:var(--text);
   padding:.4rem .8rem;min-height:49px;cursor:pointer}
-@media(max-width:900px){.pair{grid-template-columns:minmax(0,1fr)}
+@media(max-width:900px){.pair{grid-template-columns:minmax(0,1fr);--cell:11px}
   .pairworld{max-height:none}
-  .pair{--cell:11px;--world-extra:132px}
-  .legend{--world-extra:132px}
+  /* collapsed: one column, no side-by-side row to align, the pane keeps the 180px floor */
   .pairfirm pre.source{height:calc(21 * 11px + 1px)}
   textarea.source.editor{height:calc(21 * 11px + 1px)}}
 @media(max-width:640px){.fcell{flex:1 1 100px}}

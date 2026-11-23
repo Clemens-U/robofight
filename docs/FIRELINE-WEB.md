@@ -742,8 +742,8 @@ call prompt, three commands that are not run commands).
 
 ### 15.2a Dated shell deviation (2026-11-23, owner-directed, `docs/WEB-W3-RECORD.md` 11)
 
-The live browser console (`fireline-web/console.html`, wasm shell) moves or removes six
-regions. The golden master, `console_pair()` / `statusbar()` / `run_controls()` /
+The live browser console (`fireline-web/console.html`, wasm shell) moves or removes regions and
+re-anchors the two run columns. The golden master, `console_pair()` / `statusbar()` / `run_controls()` /
 `events_html()` of `docs/web/gen_web_mockups.py`, and the mockups below were NOT moved by
 this change, so §15.6 item 1 is met by the mockups and NOT by the console shell until the
 master and the generator are amended in step (a documented open item, not silent drift):
@@ -780,12 +780,21 @@ master and the generator are amended in step (a documented open item, not silent
    else derives from that one anchor (`console.html` custom properties):
    `--col = (100vw - 74.56px - 19.2px) / 2` (74.56px is the body margin, page padding, console
    border and consolebody padding chain, 19.2px is the 1.2rem gap), `--cell = (col - 5px) / 21`
-   clamped to 11..34px, `--grid-h = 21 * --cell + 2px`, and the firmware pane
-   `--pane-h = max(180px, --grid-h - 354px)` where 354px is the chrome under the pane in that
-   column (h4 + run row + pacing row + STATE band + assembler note). Both columns therefore
-   end at the same y. The frozen 15.3 ratio survives as the 21-cell structure; its absolute
-   15px cell and 316px pane no longer apply to the shell. Collapsed mode (pair grid to one
-   column under 900px) keeps 11px cells and does not honour the anchor.
+   clamped to 11..34px, `--grid-h = 21 * --cell + 2px`.
+7a. **Row alignment**: the RF-8 STATE band's top edge equals the VITALS/STATE status line's top
+   edge in the two-column layout. The pane is sized for it, `--pane-h = max(180px, --grid-h -
+   --row-offset)` with `--row-offset: 100px`, the identical offset on both sides: the status line
+   sits 100px below the grid's bottom edge, and under the pane the firmware column carries 100px
+   of chrome (collapsed 4px gap + 34px run row + 8px gap + 56px pacing row). Measured at viewport
+   1370: grid 613x635, pane 535, status line top and STATE band top both 669px below the pair's
+   top edge (1px rounding). Consequences, recorded rather than hidden: the firmware column ends
+   ~123px lower than the world column, because the world column's last block is the 58px symbol
+   legend while the firmware column's last block is the 56px assembler note plus the 123px of
+   chrome the run row and pacing row add above the band; and in EDIT mode the firmware column
+   carries 56px more chrome above the band (the editor name row), so the band sits 56px lower
+   there. The frozen 15.3 ratio survives as the 21-cell structure; its absolute 15px cell and
+   316px pane no longer apply to the shell. Collapsed mode (pair grid to one column under 900px)
+   keeps 11px cells, the 233px pane floor and does not honour the anchor.
 8. **Pacing row without a box**: `SPEED` and `PANIC` render as a plain row (`.pacing`) directly
    under the run row inside the firmware column, with no panel border and no panel background,
    and with smaller buttons: speed/PANIC chips 28px tall, run buttons 34px minimum on desktop.

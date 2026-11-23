@@ -740,3 +740,43 @@ its editor assertion now requires the absence of `--src-height:`.
 Full matrix on this tree with `--rerun-tasks --no-build-cache` (`BUILD SUCCESSFUL`, `RC=0`, counts
 from the per-target result XMLs): 537 tests, 0 failures, 0 errors, same totals as 11.4. Engine
 modules show no diff; `FIRELINE_ENGINE_VERSION` stays 2.
+
+## 13. Same session, fourth shell amendment: the two run rows start at the same line (2026-11-23)
+
+Owner-directed (`docs/FIRELINE-WEB.md` 15.2a item 7a): align the top edge of the RF-8 STATE band
+with the top edge of the VITALS/STATE status line across the two columns, and resize the firmware
+area accordingly.
+
+### 13.1 The rule
+
+The pane height is no longer chosen to end the firmware column at the world column's bottom; it is
+chosen so the two readout blocks begin at the same y. The offset is identical on both sides:
+`--row-offset: 100px`. Below the grid's bottom edge the world column has 100px before the status
+line (its 12.8px margin-top, plus the 17px firmware heading and its 8px margin that lift the
+firmware column's content, minus the 8px that collapses between the pane and the run row). Below
+the pane the firmware column has 100px before the STATE band (4px collapsed gap + 34px run row +
+8px gap + 56px pacing row + 0px collapsed gap). Hence `--pane-h = max(180px, --grid-h - 100px)`.
+
+### 13.2 Measured in the harness (window 1400x1000, viewport 1370, pair content 1246, mission 02 open)
+
+VIEW mode: grid 613 x 635, pane 535 (was 281), status line top 669px below the pair's top edge,
+STATE band top 669px, **top delta 1px** (subpixel rounding); no horizontal or column overflow.
+Consequences on the same measurement: the world column's last block (58px legend) ends 794px below
+the pair top while the firmware column's last block (56px assembler note) ends 917px, i.e. the
+firmware column is ~123px taller; in EDIT mode the editor name row adds 56px of chrome above the
+band, so the band sits 56px lower there. Both are recorded consequences of putting the symbol
+legend in the world column (11 b) and the run/pacing rows in the firmware column (11 f), not
+properties of the new rule.
+
+### 13.3 Iteration trail
+
+- The first attempt used 108px, derived by adding the pane-to-run gap as 12px. Measured band top
+  landed 7px above the status line top; the real gap is 4px because `margin-bottom:.5rem` on the
+  pane collapses with `margin-top:.7rem` on the control block. Corrected to 100px.
+- The harness page's CSS is inline in `fireline-web/console.html`. Editing it and re-navigating to
+  the same URL served a cached stylesheet (`getComputedStyle(pair)` still reported the retired
+  `--pane-h` with 354px). A cache-busting query (`console.html?cb=...`) is required to measure a
+  CSS-only change.
+- `docs/web/verify_layout_v1.py` check for the pane formula now asserts `--row-offset:100px` and
+  the new `--pane-h`; the retired `--firm-chrome` and `--world-extra` declarations were removed
+  from the harness CSS (31 checks, 0 failed).

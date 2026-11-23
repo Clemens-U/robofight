@@ -146,7 +146,8 @@ def shell_css_gate_for_15_2a():
           "height:var(--pane-h,316px)" in rule(".pairfirm pre.source{") and
           "--grid-h:calc(21 * var(--cell) + 2px)" in pair and
           "--cell:max(11px, min(34px, calc((var(--col) - 5px) / 21)))" in pair and
-          "--pane-h:max(180px, calc(var(--grid-h) - var(--firm-chrome)))" in pair and
+          "--row-offset:100px" in pair and
+          "--pane-h:max(180px, calc(var(--grid-h) - var(--row-offset)))" in pair and
           "max-width:var(--grid-h,317px)" in rule(".grid{"))
     check("15.2a 7 shell panes carry no inline height",
           "--src-height" not in c or "var(--src-height" in c)
