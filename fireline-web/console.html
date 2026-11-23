@@ -15,6 +15,8 @@
 -->
 <style>
 *{box-sizing:border-box}
+/* the shell's vertical rhythm: --gap-major between blocks, --gap-related inside a block */
+body{--gap-major:12.8px;--gap-related:8px}
 body{margin:0;padding:18px;background:#0b0806;color:#f2d9b0;
   font:13px/1.55 "Courier New",Courier,monospace;text-shadow:0 0 7px rgba(242,146,30,.12)}
 body:before{content:"";position:fixed;inset:0;z-index:20;pointer-events:none;
@@ -78,7 +80,7 @@ h4{margin:0 0 .4rem;color:var(--dim);font-size:11px;letter-spacing:.14em;font-we
 .cell.packet{color:var(--cyan)}
 .cell.fire1{color:var(--f1)}.cell.fire2{color:var(--f2)}.cell.fire3{color:var(--f3)}.cell.fire4{color:var(--f4)}
 .cell.empty{color:var(--empty)}
-.legend{display:flex;flex-wrap:wrap;gap:.2rem 1rem;font-size:11px;color:var(--dim);margin-top:.6rem}
+.legend{display:flex;flex-wrap:wrap;gap:.2rem 1rem;font-size:11px;color:var(--dim);margin-top:var(--gap-major)}
 .legend b{font-weight:normal}
 .wall{color:var(--wall)}.rover{color:var(--yellow)}.nose-txt{color:var(--green)}
 .refill,.packet{color:var(--cyan)}.exit{color:var(--green)}.civ{color:var(--civ)}
@@ -105,7 +107,7 @@ ul.events li.newest{color:var(--bright);border-left-color:var(--red)}
   display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:.6rem 1rem;align-items:center}
 /* status line in the world column (W3 record 11 b): directly under the grid, at
    that column's width, so it reads as the grid's own footer */
-.pairworld .statusbar{margin:.6rem 0 0}
+.pairworld .statusbar{margin:var(--gap-major) 0 0}
 .statusbar .vitals,.statusbar .finger{font-size:12px;color:var(--dim)}
 .statusbar b{color:var(--yellow);font-weight:normal}
 .controls{display:flex;gap:.5rem}
@@ -153,25 +155,28 @@ footer{border-top:1px solid var(--line);padding-top:.7rem;margin-top:1rem;font-s
      1.2rem gap). Everything else derives from it: the grid square fills the column, so the
      grid is always half the available width, and the firmware column has the same width.
      The firmware pane is sized so that the RF-8 STATE band starts exactly where the world
-     column's VITALS/STATE status line starts. Both offsets are the same 100px: the status
-     line sits 100px below the grid's bottom edge (12.8px margin-top, plus the 17px firmware
-     heading and its 8px margin at the top of the other column, less the 8px that collapses
-     between the pane and the run row), and under the pane the firmware column carries 100px
-     of its own chrome (4px collapsed gap + 34px run row + 8px gap + 56px pacing row + 0px
-     collapsed gap to the band). The two rows start at the same y at any width where the 180px
-     pane floor is not active (measured at viewport 1370: band top == status line top). */
+     column's VITALS/STATE status line starts. Both sides carry the same offset: the status
+     line sits --row-offset below the grid's bottom edge (its --gap-major margin-top, plus the
+     25px the firmware column's heading adds at the top of the other column, less the 8px that
+     collapses between the pane and the run row), and under the pane the firmware column carries
+     --row-offset plus that same 25px before the STATE band (4px collapsed gap + 34px run row +
+     8px gap + one 28px pacing line + 8px gap + its 12.8px margin, collapsed against the band's
+     own margin). The constant is measured, not derived from declarations, because the margins
+     collapse. The two rows start at the same y at any width where the 180px pane floor is not
+     active (measured at viewport 1370: band top == status line top). */
   --col:max(320px, calc((100vw - 74.56px - 19.2px) / 2));
   --cell:max(11px, min(34px, calc((var(--col) - 5px) / 21)));
   --grid-h:calc(21 * var(--cell) + 2px);
-  --row-offset:100px;
+  --row-offset:84px;
   --pane-h:max(180px, calc(var(--grid-h) - var(--row-offset)))}
 .pairworld{min-width:0}
 .pairworld h4,.pairfirm h4{margin-bottom:.5rem}
 .pairfirm pre.source{max-height:none;height:var(--pane-h,316px);overflow:auto}
-.pairfirm .asmnote{margin-top:.5rem}
+.pairfirm .asmnote{margin-top:var(--gap-major)}
 .fcell em{font-style:normal;opacity:.7}
 /* full-width horizontal readout fields: one bordered band, label + value per cell */
-.fields{border:1px solid var(--line);background:var(--panel);padding:.45rem .6rem;margin:0 0 .8rem}
+.fields{border:1px solid var(--line);background:var(--panel);padding:.45rem .6rem;
+  margin:var(--gap-major) 0 var(--gap-major)}
 .fields h4{margin-bottom:.4rem}
 .frow{display:flex;flex-wrap:wrap;gap:4px}
 .fcell{flex:1 1 118px;border:1px solid var(--line);background:var(--field);
@@ -183,8 +188,8 @@ footer{border-top:1px solid var(--line);padding-top:.7rem;margin-top:1rem;font-s
 .fields .legend{margin-top:.4rem}
 /* every control needed to run a firmware, in one block under the firmware column:
    a run row (commands) and a machine row (speed, state, share/download) */
-.consolecontrols{margin-top:.7rem}
-.consolecontrols .runrow{display:flex;flex-wrap:wrap;gap:.5rem}
+.consolecontrols{margin-top:var(--gap-major)}
+.consolecontrols .runrow{display:flex;flex-wrap:wrap;gap:var(--gap-related)}
 .consolecontrols .runrow .btn{font-size:14px;padding:0 12px;min-height:34px}
 .consolecontrols .inforow{display:flex;flex-wrap:wrap;gap:.5rem 1.2rem;align-items:center;
   margin-top:.5rem;font-size:12px;color:var(--dim)}
@@ -203,13 +208,25 @@ footer{border-top:1px solid var(--line);padding-top:.7rem;margin-top:1rem;font-s
    (W3 record 11 f/g): no panel border, no panel background, and the chips are smaller
    than before, 28px tall on desktop instead of the house 49px. Coarse pointers get the
    49dp target back in the touch gate below. */
-.pacing{margin-top:.5rem}
-.pacing .inforow{display:flex;flex-wrap:wrap;gap:.35rem 1rem;align-items:center;
-  font-size:12px;color:var(--dim)}
-.pacing .inforow b{color:var(--yellow);font-weight:normal}
-.pacing .chip.on{background:var(--yellow);color:#1a1005;border-color:var(--yellow)}
-.pacing .chip.btn{font-family:inherit;font-size:12px;padding:3px 8px;min-height:28px;line-height:1.4;
+.pacing{margin-top:var(--gap-related);margin-bottom:var(--gap-related)}
+/* One line, never a wrap (W3 record 14): SPEED, the four choice cells, the unit label, a
+   flexible space, PANIC, its hint and the toggle. Labels and unit text are rigid (nowrap,
+   flex-shrink 0); the four cells are equal and stretchable between 30px and 1fr so the whole
+   row fits the firmware column at every width the two-column layout is used at. */
+.pacing .inforow{display:flex;flex-wrap:nowrap;align-items:center;gap:.45rem;font-size:12px;
+  color:var(--dim);min-width:0}
+.pacing .speedlabel,.pacing .paniclabel,.pacing .speedunit,.pacing .panichint{white-space:nowrap;
+  flex:0 0 auto}
+.pacing .chip.btn{flex:1 1 42px;min-width:30px;max-width:64px;text-align:center;white-space:nowrap;
+  font-family:inherit;font-size:12px;padding:3px 8px;min-height:28px;line-height:1.4;
   border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer}
+/* §15.4's SELECTED wording stays in the markup (and in aria-pressed) but is not painted:
+   the yellow fill is the selection, and equal cell widths keep the row on one line */
+.pacing .chip.btn small{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);
+  white-space:nowrap}
+.pacing .gap{flex:1 1 0;min-width:0}
+.pacing .fill{display:none}
+.pacing .inforow b{color:var(--yellow);font-weight:normal}
 .pacing .chip.btn.on{background:var(--yellow);color:#1a1005;border-color:var(--yellow)}
 /* W3 full loop: editor, pacing chips, share status and the §8 library. The
    editor textarea replaces `pre.source` while editing (one scrollable box,
@@ -219,7 +236,7 @@ textarea.source.editor{width:100%;box-sizing:border-box;height:var(--pane-h,316p
   background:var(--panel2);border:1px solid var(--line);padding:.5rem .6rem;white-space:pre;
   overflow:auto;resize:vertical}
 @media (max-width:900px){textarea.source.editor{height:calc(21 * 11px + 1px)}}
-.editorname{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.5rem;font-size:12px;color:var(--dim)}
+.editorname{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:var(--gap-major);font-size:12px;color:var(--dim)}
 .editorname input{font-family:"Courier New",Courier,monospace;font-size:13px;color:var(--text);
   background:var(--panel2);border:1px solid var(--line);padding:.45rem .6rem;min-width:220px}
 .consolecontrols .chip.btn{font-family:inherit;font-size:13px;padding:.3rem .7rem;min-height:34px;
@@ -248,6 +265,13 @@ textarea.source.editor{width:100%;box-sizing:border-box;height:var(--pane-h,316p
   .pairfirm pre.source{height:calc(21 * 11px + 1px)}
   textarea.source.editor{height:calc(21 * 11px + 1px)}}
 @media(max-width:640px){.fcell{flex:1 1 100px}}
+/* very narrow columns: the row stays on one line, the cells shrink instead of wrapping
+   (owner rule, W3 record 14: SPEED [1] [5] [20] [50] ticks per second is always one line).
+   Below 600px the PANIC hint text is dropped (its wording stays in the markup and in the
+   mockups) so the rigid cells of the row never overflow the column. */
+@media(max-width:700px){.pacing .chip.btn{min-width:26px;padding:3px 2px}
+  .pacing .gap{display:none}}
+@media(max-width:600px){.pacing .panichint{display:none}}
 @media(max-width:900px){.row,.row.wide-left,.cols,.privacy{grid-template-columns:minmax(0,1fr)}
   .statusbar{grid-template-columns:minmax(0,1fr)}
   .grid{grid-template-columns:calc(2 * var(--cell, 11px)) repeat(20, var(--cell, 11px));

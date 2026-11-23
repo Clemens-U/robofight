@@ -91,31 +91,68 @@ class W3RenderTest {
         assertTrue(pacingAt > controlsAt, "the pacing row sits under the run row")
         assertTrue(pacingAt < stateBandAt, "the pacing row sits above the RF-8 STATE band")
         assertEquals(-1, html.indexOf("<div class=\"fields pacing\">"), "the bordered pacing block is gone (11 g)")
-        assertEquals(1, countOf(html, "<b>SPEED</b> 1 / 5 / 20 / 50 ticks per second"), "speed wording")
-        assertEquals(1, countOf(html, "<b>PANIC</b> uncapped, no speed limit"), "panic wording")
+        assertEquals(1, countOf(html, "<b class=\"speedlabel\">SPEED</b>"), "speed wording")
+        assertEquals(1, countOf(html, ">ticks per second<"), "speed unit wording (14)")
+        assertEquals(1, countOf(html, "<b class=\"paniclabel\">PANIC</b>"), "panic label")
+        assertEquals(1, countOf(html, "<span class=\"panichint\">uncapped, no speed limit</span>"),
+            "panic wording of 15.4 kept in the hint cell")
         assertEquals(1, countOf(html, "id=\"${ConsoleRender.ID_PANIC}\""), "panic button")
+        // W3 record 14: one grid/flex line, the four choice cells in fixed order, an inert gap
+        // cell and the 1fr filler cell. No cell may render as a readout band.
+        assertEquals(1, countOf(html, "<div class=\"inforow\">"), "pacing carries exactly one row")
+        assertEquals(1, countOf(html, "<span class=\"gap fill\" id=\"${ConsoleRender.ID_PACING_FILL}\">"),
+            "filler cell")
+        assertEquals(4, countOf(html, "id=\"${ConsoleRender.ID_SPEED_PREFIX}"), "speed cells")
+        val rowStart = html.indexOf("<div class=\"pacing\"><div class=\"inforow\">")
+        val fillAt = html.indexOf("<span class=\"gap fill\"")
+        val row = html.substring(rowStart, fillAt)
+        var at = -1
+        for (token in listOf(
+                "<b class=\"speedlabel\">SPEED</b>",
+                "id=\"${ConsoleRender.speedButtonId(1)}\"",
+                "id=\"${ConsoleRender.speedButtonId(5)}\"",
+                "id=\"${ConsoleRender.speedButtonId(20)}\"",
+                "id=\"${ConsoleRender.speedButtonId(50)}\"",
+                "id=\"${ConsoleRender.ID_SPEED_UNIT}\"",
+                "<b class=\"paniclabel\">PANIC</b>",
+                "id=\"${ConsoleRender.ID_PANIC}\"")) {
+            val found = row.indexOf(token)
+            assertTrue(found > at, "pacing row order broken at $token: $row")
+            at = found
+        }
     }
 
     @Test
     fun speedRowCarriesTheGoldenMasterChoicesAndOneSelectedChip() {
         val html = render()
-        assertTrue(html.contains("<b>SPEED</b> 1 / 5 / 20 / 50 ticks per second"), html)
-        assertTrue(html.contains("<span class=\"chip on\">5 SELECTED</span>"), html)
-        assertEquals(1, countOf(html, "SELECTED</span>"), "speed chips render more than one selection")
+        assertTrue(html.contains("<b class=\"speedlabel\">SPEED</b>"), html)
+        // W3 record 14: the chosen cell is a button cell again (so all four are equal width and
+        // clickable) and carries the master's SELECTED wording plus aria-pressed="true".
+        assertTrue(
+            html.contains(
+                "<button type=\"button\" class=\"chip btn on\" id=\"${ConsoleRender.speedButtonId(5)}\" " +
+                    "aria-pressed=\"true\">5<small>SELECTED</small></button>",
+            ),
+            html,
+        )
+        assertEquals(1, countOf(html, "SELECTED</small>"), "speed chips render more than one selection")
+        assertEquals(1, countOf(html, "aria-pressed=\"true\""), "selection is not also marked elsewhere")
         for (speed in listOf(1, 20, 50)) {
             assertTrue(html.contains("id=\"${ConsoleRender.speedButtonId(speed)}\""), "speed $speed not selectable")
         }
-        // The selected choice renders as the master's `chip on` span, not a button:
-        // `speedButtonId(5)` is a prefix of `speedButtonId(50)`, so assert the exact
-        // attribute value rather than a substring.
-        assertFalse(Regex("id=\"${ConsoleRender.speedButtonId(5)}\"").containsMatchIn(html), html)
+        // The selected choice is the only cell carrying the selection mark, and the id match is
+        // anchored on the attribute value because `speedButtonId(5)` is a prefix of
+        // `speedButtonId(50)`.
+        assertEquals(1, countOf(html, "id=\"${ConsoleRender.speedButtonId(5)}\" aria-pressed=\"true\""),
+            "the selection mark appears more than once")
     }
 
     @Test
     fun panicRowCarriesTheGoldenMasterWordingAndToggles() {
         val html = render()
         val infoRow = html.substringAfter("<div class=\"inforow\">").substringBefore("<div class=\"flags")
-        assertTrue(infoRow.contains("<b>PANIC</b> uncapped, no speed limit"), "A wording: $infoRow")
+        assertTrue(infoRow.contains("<b class=\"paniclabel\">PANIC</b>"), "A label: $infoRow")
+        assertTrue(infoRow.contains("<span class=\"panichint\">uncapped, no speed limit</span>"), "A wording: $infoRow")
         assertTrue(infoRow.contains("id=\"${ConsoleRender.ID_PANIC}\""), "B button: $infoRow")
         assertTrue(infoRow.contains(">PANIC</button>"), "C off label: $infoRow")
         val on = render(ConsoleUiState(panic = true))
@@ -125,7 +162,8 @@ class W3RenderTest {
         assertTrue(onTail.contains(ConsoleRender.panicButtonId(true)), "D on id: $onTailSafe")
         assertTrue(onTail.contains(">PANIC ON</button>"), "E on label: $onTailSafe")
         // While PANIC is on, no speed chip claims to be selected.
-        assertFalse(onRow.contains("SELECTED</span>"), "F selection: $onRow")
+        assertFalse(onRow.contains("SELECTED</small>"), "F selection: $onRow")
+        assertFalse(onRow.contains("aria-pressed=\"true\""), "F selection mark while PANIC is on: $onRow")
     }
 
     @Test

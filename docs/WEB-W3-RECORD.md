@@ -780,3 +780,114 @@ properties of the new rule.
 - `docs/web/verify_layout_v1.py` check for the pane formula now asserts `--row-offset:100px` and
   the new `--pane-h`; the retired `--firm-chrome` and `--world-extra` declarations were removed
   from the harness CSS (31 checks, 0 failed).
+
+
+## 14. W3 shell layout amendment 14 (2026-11-23): the pacing row is one line, and every shell gap is one of two tokens
+
+Owner request, verbatim (with a screenshot of the old row): "Change the \"SPEED\" row. Always in
+one line, like: SPEED [  1 ]  [  5 ] [ 20 ] [ 50 ] ticks per second ### And again, take care of
+the visible gaps between rows, blocks, section etc." The screenshot showed the failure mode: the
+`5 SELECTED` label was much wider than the other chips, `50` wrapped onto a second line, and the
+PANIC wording sat beside the toggle on that same wrapped line.
+
+### 14.1 What the row is now
+
+`ConsoleRender.pacingBlock()` emits one row, `DIV.pacing > DIV.inforow`, whose children are a
+fixed sequence of cells: `B.speedlabel` (SPEED), the four `speedChip()` cells, `SPAN.speedunit`
+(`#fl-speed-unit`, "ticks per second"), `SPAN.gap`, `B.paniclabel` (PANIC), `SPAN.panichint`
+("uncapped, no speed limit", the §15.4 wording kept in the markup), the PANIC button, and
+`SPAN.gap.fill` (`#fl-pacing-fill`, the slack absorber). The console still renders exactly two
+readout bands (`.fields`), the pacing row is not one of them, and the row stays between the run
+row and the RF-8 STATE band.
+
+`speedChip()` changed shape: the selected choice is a button cell again
+(`<button class="chip btn on" aria-pressed="true">5<small>SELECTED</small></button>`) instead of a
+wide `SPAN.chip.on`, so all four cells share one width and the choice stays clickable. §15.4's
+SELECTED wording survives in the markup and in `aria-pressed`; the CSS hides the `small` element
+visually (`clip-path:inset(50%)`) and the yellow fill is what the eye reads as the selection.
+
+The row is a nowrap flex line, not a grid: labels, unit and hint are rigid (`white-space:nowrap`,
+`flex:0 0 auto`), the four cells are equal (`flex:1 1 42px`, clamped `min-width:30px`,
+`max-width:64px`), `.pacing .gap` absorbs the slack. Below 700px the cells clamp at 26px; below
+600px the PANIC hint text is dropped so the rigid cells cannot overflow the column. `@media
+(pointer: coarse)` still raises the chips to 49px.
+
+### 14.2 Iteration trail (what failed first)
+
+- First attempt was a CSS grid row (`grid-auto-flow:column`, then
+  `grid-template-columns:auto repeat(4, minmax(30px,1fr)) auto 1fr auto auto minmax(52px,auto)`).
+  A `1fr` chip track gives every chip the track's minimum content width, and `5 SELECTED` is
+  74px+ while a bare `20` cell is 35px: the chips rendered uneven (30/73/35/35) and the rigid
+  cells pushed the hint and the toggle past the column. At viewport 1370 the page overflowed,
+  `scrollWidth 1489` against `clientWidth 1355`, offenders `SPAN.panichint` (173px) and
+  `BUTTON#fl-btn-panic` (74px). A grid of content-sized tracks plus a filler track works, but the
+  equal-cell flex form is shorter and keeps the four cells provably equal, so the row is flex.
+- `.pacing .chip.btn` had two declarations after the rewrite (the layout cell properties and the
+  old visual properties). The verifier's `rule(".pacing .chip.btn{")` reads the first one only, so
+  it reported the chip's `min-height:28px` as missing. The two declarations were merged into one
+  rule, and the redundant `.pacing .chip.on` selector was dropped.
+
+### 14.3 Alignment consequence (fixes the record 13 constant)
+
+`--row-offset` was derived while the pacing row was 56px tall (two lines). With the row at one
+28px line the constant was 16px too generous: the STATE band sat 16px ABOVE the status line. It is
+now `--row-offset:84px`, measured rather than derived (margin collapse between the pane, run row,
+pacing row and band means the arithmetic of declarations does not equal the measured chrome).
+Re-measured at viewport 1370 (window 1400x1000, mission 02 open, `?cb=` cache-bust): grid 613x635,
+pane 551, `band.top - status.top = 0px`. The record 13 values (row-offset 100px, pane 535, delta
+1px) stand as history for the pre-amendment markup.
+
+### 14.4 Measurements (one-line rule and gap rhythm)
+
+Chip widths, row height and line count per real window size (window resized through CDP
+`Browser.setWindowBounds`, never `Emulation.setDeviceMetricsOverride`; Chrome clamps this window at
+586px, so 586 is the narrowest measurable case):
+
+| window | viewport | chip widths | pacing lines | row height | row width vs column | page overflow |
+|---|---|---|---|---|---|---|
+| 1400 | 1370 | 36, 36, 36, 36 (+PANIC 36) | 1 | 28px | 613 vs 613 | none (1355/1355) |
+| 900 | 870 | 60, 60, 60, 60 (+60) | 1 | 28px | 753 vs 753 | none (855/855) |
+| 700 | 670 | 26, 26, 26, 26 (+26) | 1 | 28px | 553 vs 553 | none (655/655) |
+| 586 | 556 | 26, 26, 26, 26 (+26) | 1 | 28px | 439 vs 439 | none (541/541) |
+
+Gap audit at viewport 1370 and 870, after `--gap-major:12.8px` / `--gap-related:8px` were declared
+on `body` and used for the block gaps (7 major and 3 related usages in `console.html`): pane to run
+row 13px, run row to pacing row 8px, pacing row to STATE band 13px, band to assembler note 13px,
+grid to status line 13px, status line to symbol legend 13px, objectives to pair 8px. Every measured
+shell gap is one of the two tokens (13 or 8 rounded px). The assembler note measures 56px in the
+two-column layout and 93px in the collapsed layout because the note text wraps; it stays last in
+the firmware column and does not affect the band alignment, which is anchored above it.
+
+### 14.5 Gate status
+
+`speedRowCarriesTheGoldenMasterChoicesAndOneSelectedChip` and
+`nextPreviewAndEventLogAreGoneAndPacingIsAPlainRowInTheFirmwareColumn` now assert the new shape:
+one `SPEED` label cell, one `ticks per second` unit cell, the `PANIC` label plus the `uncapped, no
+speed limit` hint cell, exactly one `inforow`, exactly four speed cells and one filler cell, the
+fixed cell ORDER asserted by ascending index, exactly one `SELECTED</small>`, exactly one
+`aria-pressed="true"`, and no selection mark while PANIC is on. The toggle test
+(`panicRowCarriesTheGoldenMasterWordingAndToggles`) was updated for the split label/hint cells.
+`docs/web/verify_layout_v1.py` gained five checks (nowrap row, equal cells, hidden SELECTED wording,
+no narrow wrap rule, the two gap tokens) and asserts `--row-offset:84px`: 35 checks, 0 failed.
+Full matrix `check --rerun-tasks --no-build-cache`: see 14.6.
+
+### 14.6 Matrix status and open items
+
+Gate run for this amendment (`--rerun-tasks --no-build-cache`, per-target result XMLs): 537 tests,
+0 failures, 0 errors, 0 skipped = rf8-core 15+15, fireline-engine 192+192, fireline-web 56
+(ConsoleModel 8, ConsoleRender 8, WorldGrid 8, W3Render 13, W3LibraryDraft 8, W3Permalink 8,
+W3Interop 3), app 3+9, fireline-app 40, engine 15. `docs/web/verify_layout_v1.py`: 35 checks,
+0 failed. Engine modules untouched (`git status` shows only `fireline-web/console.html`,
+`ConsoleRender.kt`, `W3RenderTest.kt` and the two docs files).
+`check` is NOT a usable gate on this host: it drags in `lintAnalyzeFreeDebug` /
+`lintAnalyzeDebug`, which fail offline. Name the test tasks instead.
+
+### 14.7 Open items carried forward
+
+- The one-line rule is proven from 586px upward; below Chrome's minimum window width it was not
+  measurable on this host. Below 600px the PANIC hint text is hidden, a documented exception.
+- EDIT mode is still unaligned (the editor name row and the editor error line add 56-93px of chrome
+  above the band). Recorded in 13 and still open.
+- The mockups and `docs/web/gen_web_mockups.py` keep the §15.4 slash-list pacing wording; only the
+  wasm shell changed. §15.6 item 1 is met by the mockups, not the shell (standing open item).
+

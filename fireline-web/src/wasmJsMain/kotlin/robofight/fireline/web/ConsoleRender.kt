@@ -57,6 +57,8 @@ object ConsoleRender {
     const val ID_STATUS = "fl-status"
     const val ID_ASSEMBLER_NOTE = "fl-asmnote"
     const val ID_SPEED_PREFIX = "fl-btn-speed-"
+    const val ID_SPEED_UNIT = "fl-speed-unit"
+    const val ID_PACING_FILL = "fl-pacing-fill"
     const val ID_PANIC = "fl-btn-panic"
     const val ID_PANIC_ON = "fl-btn-panic-on"
     const val ID_COPY = "fl-btn-copy"
@@ -234,25 +236,30 @@ object ConsoleRender {
     }
 
     /**
-     * The pacing block: the `SPEED 1 / 5 / 20 / 50 ticks per second` choices and
-     * the `PANIC uncapped, no speed limit` toggle, the same controls and wording
-     * §15.4 defines, now in the world column at the grid's width where the EVENT
-     *  LOG used to be (amendment, W3 record 11 f). It renders as a bordered
-     *  `.fields` band, the same box family as the two readout bands, and keeps the
-     *  golden master's chip look and the 49 dp touch targets.
+     * The pacing row: the `SPEED 1 / 5 / 20 / 50 ticks per second` choices and the
+     * `PANIC uncapped, no speed limit` toggle, the same controls and wording §15.4
+     * defines. It has no readout band around it (W3 record 11 g) and it renders as
+     * ONE grid line in the fixed order the owner asked for (W3 record 14):
+     * `SPEED [1] [5] [20] [50] ticks per second ... PANIC uncapped ... [PANIC]`, the
+     * grid cells alternating with two inert gap cells (`.gap`, one of them the 1fr
+     * filler `ID_PACING_FILL`) so the line's width is fixed by CSS and a choice can
+     * never be pushed to a second line. `ID_SPEED_UNIT` marks the unit label;
+     * neither the gap cells nor the unit label is a control.
      */
-    /** The pacing row: no readout band around it (W3 record 11 g), a plain row of the
-     *  firmware column under the run row. Wording and ids are the master's. */
     private fun pacingBlock(state: ConsoleUiState): String {
-        val sb = StringBuilder("<div class=\"pacing\"><div class=\"inforow\"><span>")
-        sb.append("<b>SPEED</b> ").append(SPEED_CHOICES.joinToString(" / "))
-            .append(" ticks per second&nbsp;")
+        val sb = StringBuilder("<div class=\"pacing\"><div class=\"inforow\">")
+        sb.append("<b class=\"speedlabel\">SPEED</b>")
         for (speed in SPEED_CHOICES) {
-            sb.append(speedChip(speed, state)).append(' ')
+            sb.append(speedChip(speed, state))
         }
-        sb.append("&nbsp;&nbsp;<b>").append(PANIC_LABEL).append("</b> uncapped, no speed limit ")
+        sb.append("<span class=\"speedunit\" id=\"").append(ID_SPEED_UNIT)
+            .append("\">ticks per second</span>")
+        sb.append("<span class=\"gap\"></span>")
+        sb.append("<b class=\"paniclabel\">").append(PANIC_LABEL).append("</b>")
+        sb.append("<span class=\"panichint\">uncapped, no speed limit</span>")
         sb.append(button(panicButtonId(state.panic), panicLabel(state.panic), active = state.panic))
-        sb.append("</span></div>")
+        sb.append("<span class=\"gap fill\" id=\"").append(ID_PACING_FILL).append("\"></span>")
+        sb.append("</div>")
         return sb.append("</div>").toString()
     }
 
@@ -329,10 +336,15 @@ object ConsoleRender {
      *  master's `chip on` look, the others render as `.chip.btn` buttons. */
     private fun speedChip(ticksPerSecond: Int, state: ConsoleUiState): String =
         if (ticksPerSecond == state.speed && !state.panic) {
-            "<span class=\"chip on\">" + ticksPerSecond + " SELECTED</span>"
+            // The chosen cell keeps the master's `SELECTED` wording (§15.4) in the markup, plus
+            // the same state as an aria-pressed attribute, but the word itself is not painted:
+            // the yellow fill marks the choice, and the four cells stay exactly equal width so
+            // the row can never wrap. W3 record 14.
+            "<button type=\"button\" class=\"chip btn on\" id=\"" + speedButtonId(ticksPerSecond) +
+                "\" aria-pressed=\"true\">" + ticksPerSecond + "<small>SELECTED</small></button>"
         } else {
-            "<button type=\"button\" class=\"chip btn\" id=\"" + speedButtonId(ticksPerSecond) + "\">" +
-                ticksPerSecond + "</button>"
+            "<button type=\"button\" class=\"chip btn\" id=\"" + speedButtonId(ticksPerSecond) +
+                "\" aria-pressed=\"false\">" + ticksPerSecond + "</button>"
         }
 
     /** `LINK <code>#run=FLW1-…</code> COPY DOWNLOAD .ASM` of §15.4. The link text

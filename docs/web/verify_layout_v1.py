@@ -146,7 +146,7 @@ def shell_css_gate_for_15_2a():
           "height:var(--pane-h,316px)" in rule(".pairfirm pre.source{") and
           "--grid-h:calc(21 * var(--cell) + 2px)" in pair and
           "--cell:max(11px, min(34px, calc((var(--col) - 5px) / 21)))" in pair and
-          "--row-offset:100px" in pair and
+          "--row-offset:84px" in pair and
           "--pane-h:max(180px, calc(var(--grid-h) - var(--row-offset)))" in pair and
           "max-width:var(--grid-h,317px)" in rule(".grid{"))
     check("15.2a 7 shell panes carry no inline height",
@@ -162,6 +162,21 @@ def shell_css_gate_for_15_2a():
     check("15.4 49dp gate keeps holding for touch pointers",
           ".pacing .chip.btn{min-height:49px}" in coarse or
           ".pacing .chip.btn{min-height:49px}" in coarse.replace(" ", ""))
+
+    row = rule(".pacing .inforow{")
+    labels = rule(".pacing .speedlabel,")
+    check("15.2a 9 pacing row never wraps a choice to a second line",
+          "flex-wrap:nowrap" in row and "white-space:nowrap" in labels and
+          "white-space:nowrap" in pacing and
+          "@media(max-width:700px){.pacing .inforow{flex-wrap:wrap}" not in c, row[:90])
+    check("15.2a 9 the four choice cells are equal width",
+          "flex:1 1 42px" in pacing and "max-width:64px" in pacing, pacing[:90])
+    check("15.2a 9 SELECTED wording stays in the markup but is not painted",
+          ".pacing .chip.btn small{" in c and "clip-path:inset(50%)" in rule(".pacing .chip.btn small{"))
+    check("15.2a 10 one declared vertical rhythm for the shell",
+          "--gap-major:12.8px" in c and "--gap-related:8px" in c and
+          c.count("var(--gap-major)") >= 5 and c.count("var(--gap-related)") >= 2,
+          "gap vars: %d major / %d related" % (c.count("var(--gap-major)"), c.count("var(--gap-related)")))
 
 
 def report():

@@ -783,11 +783,15 @@ master and the generator are amended in step (a documented open item, not silent
    clamped to 11..34px, `--grid-h = 21 * --cell + 2px`.
 7a. **Row alignment**: the RF-8 STATE band's top edge equals the VITALS/STATE status line's top
    edge in the two-column layout. The pane is sized for it, `--pane-h = max(180px, --grid-h -
-   --row-offset)` with `--row-offset: 100px`, the identical offset on both sides: the status line
-   sits 100px below the grid's bottom edge, and under the pane the firmware column carries 100px
-   of chrome (collapsed 4px gap + 34px run row + 8px gap + 56px pacing row). Measured at viewport
-   1370: grid 613x635, pane 535, status line top and STATE band top both 669px below the pair's
-   top edge (1px rounding). Consequences, recorded rather than hidden: the firmware column ends
+   --row-offset)` with `--row-offset: 84px` (measured 2026-11-23; it was 100px while the pacing
+   row was two lines tall at 56px, see item 9 and `docs/WEB-W3-RECORD.md` 14). The world side's
+   allowance is the 25px the firmware column's heading adds at the top of the other column plus
+   that same 84px: the status line sits 109px below the grid's bottom edge (12.8px margin, 17px
+   heading, 8px heading margin, minus the 8px that collapses against the status line's margin),
+   and under the pane the firmware column carries 84px of its own chrome (collapsed 4px gap +
+   34px run row + 8px gap + one 28px pacing line + 8px pacing margin, collapsed against the
+   band's own margin). Measured at viewport 1370: grid 613x635, pane 551, status line top and
+   STATE band top at the same y (delta 0px). Consequences, recorded rather than hidden: the firmware column ends
    ~123px lower than the world column, because the world column's last block is the 58px symbol
    legend while the firmware column's last block is the 56px assembler note plus the 123px of
    chrome the run row and pacing row add above the band; and in EDIT mode the firmware column
@@ -799,6 +803,17 @@ master and the generator are amended in step (a documented open item, not silent
    under the run row inside the firmware column, with no panel border and no panel background,
    and with smaller buttons: speed/PANIC chips 28px tall, run buttons 34px minimum on desktop.
    The 49dp gate keeps holding for touch pointers through the `pointer: coarse` block.
+9. **One-line pacing row**: the row renders as a single nowrap flex line
+   `SPEED [1] [5] [20] [50] ticks per second` + a flexible space + `PANIC` + its hint + the
+   toggle (owner rule 2026-11-23, replacing 15.4's slash-list rendering for the shell). The four
+   choice cells are equal-width button cells (`flex:1 1 42px`, clamped 30..64px); the selected
+   cell keeps the master's `SELECTED` wording in the markup and in `aria-pressed="true"` while
+   the yellow fill paints the selection; one filler cell absorbs the slack so the row never
+   overflows. One line was measured at every width from 586px (Chrome's minimum window) to
+   1370px; below 700px the cells clamp at 26px, below 600px the PANIC hint text is dropped.
+10. **Vertical rhythm**: the shell's block gaps come from two tokens, `--gap-major: 12.8px`
+    (between blocks) and `--gap-related: 8px` (inside a block or against a neighbour that
+    belongs to it), so the measured gap between any two shell blocks is 13px or 8px.
 
 The 15.7 rejection of "a second run/status bar under the monitor" is untouched: the status
 line still occurs exactly once and stays read-only.
@@ -824,7 +839,7 @@ Each of these appears exactly once on the page:
 
 | item | only place |
 |---|---|
-| `RUN` / `STEP` / `RESET`, `SPEED 1/5/20/50`, `PANIC`, share `LINK` with `COPY` and `DOWNLOAD .ASM` | the control block under the firmware pane (console shell since 15.2a: its control block carries `RUN`/`STEP`/`RESET` only; `SPEED` and `PANIC` moved to the pacing block in the world column, `LINK`/`COPY`/`DOWNLOAD .ASM` to the full-width block under TELEMETRY, each still exactly once) |
+| `RUN` / `STEP` / `RESET`, `SPEED 1/5/20/50`, `PANIC`, share `LINK` with `COPY` and `DOWNLOAD .ASM` | the control block under the firmware pane (console shell since 15.2a: its control block carries `RUN`/`STEP`/`RESET` only; `SPEED` and `PANIC` moved to the pacing row in the firmware column, rendered as one nowrap line with four equal choice cells per 15.2a item 9, `LINK`/`COPY`/`DOWNLOAD .ASM` to the full-width block under TELEMETRY, each still exactly once) |
 | symbol legend (wall, rover + facing, fire display bands 1..24 / 25..49 / 50..74 / 75..100, packet, refill, exit, civilian, fuel, protected asset, layer order) | under the grid, in the world column |
 | state fingerprint | the status line |
 | `HP` / `WATER` / `HEAT` / `SHIELD` | the status line (and as registers only, never as a `VITALS` row in TELEMETRY) |
