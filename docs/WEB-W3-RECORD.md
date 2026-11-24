@@ -11,6 +11,10 @@ full matrix rerun 538 tests 0 failures/errors/skipped, §15.3 amendment recorded
 `docs/FIRELINE-WEB.md`. Caveat found on the way: the short gate form `./gradlew test wasmJsTest`
 silently skips the KMP `jvmTest` side; name the tasks explicitly.**
 
+**Round 17 CLOSED (2026-11-24): shell chrome cleanup (owner-directed from a page screenshot).
+RELEASE STATUS block removed from the shell, firmware library controls compacted, native file
+button replaced by an `IMPORT .ASM` chip. Section 17.**
+
 **Status of this record: W3 IS CLOSED (steps 1 to 8; section 10 is the gate close-out).** Step 1
 lifted the mission session layer out of `:fireline-app` into the shared engine so the browser
 console and the MISSION screen cannot drift apart. Step 2 proved on a device that the shipped
@@ -1110,3 +1114,50 @@ horizontal document overflow (`scrollWidth == clientWidth`); no titlebar. **Resu
 - Spec amendment: `docs/FIRELINE-WEB.md` 15.3, the world-grid row now carries the measured-column
   derivation `cell = clamp((columnPx - 2) / 22, 11, 34)` written inline on the pair element, and the
   box `22 * cell + 2 x 21 * cell + 2` as the same term as its tracks.
+
+
+## 17. W3 shell chrome cleanup 17 (2026-11-24): the release block out, the library compact
+
+Owner request, from a screenshot of the FIRMWARE LIBRARY section: "Remove the 'FL:> RELEASE
+STATUS' block and prettify the firmware section (decrease the button sizes, etc.)." The
+screenshot's symptoms: a bordered release panel sitting between the mission picker and the
+status4 strip; library buttons at the old 49px desktop scale; and the native file input
+rendering OS-language chrome ("Datei auswählen", "Keine Datei ausgewählt") inside the shell.
+
+### 17.1 What changed
+
+- **RELEASE STATUS removed.** The static `<div class="cta">` is gone from `console.html`, and the
+  `.cta` / `.cta strong` rules and the `.cta a` coarse-gate selector with it. 15.2 item 8 is
+  amended in `docs/FIRELINE-WEB.md` as the new dated deviation 15.2b 1; the 15.1 golden master
+  keeps the block (the frozen mockups are not edited). No test asserted the block.
+- **Library compact (15.2b 2).** Chips (SAVE CURRENT / DELETE LIBRARY) 13px font + 49px
+  min-height -> 12px font + 30px; entry buttons (LOAD / DELETE minis) 13px + 49px -> 12px + 26px;
+  selects 13px + .4rem padding -> 12px + .3rem; `.libentry` padding .5rem -> .4rem. The
+  `pointer:coarse` block gained `.librarycontrols .chip.btn`, `.librarycontrols
+  .importlabel.file` and `.libentry .mini` at min-height:49px, so the 48dp web touch gate keeps
+  holding for exactly the controls that shrank.
+- **File input.** `ConsoleRender` now marks the import label `importlabel file`; the label chip
+  carries the shell wording `IMPORT .ASM`, and the input is visually hidden
+  (`position:absolute;width:1px;height:1px;clip-path:inset(50%)`). The input keeps its id, so the
+  `Main.kt` import wiring and the W3RenderTest `type="file" id=` assertion are untouched; the
+  picker opens on the label click and the input stays keyboard-focusable (hover/focus paint the
+  chip border yellow). This kills the OS-language chrome (German on this host) without any
+  localization machinery.
+- Comment fix: the `console.html` scaling comment still named `WorldGrid.gridStyleAttr`; corrected
+  to `cellStyleAttr` written on the pair element (record 16 shipped form).
+
+### 17.2 Gate status
+
+- Full matrix 2026-11-24 (`--rerun-tasks --no-build-cache`, explicit task list): **538 tests,
+  0 failures, 0 errors, 0 skipped** (62 fresh result XMLs; counts identical to record 16).
+- `docs/web/verify_layout_v1.py`: **45 checks, 0 failed** (39 + the six new 15.2b checks: no
+  RELEASE STATUS block, no `.cta` styling, 30px chips, hidden file input behind the chip, 26px
+  entry buttons, coarse gate covers the library controls).
+- Live Chrome measurement (dev-library distribution rebuilt 11:05, served on a new port,
+  `?cb=rec17view`): `.cta` count 0; `RELEASE STATUS` absent from the page text; SAVE CURRENT and
+  the IMPORT .ASM chip 124.9 x 30.2 / 100.4 x 30.2px; selects 27.6px; entry minis 50 x 26px; the
+  hidden file input measures 1 x 1px; all library wording English. Screenshot review confirmed one
+  uniform button family with no native file chrome.
+- Known accepted looseness (not a gate): the control row flex-wraps `DELETE LIBRARY` to a second
+  line only below the width where the row no longer fits; at desktop content width all five
+  controls share one row.

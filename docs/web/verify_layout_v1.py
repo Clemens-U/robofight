@@ -116,6 +116,7 @@ def main():
     # 8. dated shell deviation 15.2a items 7-8 (docs/WEB-W3-RECORD.md 11 g): the live
     #    console harness, not the frozen mockups, is measured against these rules.
     shell_css_gate_for_15_2a()
+    shell_css_gate_for_15_2b()
 
     return report()
 
@@ -194,6 +195,36 @@ def shell_css_gate_for_15_2a():
           "--gap-major:12.8px" in c and "--gap-related:8px" in c and
           c.count("var(--gap-major)") >= 5 and c.count("var(--gap-related)") >= 2,
           "gap vars: %d major / %d related" % (c.count("var(--gap-major)"), c.count("var(--gap-related)")))
+
+
+def shell_css_gate_for_15_2b():
+    # W3 record 17 (2026-11-24, owner-directed): the console shell drops the 15.2 item 8
+    # RELEASE STATUS block and compacts the firmware library controls on desktop, keeping the
+    # 49dp pointer:coarse gate over every library control.
+    c = SHELL.read_text(encoding="utf-8")
+
+    def rule(sel):
+        i = c.find(sel)
+        return c[i:c.find("}", i)] if i >= 0 else ""
+
+    check("15.2b 1 the shell renders no RELEASE STATUS block",
+          "FL:&gt; RELEASE STATUS" not in c and 'class="cta"' not in c)
+    check("15.2b 1 no .cta styling left in the shell CSS",
+          ".cta{" not in c and ".cta a" not in c)
+    chips = rule(".librarycontrols .chip.btn,")
+    check("15.2b 2 library chips are 30px at 12px font on desktop",
+          "min-height:30px" in chips and "font-size:12px" in chips, chips[:80])
+    hidden = rule(".importlabel input[type=file]{")
+    check("15.2b 2 the OS-language file button is hidden behind the IMPORT .ASM chip",
+          "clip-path:inset(50%)" in hidden and ".librarycontrols .importlabel.file{" in c,
+          hidden[:80])
+    mini = rule(".libentry .mini{")
+    check("15.2b 2 library entry buttons are 26px at 12px font on desktop",
+          "min-height:26px" in mini and "font-size:12px" in mini, mini[:80])
+    coarse = c[c.find("@media (pointer: coarse)"):]
+    check("15.2b 2 the 49dp touch gate covers the library controls",
+          ".librarycontrols .chip.btn" in coarse and ".libentry .mini" in coarse and
+          "min-height:49px" in coarse)
 
 
 def report():

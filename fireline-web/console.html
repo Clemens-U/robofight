@@ -157,8 +157,8 @@ code{color:var(--bright);font-family:inherit;word-break:break-all}
 .status4 div{padding:.6rem .8rem;font-size:12px;color:var(--text);border-right:1px solid var(--line)}
 .status4 div:last-child{border-right:0}
 .status4 b{display:block;color:var(--yellow);font-weight:normal;letter-spacing:.1em;font-size:11px}
-.cta{border:1px solid var(--line);background:var(--panel);padding:.9rem 1.1rem;margin:1rem 0}
-.cta strong{color:var(--bright);font-weight:normal;display:block;margin:.25rem 0}
+/* W3 record 17 (15.2b): the FL:> RELEASE STATUS block no longer renders in the shell, so the
+   golden master's .cta styling has no target here. */
 footer{border-top:1px solid var(--line);padding-top:.7rem;margin-top:1rem;font-size:11px;color:var(--dim)}
 .chip{display:inline-flex;align-items:center;gap:5px;margin-right:2px}
 .chip i{width:10px;height:10px;display:inline-block;border:1px solid var(--line)}
@@ -297,21 +297,31 @@ textarea.source.editor{width:100%;box-sizing:border-box;height:var(--pane-h,316p
 .consolecontrols .chip.btn.on{background:var(--yellow);color:#1a1005;border-color:var(--yellow)}
 .consolecontrols .runrow .chip.btn{font-size:14px;padding:0 14px}
 .flstatus{margin-top:.5rem;color:var(--yellow);font-size:12px}
+/* W3 record 17 (15.2b, owner-directed 2026-11-24): the library controls are compact on desktop,
+   the same chip scale as the console controls (30px chips, 26px entry buttons). The 49dp touch
+   targets return in the pointer:coarse gate below. */
 .librarycontrols,.librarytarget{display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;
   font-size:11px;color:var(--dim);margin-top:.6rem}
-.librarycontrols .chip.btn,.librarytarget .chip.btn{font-family:inherit;font-size:13px;padding:.4rem .8rem;
-  min-height:49px;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer}
+.librarycontrols .chip.btn,.librarytarget .chip.btn{font-family:inherit;font-size:12px;padding:.3rem .6rem;
+  min-height:30px;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer}
 .importlabel{display:inline-flex;gap:.4rem;align-items:center}
-.librarycontrols input[type=file]{font-size:12px;color:var(--dim);max-width:100%}
-.librarycontrols select,.librarytarget select{font-size:13px;color:var(--text);background:var(--panel2);
-  border:1px solid var(--line);padding:.4rem .5rem}
+/* the native file button renders in the OS language and OS chrome (German "Datei auswählen" on
+   this host), so the shell wording rides on the label chip and the input is visually hidden but
+   focusable: the label click opens the picker, keyboard users still reach the input. */
+.librarycontrols .importlabel.file{cursor:pointer;font-family:inherit;font-size:12px;padding:.3rem .6rem;
+  min-height:30px;border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+.librarycontrols .importlabel.file:hover,.librarycontrols .importlabel.file:focus-within{border-color:var(--yellow)}
+.importlabel input[type=file]{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);
+  border:0;background:none}
+.librarycontrols select,.librarytarget select{font-size:12px;color:var(--text);background:var(--panel2);
+  border:1px solid var(--line);padding:.3rem .45rem}
 .library{display:grid;gap:.4rem}
 .libentry{display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;border:1px solid var(--line);
-  background:var(--panel);padding:.5rem .7rem}
-.libentry .libname{font-family:"Courier New",Courier,monospace;font-size:13px;color:var(--text)}
-.libentry .libmeta{font-size:12px;color:var(--dim)}
-.libentry .mini{font-family:inherit;border:1px solid var(--line);background:var(--panel2);color:var(--text);
-  padding:.4rem .8rem;min-height:49px;cursor:pointer}
+  background:var(--panel);padding:.4rem .7rem}
+.libentry .libname{font-family:"Courier New",Courier,monospace;font-size:12px;color:var(--text)}
+.libentry .libmeta{font-size:11px;color:var(--dim)}
+.libentry .mini{font-family:inherit;font-size:12px;border:1px solid var(--line);background:var(--panel2);color:var(--text);
+  padding:.25rem .6rem;min-height:26px;cursor:pointer}
 @media(max-width:900px){.pair{grid-template-columns:minmax(0,1fr);--cell:11px;--col:320px}
   .pairworld{max-height:none}
   /* collapsed: one column, no side-by-side row to align, the pane keeps the 180px floor */
@@ -336,14 +346,16 @@ textarea.source.editor{width:100%;box-sizing:border-box;height:var(--pane-h,316p
    screens. Scoped to coarse pointers so the frozen desktop layout keeps its
    measurements; 49px matches the console buttons already in the master. */
 @media (pointer: coarse){
-  .mcard a,.nav a,.cta a,.privacy a{display:inline-block;min-height:49px;padding:.55rem .8rem}
+  .mcard a,.nav a,.privacy a{display:inline-block;min-height:49px;padding:.55rem .8rem}
   .mcard button.mini{min-height:49px;padding:.55rem .8rem}
   select{min-height:49px}
   input[type=file]{min-height:49px}
   input[type=text],.editorname input{min-height:49px}
-  /* the smaller console buttons of 11 g are a desktop measure only; touch screens get
-     the 49dp target back, matching the run buttons already gated here */
+  /* the smaller console buttons of 11 g and the compact library controls of 17 (15.2b) are
+     desktop measures only; touch screens get the 49dp target back */
   .consolecontrols .runrow .btn,.consolecontrols .chip.btn,.pacing .chip.btn{min-height:49px}
+  .librarycontrols .chip.btn,.librarycontrols .importlabel.file{min-height:49px;padding:.55rem .8rem}
+  .libentry .mini{min-height:49px;padding:.55rem .8rem}
 }
 </style>
 </head>
@@ -360,14 +372,16 @@ comes from the wasm module, this page only supplies the frozen chrome and the co
      ConsoleRender.renderConsoleHtml writes it; nothing on this page computes a run value. -->
 <div id="fl-shell"></div>
 
-<div class="cta"><p>FL:&gt; RELEASE STATUS</p><strong>OPCODE FIRELINE 0.1 // ANDROID PLAY + BROWSER CONSOLE</strong><p>FREE. YOUR CODE ON THE NOZZLE. PLAY HERE, INSTALL IF YOU WANT IT IN YOUR POCKET.</p></div>
+<!-- 15.2 item 8 (FL:> RELEASE STATUS) removed from the shell 2026-11-24 (owner-directed,
+     15.2b / docs/WEB-W3-RECORD.md 17): the release framing lives in the store listings and the
+     golden master, not on the console page. -->
 <div class="status4"><div><b>ENGINE</b>SAME :rf8-core + :fireline-engine</div><div><b>DETERMINISM</b>STATE FINGERPRINT PER RUN</div><div><b>STORAGE</b>YOUR BROWSER ONLY</div><div><b>NETWORK</b>ONE PAGE LOAD, THEN LOCAL</div></div>
 <div class="privacy"><div><h2>PRIVATE BY DESIGN, ALSO IN THE BROWSER</h2><p class="small">THE PAGE AND THE ENGINE BINARY LOAD ONCE OVER HTTPS. AFTER THAT EVERY RUN, EVERY FIRMWARE AND EVERY RESULT STAYS IN THIS TAB'S LOCAL STORAGE. NO ACCOUNT, NO ADS, NO ANALYTICS, NO THIRD-PARTY SCRIPTS, NO SERVER-SIDE EXECUTION OF YOUR CODE.</p><a class="command secondary">READ WEB PRIVACY STATUS</a></div><div><ul><li>FIRMWARE AND RESULTS LIVE IN BROWSER LOCAL STORAGE ONLY.</li><li>SHARE LINKS CARRY YOUR CODE IN THE URL FRAGMENT, NOT TO OUR SERVER.</li><li>EXPORT ANY FIRMWARE AS PLAIN UTF-8 .ASM AND OPEN IT IN THE ANDROID APP.</li><li>CLEARING SITE DATA OR THE IN-PAGE DELETE REMOVES EVERYTHING.</li></ul></div></div>
 <footer><span class="chip"><i style="background:#100b09"></i>field #100b09</span> <span class="chip"><i style="background:#16100e"></i>screen #16100e</span> <span class="chip"><i style="background:#211512"></i>panel #211512</span> <span class="chip"><i style="background:#6c372c"></i>line #6c372c</span> <span class="chip"><i style="background:#f2d9b0"></i>chrome #f2d9b0</span> <span class="chip"><i style="background:#fff4dc"></i>value #fff4dc</span> <span class="chip"><i style="background:#b38362"></i>dim #b38362</span> <span class="chip"><i style="background:#ffd23f"></i>rover #ffd23f</span> <span class="chip"><i style="background:#e63946"></i>RUN #e63946</span> <span class="chip"><i style="background:#35d6d6"></i>water #35d6d6</span> <span class="chip"><i style="background:#34ec5b"></i>exit #34ec5b</span> <span class="chip"><i style="background:#8a6d5e"></i>wall #8a6d5e</span> <span class="chip"><i style="background:#8d6a1e"></i>fuel #8d6a1e</span> <span class="chip"><i style="background:#c77dff"></i>asset #c77dff</span> <span class="chip"><i style="background:#ffb02e"></i><i style="background:#f2921e"></i><i style="background:#e96a2a"></i><i style="background:#e0303c"></i><span style="margin-left:4px">fire 1-4 (dir. F)</span></span><div class="provenance">values come from :fireline-engine + :rf8-core through ConsoleModel/ConsoleRun only; anchors from docs/web/fixtures/parity_matrix.json, parity_traces.json, snapshots.json and docs/WEB-W1-RECORD.md 9</div></footer>
 
-<!-- The grid's cell size arrives as an INLINE style written by the render layer: WorldGrid
-     .gridStyleAttr(worldColumnPx), fed by Main.kt's measurement of the laid-out world column
-     (W3 record 16). Chrome 142 re-resolves var() / % / vw / cqw inside a grid's own track and box
+<!-- The grid's cell size arrives as an INLINE style written by the render layer on the PAIR
+     element: WorldGrid.cellStyleAttr(worldColumnPx), fed by Main.kt's measurement of the laid-out
+     world column (W3 record 16). Chrome 142 re-resolves var() / % / vw / cqw inside a grid's own track and box
      sizing against that grid's own box rather than the column it sits in, so no CSS length
      expression can be trusted to keep 22 tracks inside the column; the raw-px inline style is the
      one form that cannot disagree with itself. The CSS below is the fallback for a shell that has

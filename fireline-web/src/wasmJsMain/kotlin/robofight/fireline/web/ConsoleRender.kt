@@ -569,7 +569,7 @@ object ConsoleRender {
         if (run != null) {
             sb.append("<button type=\"button\" class=\"chip btn\" id=\"").append(ID_SAVE).append("\">SAVE CURRENT</button>")
         }
-        sb.append("<label class=\"importlabel\">IMPORT .ASM")
+        sb.append("<label class=\"importlabel file\">IMPORT .ASM")
         sb.append("<input type=\"file\" id=\"").append(ID_IMPORT_FILE).append("\" accept=\".asm,.txt\">")
         sb.append("</label>")
         sb.append("<label class=\"importlabel\">into")

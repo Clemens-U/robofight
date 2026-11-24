@@ -732,7 +732,8 @@ the other is not a change, it is drift.
    WATER / HEAT / SHIELD`, right `STATE tick n fingerprint $hex`.
 6. `WHAT THE PORTS MEAN` and `RUN STATS` (two columns, label-first tables).
 7. `FL:> SELECT A CALL` mission cards.
-8. `FL:> RELEASE STATUS` block.
+8. `FL:> RELEASE STATUS` block. (console shell: removed 2026-11-24, see 15.2b 1; the 15.1
+   golden master keeps it.)
 9. Four-cell strip: `ENGINE`, `DETERMINISM`, `STORAGE`, `NETWORK`.
 10. `PRIVATE BY DESIGN, ALSO IN THE BROWSER` block, then the footer with the
     token chips and the engine-snapshot provenance line.
@@ -825,6 +826,20 @@ master and the generator are amended in step (a documented open item, not silent
 
 The 15.7 rejection of "a second run/status bar under the monitor" is untouched: the status
 line still occurs exactly once and stays read-only.
+
+### 15.2b Dated shell deviation (2026-11-24, owner-directed, `docs/WEB-W3-RECORD.md` 17)
+
+Owner review of the live console page (screenshot of the FIRMWARE LIBRARY section):
+
+1. **No RELEASE STATUS block**: the console shell renders no `FL:> RELEASE STATUS` cta block
+   (15.2 item 8 removed for the shell only). The release framing lives in the store listings and
+   in the 15.1 golden master; the status4 strip, privacy block and footer keep their 15.2 slots.
+2. **Compact library controls**: the firmware library chips (`SAVE CURRENT`, `IMPORT .ASM`,
+   `DELETE LIBRARY`) are 30px chips at 12px font, the library entry buttons (`LOAD` / `DELETE`)
+   are 26px at 12px font, and the selects are 12px, matching the console control scale. The
+   49dp `pointer:coarse` gate covers all of them. The native file button (which renders in the
+   OS language, e.g. "Datei auswählen") is visually hidden but focusable; the shell chip
+   `IMPORT .ASM` on the label opens the picker.
 
 ### 15.3 Binding numeric rules (desktop, measured 1312px viewport)
 
