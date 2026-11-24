@@ -64,9 +64,34 @@ h4{margin:0 0 .4rem;color:var(--dim);font-size:11px;letter-spacing:.14em;font-we
 .objline{font-size:12px;letter-spacing:.04em;margin:.4rem 0 .2rem}
 .ok{color:var(--green)}.pend{color:var(--dim)}.bad{color:var(--red)}
 .wind{color:var(--cyan);font-size:12px;margin-bottom:.35rem}
-.grid{display:grid;grid-template-columns:calc(2 * var(--cell, 15px)) repeat(20, var(--cell, 15px));
-  grid-auto-rows:var(--cell, 15px);background:var(--panel2);border:1px solid var(--line);
-  width:100%;max-width:var(--grid-h,317px)}
+/* The world grid. Square cells that never cross into the firmware column, at every width.
+   It is 22 tracks wide (2 tracks for the label column, per 15.3's `30px + 20x15px`, i.e. the label
+   column is exactly 2 cells wide, plus 20 cell tracks) and 21 rows tall, and every track and every
+   row is the SAME token --cell, so a cell is --cell wide and --cell tall by construction, and the box
+   (22 * --cell + 2px by 21 * --cell + 2px) is the same term as the tracks: box, tracks and rows can
+   not disagree, which is what the scaling bug was. justify-content/align-content:start keep the grid
+   flush to the box's top-left instead of being stretched.
+   --cell is not a CSS expression. It arrives as an inline style written on the PAIR element by the
+   render layer (WorldGrid.cellStyleAttr, cell = clamp((worldColumn - 2) / 22, 11, 34), measured in
+   Main.kt from the laid-out .pairworld box), because Chrome 142 cannot be trusted with a length
+   expression inside grid track sizing. Two findings, measured on this page
+   2026-11-23 and documented so nobody re-derives them: (a) a declared fixed-px track sum never
+   survives a wider box, Chrome stretches the tracks to fill it, a track declared --col/22 = 27.79px
+   laid out as 28.281px (label 56.578px) to fill 611.42px of grid area; (b) var(), % and cqw inside
+   the grid's own sizing rules re-resolve against the grid's own box instead of the column: the same
+   var(--col) computed 613.422px on .pairworld but 626.4px inside .grid's tracks and max-width, and
+   100vw in --cell computed 34px (the ceiling) at viewport 1370 where the cascade gives a 613.422px
+   column, i.e. a 748px track sum inside a 611px box with 136px of cells drawn over the firmware
+   column. Both were the reported bug: cells reaching into the firmware area (owner report
+   2026-11-23, record docs/WEB-W3-RECORD.md 16). The script reads the real laid-out column width, so
+   22 * cell + 2px is never wider than the column. No percentage width is used on the grid either:
+   `width:100%` let the column size the box while the tracks sized past it (offsetWidth 613 with
+   scrollWidth 636). */
+.grid{display:grid;grid-template-columns:calc(2 * var(--cell, 11px)) repeat(20, var(--cell, 11px));
+  grid-template-rows:repeat(21, var(--cell, 11px));
+  width:calc(22 * var(--cell, 11px) + 2px);max-width:calc(22 * var(--cell, 11px) + 2px);
+  height:calc(21 * var(--cell, 11px) + 2px);
+  background:var(--panel2);border:1px solid var(--line)}
 .cell{display:flex;align-items:center;justify-content:center;font-size:12px;
   border:1px solid rgba(108,55,44,.35);position:relative}
 .ruler,.corner{color:var(--dim);font-size:9px;display:flex;align-items:center;justify-content:center}
@@ -142,17 +167,25 @@ footer{border-top:1px solid var(--line);padding-top:.7rem;margin-top:1rem;font-s
 .privacy ul{margin:0;padding-left:1.1rem;color:var(--dim);font-size:12px}
 .small{color:var(--dim);font-size:12px}
 /* paired run surface: world on the left, firmware you wrote on the right.
-   (W3 record 11 g, owner-directed) The anchor is the grid square: it is always half of the
-   console body's content width, so both columns are that same half (minus the gap) and the
-   firmware pane is as tall as the grid, the frozen 21-cell ratio of 15.3 kept at any width.
-   --cw = body content width = viewport - body padding (2x12.8) - console border (2)
-   - page padding (2x19.2) - body margin (2x18) = viewport - 74.56px. */
+   (W3 record 11 g, owner-directed) The anchor is the grid square: both columns are half the console
+      body minus the pair gap, and the firmware pane is as tall as the grid, the frozen 21-cell ratio of
+      15.3 kept at any width. Width cascade, measured in Chrome at viewport 1370 / 1270 / 880 / 1770 and
+      verified against the live boxes (it also has to respect the page cap `.page{width:min(1312px,100%)}`):
+        body client      = 100vw - 36            (body padding 18px each side)
+        page box         = min(1312px, body client)   (auto margins outside the cap)
+        console content  = page box - 38.4       (page padding 1.2rem each side) - 2 (console border)
+        console body     = console content - 25.6 (consolebody padding .8rem each side)
+        pair column      = (console body - 19.2) / 2 (one column also carries half the 1.2rem pair gap)
+      1370 -> 1246.0 -> column 613.4 == measured pair track 613.422. 1270 -> 1153.0 -> 566.9 == 566.922.
+      1770 -> capped, 1246.0 -> 613.4 (measured). 880 -> 763.0 == measured single track 763.031. The old
+      constant 74.56px double counted the page padding and ignored the cap. */
 .pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1.2rem;
   align-items:stretch;margin-top:.5rem;
   /* Anchor: the pair column, which the two equal tracks make exactly half of the console
-     body content width (body content = 100vw - 74.56px chrome, per column half of the
-     1.2rem gap). Everything else derives from it: the grid square fills the column, so the
-     grid is always half the available width, and the firmware column has the same width.
+     body content width (--cw/--col, see the cascade above; per column also half of the 1.2rem gap).
+     Everything else derives from --cell, which is derived from the viewport so that 22 * --cell + 2px
+     never exceeds the column: the grid is flush left inside its column and the firmware column has
+     the same width.
      The firmware pane is sized so that the RF-8 STATE band starts exactly where the world
      column's VITALS/STATE status line starts. Both sides carry the same offset: the status
      line sits --row-offset below the grid's bottom edge (its --gap-major margin-top, plus the
@@ -163,12 +196,32 @@ footer{border-top:1px solid var(--line);padding-top:.7rem;margin-top:1rem;font-s
      against the band's own margin). The constant is measured, not derived from declarations,
      because the margins collapse. The two rows start at the same y at any width where the 180px
      pane floor is not active (measured at viewport 1370: band top == status line top). */
-  --col:max(320px, calc((100vw - 74.56px - 19.2px) / 2));
-  --cell:max(11px, min(34px, calc((var(--col) - 5px) / 21)));
-  --grid-h:calc(21 * var(--cell) + 2px);
+  --cw:min(1273.6px, calc(100vw - 36px - 38.4px - 2px - 25.6px));  /* the cascade above */
+  --col:max(320px, calc((var(--cw) - 19.2px) / 2));  /* the column the grid must fit inside */
+  /* Historical derivation (kept as the arithmetic record): one term derived from the VIEWPORT,
+     shared by every grid track and row. It measured correctly at the pair but NOT inside the grid
+     (see the .grid comment), which is why the cell edge is now measured from the DOM. The pair:
+     column is (100vw - chrome) / 2 and the grid inside it is 22 * cell + 2px, so a cell is
+     (100vw - chrome - 19.2px - 2px) / 22 = (100vw - 121.2px) / 22. The chrome constant is measured
+     in Chrome, not declared: body padding 36 + page padding 38.4 + console border 2 + consolebody
+     padding 25.6 = 102px, plus 15px of page margin when the layout hits the .page 1312px cap
+     (measured pair track 613.422px at viewport 1370 == (1370 - 102 - 19.2) / 2 and at 1770+ where
+     the cap plus margins give the same 613.422px). The old formula divided the column by 21 while
+     the grid is 22 tracks wide (it forgot the doubled label column), which squeezed the columns
+     while grid-auto-rows kept the cell height (cells rendered 2:1, non-square) and pushed the last
+     grid columns into the firmware column (owner report 2026-11-23, record 16). 34px is the desktop
+     ceiling, 11px the compact floor (15.3). The grid box is 21 * --cell + 2px, so a big column only
+     leaves slack on the right of the grid, it never pushes cells across the column edge. */
+  /* --cell is written as an inline style on this element by the render layer (W3 record 16:
+     Main.kt measures the laid-out pair column, WorldGrid.cellSizePx turns it into a cell edge);
+     the 11px value here is the fallback for a shell that has not measured yet. The derivation that
+     used to live here, max(11px, min(34px, calc((var(--col) - 5px) / 21))), is gone: Chrome
+     re-resolved it against the grid's own box (see the .grid comment). */
+  --cell:11px;
+  --grid-h:calc(21 * var(--cell) + 2px);   /* == .grid's height; its width is 22 * --cell + 2px */
   --row-offset:120px;
   --pane-h:max(180px, calc(var(--grid-h) - var(--row-offset)))}
-.pairworld{min-width:0}
+.pairworld{min-width:0;overflow:hidden}
 .pairworld h4,.pairfirm h4{margin-bottom:.5rem}
 .pairfirm pre.source{max-height:none;height:var(--pane-h,316px);overflow:auto}
 .pairfirm .asmnote{margin-top:var(--gap-major)}
@@ -259,7 +312,7 @@ textarea.source.editor{width:100%;box-sizing:border-box;height:var(--pane-h,316p
 .libentry .libmeta{font-size:12px;color:var(--dim)}
 .libentry .mini{font-family:inherit;border:1px solid var(--line);background:var(--panel2);color:var(--text);
   padding:.4rem .8rem;min-height:49px;cursor:pointer}
-@media(max-width:900px){.pair{grid-template-columns:minmax(0,1fr);--cell:11px}
+@media(max-width:900px){.pair{grid-template-columns:minmax(0,1fr);--cell:11px;--col:320px}
   .pairworld{max-height:none}
   /* collapsed: one column, no side-by-side row to align, the pane keeps the 180px floor */
   .pairfirm pre.source{height:calc(21 * 11px + 1px)}
@@ -275,7 +328,8 @@ textarea.source.editor{width:100%;box-sizing:border-box;height:var(--pane-h,316p
 @media(max-width:900px){.row,.row.wide-left,.cols,.privacy{grid-template-columns:minmax(0,1fr)}
   .statusbar{grid-template-columns:minmax(0,1fr)}
   .grid{grid-template-columns:calc(2 * var(--cell, 11px)) repeat(20, var(--cell, 11px));
-    grid-auto-rows:var(--cell, 11px)}
+  grid-template-rows:repeat(21, var(--cell, 11px));max-width:calc(22 * var(--cell, 11px) + 2px);
+  height:calc(21 * var(--cell, 11px) + 2px)}
   .cell{font-size:10px}.cell.rover{font-size:11px}.cell.wall{font-size:11px}
   .status4{grid-template-columns:1fr 1fr}}
 /* W3 gate (docs/FIRELINE-WEB.md §9 W3): 48dp-equivalent touch targets on touch
@@ -311,9 +365,29 @@ comes from the wasm module, this page only supplies the frozen chrome and the co
 <div class="privacy"><div><h2>PRIVATE BY DESIGN, ALSO IN THE BROWSER</h2><p class="small">THE PAGE AND THE ENGINE BINARY LOAD ONCE OVER HTTPS. AFTER THAT EVERY RUN, EVERY FIRMWARE AND EVERY RESULT STAYS IN THIS TAB'S LOCAL STORAGE. NO ACCOUNT, NO ADS, NO ANALYTICS, NO THIRD-PARTY SCRIPTS, NO SERVER-SIDE EXECUTION OF YOUR CODE.</p><a class="command secondary">READ WEB PRIVACY STATUS</a></div><div><ul><li>FIRMWARE AND RESULTS LIVE IN BROWSER LOCAL STORAGE ONLY.</li><li>SHARE LINKS CARRY YOUR CODE IN THE URL FRAGMENT, NOT TO OUR SERVER.</li><li>EXPORT ANY FIRMWARE AS PLAIN UTF-8 .ASM AND OPEN IT IN THE ANDROID APP.</li><li>CLEARING SITE DATA OR THE IN-PAGE DELETE REMOVES EVERYTHING.</li></ul></div></div>
 <footer><span class="chip"><i style="background:#100b09"></i>field #100b09</span> <span class="chip"><i style="background:#16100e"></i>screen #16100e</span> <span class="chip"><i style="background:#211512"></i>panel #211512</span> <span class="chip"><i style="background:#6c372c"></i>line #6c372c</span> <span class="chip"><i style="background:#f2d9b0"></i>chrome #f2d9b0</span> <span class="chip"><i style="background:#fff4dc"></i>value #fff4dc</span> <span class="chip"><i style="background:#b38362"></i>dim #b38362</span> <span class="chip"><i style="background:#ffd23f"></i>rover #ffd23f</span> <span class="chip"><i style="background:#e63946"></i>RUN #e63946</span> <span class="chip"><i style="background:#35d6d6"></i>water #35d6d6</span> <span class="chip"><i style="background:#34ec5b"></i>exit #34ec5b</span> <span class="chip"><i style="background:#8a6d5e"></i>wall #8a6d5e</span> <span class="chip"><i style="background:#8d6a1e"></i>fuel #8d6a1e</span> <span class="chip"><i style="background:#c77dff"></i>asset #c77dff</span> <span class="chip"><i style="background:#ffb02e"></i><i style="background:#f2921e"></i><i style="background:#e96a2a"></i><i style="background:#e0303c"></i><span style="margin-left:4px">fire 1-4 (dir. F)</span></span><div class="provenance">values come from :fireline-engine + :rf8-core through ConsoleModel/ConsoleRun only; anchors from docs/web/fixtures/parity_matrix.json, parity_traces.json, snapshots.json and docs/WEB-W1-RECORD.md 9</div></footer>
 
+<!-- The grid's cell size arrives as an INLINE style written by the render layer: WorldGrid
+     .gridStyleAttr(worldColumnPx), fed by Main.kt's measurement of the laid-out world column
+     (W3 record 16). Chrome 142 re-resolves var() / % / vw / cqw inside a grid's own track and box
+     sizing against that grid's own box rather than the column it sits in, so no CSS length
+     expression can be trusted to keep 22 tracks inside the column; the raw-px inline style is the
+     one form that cannot disagree with itself. The CSS below is the fallback for a shell that has
+     not measured yet. -->
 <script type="module">
 import * as fireline from './build/compileSync/wasmJs/main/developmentLibrary/kotlin/opcode-arena-fireline-web.mjs';
-fireline.startFirelineConsole();
+try {
+  fireline.startFirelineConsole();
+} catch (e) {
+  const box = document.createElement('pre');
+  box.id = 'fl-startup-error';
+  const parts = [];
+  parts.push('name: ' + (e && e.name));
+  for (const k of ['message', 'js_call_site', 'js_stack', 'wasm_stack', 'trap']) {
+    try { parts.push(k + ': ' + String(e && e[k]).slice(0, 1500)); } catch (o) { parts.push(k + ': unreadable'); }
+  }
+  try { parts.push('String(e): ' + String(e).slice(0, 600)); } catch (o) { }
+  box.textContent = parts.join('\n');
+  document.body.appendChild(box);
+}
 </script>
 </div>
 </body>

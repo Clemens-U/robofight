@@ -3,6 +3,14 @@
 Branch: `codex/web-w3-console` (from `codex/web-w2-parity` HEAD `ffafe02`).
 Date: 2026-11-20 to 2026-11-22. Plan: `docs/FIRELINE-WEB.md` §9 W3, gates §4 G1 to G6.
 
+**Round 16 CLOSED (opened 2026-11-23, closed 2026-11-24): grid cell scaling fix (owner report
+"the cells are reaching into the firmware area"). Root cause, rejected attempts and the shipped
+render-layer fix are in section 16. Verified on the shipped build 2026-11-24: Chrome browser gate
+green at viewports 1950/1400/1180/920/901/586 (16.4, 16.5), `verify_layout_v1` 39 checks 0 failed,
+full matrix rerun 538 tests 0 failures/errors/skipped, §15.3 amendment recorded in
+`docs/FIRELINE-WEB.md`. Caveat found on the way: the short gate form `./gradlew test wasmJsTest`
+silently skips the KMP `jvmTest` side; name the tasks explicitly.**
+
 **Status of this record: W3 IS CLOSED (steps 1 to 8; section 10 is the gate close-out).** Step 1
 lifted the mission session layer out of `:fireline-app` into the shared engine so the browser
 console and the MISSION screen cannot drift apart. Step 2 proved on a device that the shipped
@@ -974,3 +982,131 @@ log `$TMPDIR/w3_rec15_matrix.log`, `--rerun-tasks --no-build-cache`, `RC=0`.
   this amendment; flagged for the owner, not changed.
 
 
+
+
+## 16. W3 shell layout amendment 16 (2026-11-23): the grid scaled itself out of its column
+
+Owner request, verbatim (one screenshot of mission 02 CORRIDOR at 1370px):
+"There is a scaling bug on drawing the grid cells. Visible on the screenshot. The cells are
+reaching into the firmware area on the right side."
+
+### 16.1 What the screenshot showed
+
+Probe of the served page at viewport 1370: the pair is 1346px wide, so each column is 613.422px
+and the firmware column starts at x 663.4. `.grid` reported 748.6px of tracks inside a 611.4px
+box, i.e. its content ran to x ~791, 128px past the column edge and straight through the firmware
+column. Cell edges measured 28.281px, so 22 tracks x 28.281 + 2 = 622px of nominal box against a
+748.6px track sum: the tracks were no longer in agreement with the box they were drawn in.
+
+### 16.2 Why record 15's `--cell` scaling broke (the CSS half is not trustworthy)
+
+Record 15's scaling rule was `--cell: max(320px, calc((var(--cw) - 19.2px) / 2))` written on the
+`PAIR` element, with the grid reading `repeat(20, var(--cell))` plus its own `1fr` label column.
+Chrome 142 resolves a custom property twice here, and the two resolutions differ:
+
+| where the value was read | value at viewport 1370 |
+|---|---|
+| `getComputedStyle(document.documentElement).getPropertyValue('--cell')` (written on the pair) | 305.6px |
+| the same `--cell` inside `.grid`'s track sizing (`gridTemplateColumns` computed) | 28.281px |
+| `--cw` as seen by `.grid` (`max-width` computed on the grid) | 626.4px |
+| the pair column that `--cw` was supposed to describe (`.pairworld` clientWidth) | 613.422px |
+
+A length expression inside a grid's own track/box sizing is re-resolved against the grid's own
+box rather than the column it sits in, so the expression fed back into itself: bigger tracks make
+a bigger box make a bigger `--cw` make bigger tracks. Nothing in the CSS half of the shell can be
+trusted to hold 22 tracks inside a column, because the number the tracks want and the number the
+box has are computed from different reference boxes.
+
+Attempts made and rejected, all measured on the live page: `%` tracks inside a percentage-sized
+grid (125px tracks in a 288px box, 2750px overflow); `cqw` with and without `container-type`
+(ignored, the tracks stayed at their fallbacks); `vw` tracks with a declared box (tracks resolved
+to viewport fractions inside a 152px box); a JS pass that wrote raw px onto the grid (worked,
+748px in a 748px box) but cannot stay applied because the wasm console rewrites the shell subtree
+on every render and an observer aimed at `#fl-shell` before the shell exists never fires.
+
+### 16.3 The fix: the scaling is arithmetic in the render layer
+
+- `WorldGrid.cellSizePx(worldColumnPx)`: `((column - 2) / 22).coerceIn(11, 34)`. 22 is the track
+  count (`LABEL_TRACK_CELLS 2 + GRID 20`), 2 is the border, 11 is the §15.5 narrow floor, 34 is
+  the ceiling the pair's own `--cell` clamp already had. Integer division rounds down, so a cell
+  never rounds up out of its column.
+- `WorldGrid.cellStyleAttr(worldColumnPx)`: one inline `style` written on the PAIR element,
+  carrying only `--cell:Npx` and `--grid-h:21N+2px` in raw px (`N` = the measured cell). That
+  token is everything the layout receives; one number decides the tracks, the box, the rows and
+  the firmware pane height, and every downstream value is a plain token substitution that Chrome
+  cannot re-resolve against another box.
+- The CSS `.grid` rule builds its whole geometry from that one token: tracks
+  `calc(2 * var(--cell, 11px)) repeat(20, var(--cell, 11px))`, rows `repeat(21, var(--cell, 11px))`,
+  box `width/max-width:calc(22 * var(--cell, 11px) + 2px)` and `height:calc(21 * var(--cell, 11px) + 2px)`.
+  Tracks and box are then literally the same arithmetic term in `cell`, so they cannot disagree.
+  The earlier `max-width:var(--grid-h,317px)` clamp is dropped: clamping the grid's WIDTH to a
+  HEIGHT-derived token was itself a box/track disagreement (at the scaled cell 27px the box wants
+  596px against a 569px clamp).
+- `Main.kt` measures the laid-out world column (`currentWorldColumnPx()`, the `clientWidth` of
+  the previous render's `.pairworld`) and passes it through `ConsoleRender.renderConsoleHtml`
+  into `worldColumn` and the pair's inline style. Rendering is two-pass: the first render of an
+  empty container has no measurement (CSS fallback `--cell:11px`), and a synchronous `relayout()`
+  re-renders once with the measured column (rAF callbacks did not fire reliably through the wasm
+  interop, and the relayout pass never arms a follow-up, so the loop terminates).
+  `relayoutIfChanged()` makes a tick render free: it only re-renders when the measured column
+  implies a different cell than the one the last render was built for.
+  `watchLayoutBreakpoint()` re-lays out on the pair's 900px breakpoint flip and on window resize.
+  Interop trap recorded the hard way: a `js()` snippet may only refer to its own function
+  parameters (a borrowed identifier compiles but throws a JS ReferenceError that arrives as an
+  opaque `WebAssembly.Exception`), and a `matchMedia` handler must arrive as an explicit `js()`
+  parameter.
+- `console.html`: the scaling comment now points at the pair's inline style; the CSS token
+  fallback `11px` covers the first render, and the 900px media query pins `--cell:11px` for the
+  stacked narrow pair. The measured-layout script that the earlier probes used is removed (it
+  cannot beat the render loop).
+
+### 16.4 Measurements after the fix
+
+Re-measured 2026-11-24 against the shipped dev-library distribution (`build/compileSync/wasmJs/main/
+developmentLibrary/kotlin/`, rebuilt 09:48), served from the repo root on a fresh port (fresh port
+defeats Chrome's URL-keyed ES module cache). Window bounds set to target + 30px chrome offset; the
+viewport column below is the page's measured `window.innerWidth`. Same six viewports as the 2026-11-23
+probe; every number reproduced (gate script `rec16_gate_final.py`, rows in `rec16_measure.json` /
+`rec16_measure_final.jsonl` under the Hermes scratch cache).
+
+| viewport | world col | cell | pair inline style | cell px | grid box W | track sum | into-firmware gap (neg = stays inside col) | cells | gate |
+|---|---|---|---|---|---|---|---|---|---|
+| 1950 | 613 | 27 | `--cell:27px;--grid-h:569px;` | 27.00 | 596.00 | 594.0 | -17.42 | 400 | PASS |
+| 1400 | 613 | 27 | `--cell:27px;--grid-h:569px;` | 27.00 | 596.00 | 594.0 | -17.42 | 400 | PASS |
+| 1180 | 522 | 23 | `--cell:23px;--grid-h:485px;` | 23.00 | 508.00 | 506.0 | -13.92 | 400 | PASS |
+| 920 | 392 | 17 | `--cell:17px;--grid-h:359px;` | 17.00 | 376.00 | 374.0 | -15.92 | 400 | PASS |
+| 901 | 382 | 17 | `--cell:17px;--grid-h:359px;` | 17.00 | 376.00 | 374.0 | -6.42 | 400 | PASS |
+| 586 | 469 | 21 | `--cell:21px;--grid-h:443px;` | 21.00 | 464.00 | 462.0 | -5.03 | 400 | PASS |
+
+The cell column is exactly `cellSizePx(world col)` in every row ((613-2)/22 = 27, (522-2)/22 = 23,
+(392-2)/22 = 17, (382-2)/22 = 17, (469-2)/22 = 21 with integer division), and the grid box is
+`22 * cell + 2` wide and `21 * cell + 2` tall in every row. At 586 the pair is stacked (§15.5) and the
+inline measured cell (21px) overrides the media query's `11px` fallback; the column still measures
+469px, so the grid still fits its own column. 586 is the narrowest width measurable on this host
+(Chrome window clamp).
+
+### 16.5 Gate status
+
+Browser gate (the §15.3 battery in `rec16_gate_final.py`, run per viewport): 400 cells; cells square
+(|w - h| <= 0.5px); cell >= the 11px §15.5 floor; the computed track list is exactly 21 tracks, one
+`2 * cell` label track plus 20 `cell` tracks; 21 rows all `cell`; |track sum - grid box W| <= 2px and
+|row sum - grid box H| <= 2px (the 2px is the border); the box arithmetic `22c + 2 x 21c + 2` holds;
+grid box <= world column + 2px; the grid stays inside its column (the into-firmware gap is negative in
+every row, 5.03..17.42px of slack, versus the pre-fix +128px crossing); no left-edge crossing; zero
+horizontal document overflow (`scrollWidth == clientWidth`); no titlebar. **Result: 6 viewports, 6 PASS,
+0 failures.**
+
+- `docs/web/verify_layout_v1.py`: 39 checks, 0 failed (2026-11-24, against the shipped `console.html`;
+  the two new checks are "grid box is the same cell term as its tracks" and "no height-derived clamp on
+  the grid width").
+- Full matrix rerun 2026-11-24, `--rerun-tasks --no-build-cache`, explicit task list: **538 tests,
+  0 failures, 0 errors, 0 skipped** (62 fresh result XMLs) = engine 15, rf8-core 15 jvm + 15 wasmJs,
+  fireline-engine 192 jvm + 192 wasmJs, fireline-web 57 (WorldGrid 9 after the new scaling test,
+  ConsoleRender 8, ConsoleModel 8, W3Render 13, W3LibraryDraft 8, W3Permalink 8, W3Interop 3),
+  fireline-app 40, app 3 + 9. 537 (record 15) + 1 new scaling test = 538.
+  Gate-form caveat recorded here: the short form `./gradlew test wasmJsTest` does NOT run the KMP
+  `jvmTest` side (`test` is not a task on `:rf8-core`/`:fireline-engine`), so it measures 331, not
+  538; the matrix above uses the explicit task names from the `robofight-web-wasm` skill.
+- Spec amendment: `docs/FIRELINE-WEB.md` 15.3, the world-grid row now carries the measured-column
+  derivation `cell = clamp((columnPx - 2) / 22, 11, 34)` written inline on the pair element, and the
+  box `22 * cell + 2 x 21 * cell + 2` as the same term as its tracks.

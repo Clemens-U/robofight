@@ -40,6 +40,9 @@ private const val STARTUP_MISSION_ID = 2
 /** The single container node the shell re-renders into (`fireline-web/console.html`). */
 private const val SHELL_CONTAINER_ID = "fl-shell"
 
+/** The pair columns' collapse breakpoint (§15.5), mirrored from console.html's CSS. */
+private const val BREAKPOINT_MEDIA_QUERY = "max-width:900px"
+
 private val model = ConsoleModel()
 
 /** The mission currently open in the console; null until a mission is opened. */
@@ -54,10 +57,18 @@ private var seedOverride = Permalink.AUTHORED_SEED
 /** Pacing timer handle (`setTimeout` id, 0 when nothing is scheduled). */
 private var tickTimer: Int = 0
 
+/** What the last completed render built its markup for (W3 record 16): the measured pair column and
+ *  the cell edge derived from it. The follow-up pass re-renders only when a fresh measurement would
+ *  produce a different cell, so a tick render costs nothing and only a first render (empty
+ *  container), a resize or a flipped breakpoint re-lays out the grid. */
+private var renderedColumnPx: Int = -1
+private var renderedCellPx: Int = -1
+
 /** Called by `console.html` after the module loads. */
 @OptIn(ExperimentalJsExport::class)
 @JsExport
 fun startFirelineConsole() {
+    watchLayoutBreakpoint()
     openStartupMission()
 }
 
@@ -69,6 +80,10 @@ fun startFirelineConsole() {
 private fun openStartupMission() {
     if (openFromPermalink(currentFragment())) return
     openReferenceMission(STARTUP_MISSION_ID)
+    /* Two passes (W3 record 16): the first render had no measured column yet because the
+       container was empty, this one measures the pair the first render laid out and hands that
+       width to the grid scaling. */
+    relayout()
 }
 
 private fun openReferenceMission(missionId: Int) {
@@ -345,11 +360,25 @@ private fun downloadFirmware() {
 
 private fun referenceName(mission: Mission): String = mission.name.uppercase().replace(' ', '-') + "-REF.ASM"
 
+/** The laid-out world column width of the shell container (0 when the console has not rendered a
+ *  pair yet). The grid scaling of W3 record 16 derives the cell edge from THIS measured number,
+ *  because Chrome cannot evaluate a length expression inside grid track sizing reliably.
+ *
+ *  Interop rule (W3 record 16): a `js()` snippet may only refer to this function's own
+ *  parameters. An identifier that is not a parameter (here `id`, borrowed from the other DOM
+ *  helpers) compiles but throws a JavaScript ReferenceError at call time, which arrives in the
+ *  browser as an opaque `[object WebAssembly.Exception]`. */
+private fun currentWorldColumnPx(shellId: String): Int =
+    js("""{ const n = document.querySelector('#' + shellId + ' .pairworld');
+      const w = n ? n.clientWidth : 0; return Number.isFinite(w) ? w : 0; }""")
+
 /** One render pass: pure HTML out of the render layer, into the container, then
  *  the click wiring is re-attached because the container's children were just
- *  replaced. */
-private fun render() {
-    setInnerHtml(SHELL_CONTAINER_ID, ConsoleRender.renderConsoleHtml(model, openRun, uiState))
+ *  replaced. The world column is measured BEFORE the container is replaced, so the
+ *  measurement sees the shell that is currently on screen. */
+private fun render(scheduleFollowUpLayout: Boolean = true) {
+    val worldColumnPx = currentWorldColumnPx(SHELL_CONTAINER_ID)
+    setInnerHtml(SHELL_CONTAINER_ID, ConsoleRender.renderConsoleHtml(model, openRun, uiState, worldColumnPx))
     onClick(ConsoleRender.ID_RUN) { runRun() }
     onClick(ConsoleRender.ID_STEP) { stepRun() }
     onClick(ConsoleRender.ID_RESET) { resetRun() }
@@ -381,7 +410,58 @@ private fun render() {
         render()
     }
     onImportFileSelected(ConsoleRender.ID_IMPORT_FILE) { name, text -> importFirmwareFile(name, text) }
+
+    /* The container's children were just replaced, so the layout is fresh: the follow-up pass
+       measures the pair this render laid out and re-renders only if the cell it implies differs
+       from the cell this render was built for. A relayout pass never re-arms (that would render
+       forever). */
+    renderedColumnPx = worldColumnPx
+    renderedCellPx = WorldGrid.cellSizePx(worldColumnPx)
+    if (scheduleFollowUpLayout) relayoutIfChanged()
 }
+
+
+/** Second layout pass (W3 record 16): re-render so the grid scaling uses a column width that the
+ *  PREVIOUS render laid out. A measure cannot come from a container that is still empty, and the
+ *  grid box itself is forbidden as the measure because Chrome sizes a grid box from its own tracks.
+ *
+ *  The pass is SYNCHRONOUS, not a `requestAnimationFrame` callback: measured layout callbacks did
+ *  not fire reliably through the wasm interop here, and a second render does not need a frame
+ *  anyway. The loop is broken by `scheduleFollowUpLayout = false` on the relayout pass (only a
+ *  normal render arms a follow-up), and the same pass is what a resize or a breakpoint flip runs. */
+private fun relayout() {
+    relayoutPass()
+}
+
+/** The follow-up of a normal render: re-render only when the measured pair column is NOT the width
+ *  the just-rendered markup was built for (the first render of an empty container, a resized window,
+ *  a flipped breakpoint). A tick render whose width already matches costs nothing. */
+private fun relayoutIfChanged() {
+    if (WorldGrid.cellSizePx(currentWorldColumnPx(SHELL_CONTAINER_ID)) == renderedCellPx) return
+    relayoutPass()
+}
+
+private fun relayoutPass() {
+    render(scheduleFollowUpLayout = false)
+}
+
+
+/** Re-render when the window changes, so the grid rescales with it (W3 record 16): the
+ *  pair columns collapse at the §15.5 breakpoint, and a plain resize inside one band
+ *  changes the column width the scaling depends on. */
+private fun watchLayoutBreakpoint() {
+    watchMediaWidth(BREAKPOINT_MEDIA_QUERY) { relayout() }
+    watchWindowResize { relayout() }
+}
+
+/** One `matchMedia` listener: the Kotlin handler must arrive as an explicit `js()`
+ *  parameter (the pattern every other DOM helper here uses); a handler captured from
+ *  the enclosing scope traps at call time (W3 record 16). */
+private fun watchMediaWidth(query: String, handler: () -> Unit): Unit =
+    js("""{ const mq = matchMedia(query); mq.addEventListener("change", () => handler()); }""")
+
+private fun watchWindowResize(handler: () -> Unit): Unit =
+    js("""{ window.addEventListener("resize", () => handler()); }""")
 
 // ---------------------------------------------------------- DOM interop helpers
 // `js()` snippets are only allowed as the single expression of a package-level

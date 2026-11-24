@@ -150,7 +150,7 @@ class ConsoleRenderTest {
         assertTrue(html.contains("<div class=\"fcell\"><span>OP TICKS LEFT</span><b>1</b></div>"),
             "MOVE (1/2) is still in flight at tick 30 (Vm.lastOp position, not the ISA cost table)")
         assertTrue(html.contains("<div class=\"fcell\"><span>TICK</span><b>30</b></div>"), "TICK cell")
-        assertTrue(html.contains("<div class=\"grid\">"), "world column renders the 20x20 grid in place of the old kv readout (§15.2 item 2)")
+        assertTrue(html.contains("<div class=\"grid"), "world column renders the 20x20 grid in place of the old kv readout (§15.2 item 2)")
         assertTrue(html.indexOf("class=\"statusbar\"") < html.indexOf("class=\"legend\""),
             "the status line sits between the grid and the symbol legend (15.2a 2)")
         assertFalse(text.contains("MISSION SUCCESS"), "nothing finished at tick 30 (snapshots 02-ref-t46 is mid-run)")

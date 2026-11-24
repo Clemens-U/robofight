@@ -73,7 +73,7 @@ class WorldGridTest {
 
     /** The world column only, isolated the way `verify_layout_v1.py` isolates it. */
     private fun worldColumn(html: String): String =
-        html.substringAfter("<div class=\"pair\">").substringBefore("<div class=\"pairfirm\">")
+        html.substringAfter("<div class=\"pair").substringBefore("<div class=\"pairfirm")
 
     /** Mission 02 / CORRIDOR with the authored reference firmware: the state
      *  §15.6 names for layout acceptance. */
@@ -96,7 +96,7 @@ class WorldGridTest {
         val world = worldColumn(html)
         val firm = html.substringAfter("<div class=\"pairfirm\">")
 
-        val markers = listOf("class=\"wind\"", "<div class=\"grid\">", "class=\"statusbar\"", "class=\"legend\"")
+        val markers = listOf("class=\"wind\"", "<div class=\"grid", "class=\"statusbar\"", "class=\"legend\"")
         val positions = markers.map { world.indexOf(it) }
         positions.forEachIndexed { index, position ->
             assertTrue(position >= 0, "${markers[index]} present in the world column (§15.2 item 2)")
@@ -106,12 +106,12 @@ class WorldGridTest {
             world.indexOf("class=\"legend\"") > world.indexOf("class=\"statusbar\""),
             "the legend is the last thing in the world column (11 g)")
         assertEquals(-1, world.indexOf("<div class=\"pacing\""), "pacing row no longer inside the world column (11 g)")
-        assertTrue(html.indexOf("class=\"wind\"") < html.indexOf("<div class=\"grid\">"),
+        assertTrue(html.indexOf("class=\"wind\"") < html.indexOf("<div class=\"grid"),
             "WIND line sits above the grid (console_pair markup)")
 
         assertEquals(1, Regex("class=\"legend\"").findAll(html).toList().size, "symbol legend appears once (§15.4)")
         assertEquals(-1, firm.indexOf("class=\"legend\""), "no legend inside the firmware column (verify_layout_v1 §15.4 check)")
-        assertEquals(1, Regex("<div class=\"grid\">").findAll(html).toList().size, "one world grid")
+        assertEquals(1, Regex("<div class=\"grid\"[^>]*>").findAll(html).toList().size, "one world grid (W3 record 16 adds the inline scaling style, so the open tag is matched with its attributes)")
     }
 
     /**
@@ -351,8 +351,8 @@ class WorldGridTest {
         val legend = world.substringAfter("<div class=\"legend\">").substringBefore("</div>")
 
         assertEquals(1, Regex("<div class=\"legend\">").findAll(html).toList().size, "one legend block on the page (§15.4)")
-        assertTrue(world.indexOf("<div class=\"legend\">") > world.indexOf("<div class=\"grid\">"), "legend sits under the grid (§15.4 'under the grid, in the world column')")
-        assertTrue(world.trimEnd().endsWith("</div>") && world.substringBeforeLast("</div>").indexOf("<div class=\"legend\">") > world.indexOf("<div class=\"grid\">"), "legend is the world column's last block (W3 record 11 g)")
+        assertTrue(world.indexOf("<div class=\"legend\">") > world.indexOf("<div class=\"grid"), "legend sits under the grid (§15.4 'under the grid, in the world column')")
+        assertTrue(world.trimEnd().endsWith("</div>") && world.substringBeforeLast("</div>").indexOf("<div class=\"legend\">") > world.indexOf("<div class=\"grid"), "legend is the world column's last block (W3 record 11 g)")
         val bandBlocks = html.split("<div class=\"fields\">").drop(1)
         assertEquals(2, bandBlocks.size, "two readout bands (verify_layout_v1)")
         bandBlocks.forEach { band ->
@@ -399,5 +399,49 @@ class WorldGridTest {
         assertEquals(TERRAIN_EXIT, world.terrainAt(t.roverX, t.roverY), "that cell's terrain is TERRAIN_EXIT (world.terrainAt)")
         assertEquals(1, countClass(html, "rover"), "one rover cell (TextGrid layer order: rover above exit)")
         assertEquals(TextGrid.ROVER_GLYPH, TextGrid.glyphAt(world, t.roverX, t.roverY), "TextGrid puts the rover above the exit glyph on that cell")
+    }
+
+    /**
+     * W3 record 16: the world grid scaled itself with `--cell: max(320px, calc((var(--cw) - 19.2px) / 2))`
+     * written on the PAIR element, and Chrome 142 re-resolved that expression inside the grid's own
+     * track sizing against the grid's own box. Measured at a 1370px viewport: `--cell` 305.6px on
+     * `.pair`, 28.281px inside `.grid`, a 748.6px track sum inside a 611.4px box, i.e. cells that ran
+     * 136px past the world column into the firmware column (the owner's screenshot).
+     *
+     * The scaling is therefore arithmetic in the render layer: `WorldGrid.cellSizePx` derives the
+     * cell edge from the measured world column, and `WorldGrid.cellStyleAttr` writes `--cell` and
+     * `--grid-h` as one raw-px inline style on the pair element; the CSS `.grid` rule builds its
+     * tracks, rows and box from that same token. The gate here is the arithmetic plus the shape of
+     * that style; the browser gate (docs/WEB-W3-RECORD.md record 16) measures the result.
+     */
+    @Test
+    fun worldGridScalesItsCellsInsideTheWorldColumnAtEveryWidth() {
+        assertEquals(22, WorldGrid.GRID_TRACK_CELLS, "22 cell tracks: the 2-track label column plus 20 cell tracks")
+        assertEquals(14, WorldGrid.cellSizePx(320), "a 320px column fits 14px cells ((320 - 2) / 22): the §15.5 floor is not what a narrow column forces")
+        assertEquals(27, WorldGrid.cellSizePx(613), "the 1370px viewport's measured 613px world column -> 27px cells, the §15.3 15px rule scaled by 1.8")
+        assertEquals(34, WorldGrid.cellSizePx(2000), "the scale stops at the 34px ceiling")
+        assertEquals(11, WorldGrid.cellSizePx(0), "an unmeasured column falls back to the floor, never to zero")
+        assertEquals(11, WorldGrid.cellSizePx(264), "the 11px floor only binds below 266px of column (22 * 11 + 2 = 244px box, 264 + 2 = 266)")
+
+        val style = WorldGrid.cellStyleAttr(320)
+        assertTrue(style == "style=\"--cell:14px;--grid-h:296px;\"",
+            "the scaling hands over exactly one measured cell plus the paired grid height: ${style}")
+        assertTrue(WorldGrid.GRID_TRACK_CELLS * WorldGrid.cellSizePx(320) + 2 == 310,
+            "the CSS box term 22 * --cell + 2 is 310px at a 320px column, inside the column")
+        assertTrue(WorldGrid.GRID_ROW_COUNT * WorldGrid.cellSizePx(320) + 2 == 296,
+            "the CSS row term 21 * --cell + 2 is 296px, the same cell as --grid-h")
+        for (column in listOf(320, 480, 613, 900, 1200)) {
+            val cell = WorldGrid.cellSizePx(column)
+            assertTrue(WorldGrid.NARROW_CELL_PX <= cell && cell <= WorldGrid.CELL_MAX_PX, "cell stays in [11, 34] at $column")
+            assertTrue(WorldGrid.GRID_TRACK_CELLS * cell + 2 <= column, "the grid box ($cell px cells) fits inside the $column px column")
+            assertTrue(WorldGrid.GRID_ROW_COUNT * cell + 2 <= 716, "the grid box height stays inside the ceiling case (21 * 34 + 2 = 716px), so the scale can never make a taller grid than the ceiling allows")
+        }
+
+        val run = corridor()
+        val html = ConsoleRender.renderConsoleHtml(model, run, worldColumnPx = 613)
+        assertTrue(html.contains("<div class=\"pair\" style=\"--cell:27px;--grid-h:569px;\">"),
+            "the measured cell is inline on the pair element, the grid reads it through CSS")
+        assertTrue(html.contains("<div class=\"grid\">"), "the grid div itself carries no inline style (CSS reads --cell)")
+        assertEquals(400, cells(html).size, "the scaling touches geometry only: 400 cells as always (verify_layout_v1 400-cell gate)")
     }
 }

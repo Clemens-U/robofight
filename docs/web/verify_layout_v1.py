@@ -138,17 +138,30 @@ def shell_css_gate_for_15_2a():
     check("15.2a 7 pair grid is two equal half columns",
           "grid-template-columns:minmax(0,1fr) minmax(0,1fr)" in pair, pair[:80])
     check("15.2a 7 pair column is half the body content width",
-          "--col:max(320px, calc((100vw - 74.56px - 19.2px) / 2))" in pair)
+          "--col:max(320px, calc((var(--cw) - 19.2px) / 2))" in pair)
     check("15.2a 7 grid cells derive from the anchor width",
-          "repeat(20, var(--cell, 15px))" in rule(".grid{") and
-          "grid-auto-rows:var(--cell, 15px)" in rule(".grid{"))
+          "repeat(20, var(--cell, 11px))" in rule(".grid{") and
+          "grid-template-rows:repeat(21, var(--cell, 11px))" in rule(".grid{"))
+    # W3 record 16: one token, one term. Tracks, rows and the box are all built from
+    # --cell, and --cell itself is the measured value the render layer writes inline on
+    # .pair (WorldGrid.cellStyleAttr), so the grid box can no longer disagree with its
+    # tracks. The old `max-width:var(--grid-h,317px)` clamp is dropped: with a scaled
+    # cell (27px at viewport 1370) the box is 596px wide but 569px tall, and clamping
+    # width to the height is exactly the box/track disagreement that caused the bug.
+    check("15.2a 7 grid box is the same cell term as its tracks (record 16)",
+          "width:calc(22 * var(--cell, 11px) + 2px)" in rule(".grid{") and
+          "height:calc(21 * var(--cell, 11px) + 2px)" in rule(".grid{") and
+          "max-width:var(--grid-h" not in rule(".grid{"))
     check("15.2a 7 pane height keeps the frozen 21-cell ratio",
           "height:var(--pane-h,316px)" in rule(".pairfirm pre.source{") and
           "--grid-h:calc(21 * var(--cell) + 2px)" in pair and
-          "--cell:max(11px, min(34px, calc((var(--col) - 5px) / 21)))" in pair and
+          "--cell:11px;" in pair and          # fallback; the real cell is inline from the render layer
           "--row-offset:120px" in pair and
-          "--pane-h:max(180px, calc(var(--grid-h) - var(--row-offset)))" in pair and
-          "max-width:var(--grid-h,317px)" in rule(".grid{"))
+          "--pane-h:max(180px, calc(var(--grid-h) - var(--row-offset)))" in pair)
+    # W3 record 16 root cause: clamping the grid WIDTH to a height-derived token made the box and
+    # its tracks disagree, which is what pushed cells across the column edge.
+    check("15.2a 7 no height-derived clamp on the grid width (record 16)",
+          "max-width:var(--grid-h" not in rule(".grid{"))
     check("15.2a 7 shell panes carry no inline height",
           "--src-height" not in c or "var(--src-height" in c)
 

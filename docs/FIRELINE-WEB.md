@@ -832,7 +832,7 @@ line still occurs exactly once and stays read-only.
 |---|---|
 | page column / content width | 1276px / 1236px |
 | pair grid | `minmax(0,1fr)` + `minmax(320px,1.1fr)`, 1.2rem gap (shell since 15.2a 7: two `minmax(0,1fr)` columns) |
-| world grid | 21 rows x 20 columns of 15px cells (grid height 317px) (shell since 15.2a 7: half the body content width, `--cell` 11..34px) |
+| world grid | 21 rows x 20 columns of 15px cells (grid height 317px) (shell since 15.2a 7: half the body content width; since W3 record 16 the cell scales with the column as `cell = clamp((columnPx - 2) / 22, 11, 34)` written inline on the pair element (`--cell`, `--grid-h`), so the grid box `22 * cell + 2` x `21 * cell + 2` is the same term as its tracks and always fits inside its own column) |
 | firmware pane height | 316px (`21 * 15 + 1`), scrolls internally (shell since 15.2a 7: `21 * --cell + 2px`, the same ratio at the anchor width) |
 | flush pairing | grid bottom and pane bottom at the same y (measured delta 0px) |
 | readout bands | full content width, one wrapping row of 12 cells, 132px tall each |

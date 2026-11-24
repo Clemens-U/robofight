@@ -58,6 +58,45 @@ object WorldGrid {
     const val DESKTOP_CELL_PX: Int = 15
     const val NARROW_CELL_PX: Int = 11
 
+    /** Grid tracks (W3 record 16, §15.3 `30px + 20x15px`): the label column is exactly
+     *  2 cell tracks wide, so the grid is 2 + 20 = 22 cell tracks plus its 2px border. */
+    const val LABEL_TRACK_CELLS: Int = 2
+    const val GRID_TRACK_CELLS: Int = LABEL_TRACK_CELLS + GRID
+
+    /** Widest cell the scaling may produce (34px == 2x the §15.3 desktop cell; the §15.5
+     *  narrow floor is `NARROW_CELL_PX`). The scale never goes below that floor either. */
+    const val CELL_MAX_PX: Int = 34
+
+    /** The scaling rule: the grid must fit INSIDE its column at 22 cell tracks plus the
+     *  2px border, so the cell edge is (column - 2) / 22, clamped to [11, 34]. Rounding
+     *  is downward on purpose: a cell never rounds up out of the column. */
+    fun cellSizePx(worldColumnPx: Int): Int {
+        val fit = (worldColumnPx - 2) / GRID_TRACK_CELLS
+        return fit.coerceIn(NARROW_CELL_PX, CELL_MAX_PX)
+    }
+
+    /**
+     * `cellStyleAttr(worldColumnPx)`: the inline `style` written on the PAIR element, cell edge in
+     * raw px from the MEASURED column (W3 record 16). It carries `--cell` and `--grid-h` only: the
+     * `.grid` CSS rule then reads that token, and the pair's `--pane-h` derives from `--grid-h`, so
+     * grid tracks, grid box, rows and the firmware pane height all come from one measured number.
+     *
+     * Label geometry measured in Chrome: the `y/x` corner and the row rulers are not grid tracks
+     * (the renderer lays them out inside the label area), so `repeat(2, c) repeat(20, c)` computes
+     * as 21 tracks, `2c + 20 * c`, in 21 rows of `c`, total `22c + 2` x `21c + 2` with the border.
+     *
+     * Why not a CSS expression: Chrome 142 re-resolves `var()`, `%`, `vw` and `cqw` inside a grid's
+     * own track/box sizing against the grid's own box rather than the column it sits in. Measured at
+     * viewport 1370: `--cell` computed 305.6px on the pair but 28.281px inside `.grid`'s tracks, and
+     * `--cw` computed 613.422px on `.pairworld` but 626.4px inside `.grid`, i.e. a 748px track sum
+     * inside a 611px box, 136px of cells drawn across the column edge into the firmware column
+     * (the owner's screenshot). A plain token substitution has no box to re-resolve against.
+     */
+    fun cellStyleAttr(worldColumnPx: Int): String {
+        val cell = cellSizePx(worldColumnPx)
+        return "style=\"--cell:${cell}px;--grid-h:${GRID_ROW_COUNT * cell + 2}px;\""
+    }
+
     /** §15.3 grid height lock, written as the rule: 21 rows x 15px + 1px border
      *  top and bottom = 317px (the Chrome measurement of this build agrees). */
     const val DESKTOP_GRID_HEIGHT_PX: Int = GRID_ROW_COUNT * DESKTOP_CELL_PX + 2

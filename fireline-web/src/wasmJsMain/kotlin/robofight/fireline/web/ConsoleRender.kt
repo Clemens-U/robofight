@@ -139,11 +139,12 @@ object ConsoleRender {
         model: ConsoleModel,
         run: ConsoleRun?,
         state: ConsoleUiState = ConsoleUiState.DEFAULT,
+        worldColumnPx: Int = 0,
     ): String {
         val out = StringBuilder()
         if (run != null) {
             out.append(promptLine(run))
-            out.append(consolePanel(model, run, state))
+            out.append(consolePanel(model, run, state, worldColumnPx))
             out.append(fieldsBand(TELEMETRY_BAND_TITLE, telemetryBandCells(run)))
             out.append(linkBlock(state))
             out.append(explanationColumns(run))
@@ -171,7 +172,12 @@ object ConsoleRender {
     private const val ID_PROMPT_ATTR = "fl-prompt"
 
     // -------------------------------------------------------------- §15.2 item 2
-    private fun consolePanel(model: ConsoleModel, run: ConsoleRun, state: ConsoleUiState): String {
+    private fun consolePanel(
+        model: ConsoleModel,
+        run: ConsoleRun,
+        state: ConsoleUiState,
+        worldColumnPx: Int,
+    ): String {
         val row = model.row(run.missionId)
             ?: error("console run for mission ${run.missionId} has no picker row")
         val sb = StringBuilder()
@@ -182,8 +188,13 @@ object ConsoleRender {
         sb.append("<div class=\"consolebody\">")
         sb.append(missionHeader(row, run.firmwareName))
         sb.append(objectivesLine(run, row))
-        sb.append("<div class=\"pair\">")
-        sb.append(worldColumn(run, row, state))
+        /* W3 record 16: the measured cell size rides on the pair element, where CSS reads it for
+       the grid tracks, the grid box and the firmware pane height (all three derive from
+       --cell / --grid-h). One statement per append: this builder never uses a long + chain. */
+        sb.append("<div class=\"pair\" ")
+        sb.append(WorldGrid.cellStyleAttr(worldColumnPx))
+        sb.append(">")
+        sb.append(worldColumn(run, row, state, worldColumnPx))
         sb.append(firmwareColumn(run, state))
         sb.append("</div>")
         sb.append("</div></div>")
@@ -220,7 +231,12 @@ object ConsoleRender {
      *  the symbol legend, then the pacing block (`SPEED` / `PANIC`, amendment 11 f,
      *  the bordered block that replaced the EVENT LOG). Every cell glyph comes from
      *  `TextGrid.glyphAt` over the session's own world (`WorldGrid`). */
-    private fun worldColumn(run: ConsoleRun, row: MissionRow, state: ConsoleUiState): String {
+    private fun worldColumn(
+        run: ConsoleRun,
+        row: MissionRow,
+        state: ConsoleUiState,
+        worldColumnPx: Int,
+    ): String {
         // Statement form for the same reason as `firmwareColumn`: this chain's tail
         // carried `statusLine(run)` and `legendHtml()` and dropped them when it was
         // one long `+` chain.
