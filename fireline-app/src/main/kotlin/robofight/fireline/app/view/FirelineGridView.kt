@@ -42,7 +42,12 @@ import robofight.fireline.app.FirelineTheme
  *  - shield is a one-cell bracket ring while `shieldTicksRemaining > 0`, and
  *    the numeric SHIELD readout in the telemetry panel is its twin;
  *  - the selected fire target (FIRE_DIST's cell) gets a thin text-bright
- *    outline; no target means no outline.
+ *    outline; no target means no outline;
+ *  - thin edge walls are line segments on the lattice border between two
+ *    cells (amendment A-6), read from the engine's `wallVertRowMajor` /
+ *    `wallHorizRowMajor` copies through `EdgeWallGeometry`. A wall line is
+ *    never a filled cell and never a glyph: this view reads the two edge
+ *    arrays and never infers an edge from a cell (PLAN-EDGE-WALLS.md 4).
  * Entity precedence matches TextGrid: rover, civilian, packet, fire, terrain.
  * Smoke is a dim panel-2 tint on otherwise empty floor cells only, capped at
  * 30% alpha (DESIGN 4). Nothing here animates rover, shield, packets or
@@ -72,6 +77,16 @@ class FirelineGridView(
     }
 
     private val firePaints = intArrayOf(theme.fire1, theme.fire2, theme.fire3, theme.fire4)
+
+    /**
+     * Thin edge walls: a stroke, never a fill. Square caps so perpendicular
+     * segments meet cleanly at a lattice corner (the house recipe,
+     * `app/src/main/kotlin/robofight/android/ArenaView.kt:72-76`).
+     */
+    private val edgeWallPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.SQUARE
+    }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         // Square canvas: the 20x20 grid never stretches, so one cell is one
@@ -120,6 +135,21 @@ class FirelineGridView(
             canvas.drawLine(i * cell, 0f, i * cell, height.toFloat(), linePaint)
             canvas.drawLine(0f, i * cell, width.toFloat(), i * cell, linePaint)
         }
+
+        // Thin edge walls (amendment A-6) over the lattice: one segment per
+        // engine edge slot, centered on the border the two cells share, so a
+        // wall line and a filled wall cell are visibly two different things
+        // (PLAN-EDGE-WALLS.md 5). Cell interiors stay open.
+        val edgeWalls = EdgeWallGeometry.segmentsOf(w.wallVertRowMajor(), w.wallHorizRowMajor())
+        if (edgeWalls.isNotEmpty()) {
+            edgeWallPaint.color = theme.wall
+            edgeWallPaint.strokeWidth = EdgeWallGeometry.strokeWidthPx(cell)
+            for (segment in edgeWalls) {
+                val line = EdgeWallGeometry.lineOf(segment, cell)
+                canvas.drawLine(line.x1, line.y1, line.x2, line.y2, edgeWallPaint)
+            }
+        }
+
         linePaint.color = theme.border
         linePaint.strokeWidth = 2f
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), linePaint)

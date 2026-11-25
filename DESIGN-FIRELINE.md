@@ -252,6 +252,9 @@ Findings and mitigations (residual risks accepted with glyph-first rule):
   red cell (prot 66) the luminance gap is only 10. Mitigation A-6: rover cells
   always carry the panel-2 tile, a bold glyph, and the facing caret, so the
   rover is shape-identified regardless of color.
+  (Dated correction 2026-11-25: this mitigation is the numbered entry A-5 in
+  section 9 below. The number A-6 is the thin edge wall amendment applied in
+  step E3, `PLAN-EDGE-WALLS.md` section 7. Annotated, not rewritten.)
 - W fuel gray 50 nearly matches W fire 2 gray 52. Mitigation: `F` glyph vs
   digit glyphs, plus static terrain context (fuel never flickers, fire does).
 - W exit and facing caret share one token; separation is by glyph and position.
@@ -481,6 +484,17 @@ palette and dense telemetry, not CRT nostalgia.
   so this is flagged rather than assumed.
 - A-5: rover identity tile (panel-2 background + bold glyph) as the grayscale
   and CVD backstop.
+- A-6 (APPLIED 2026-11-25, steps E3/E4, `docs/EDGE-E3-RECORD.md` and
+  `docs/EDGE-E4-RECORD.md`): the thin edge wall is a border segment, not a
+  glyph. A blocked edge is painted as a short thick line from one lattice
+  intersection to the next, in the existing wall token, over the open cell
+  borders: Android `strokeWidth = cell * 0.14` floored at 2 px (the Arena
+  `EdgeWalls`/`ArenaView` recipe, `view/EdgeWallGeometry.kt`), web the same
+  ratio rounded to whole even pixels with a 4 px touch floor (`.wallseg`). A
+  filled wall cell (`#`) and a wall line between two open cells are two visibly
+  different things; no new glyph enters the grid language and `TextGrid.glyphAt`
+  stays the single glyph authority. Both grids add the legend entry
+  `THIN WALL   wall, blocks the way` with a short bar key.
 No amendments change simulation behavior, ports, or objectives.
 
 ## 10. Icon and store presence (for Phase 6, prepared here)

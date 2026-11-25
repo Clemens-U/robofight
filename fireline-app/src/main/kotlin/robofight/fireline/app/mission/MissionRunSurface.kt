@@ -12,6 +12,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import robofight.fireline.app.FirelineTheme
+import robofight.fireline.app.view.EdgeWallGeometry
 import robofight.fireline.app.view.FirelineGridView
 import robofight.fireline.app.view.HeatBarView
 import robofight.fireline.session.MissionSession
@@ -114,7 +115,11 @@ class MissionRunSurface(
         }
         gridView.layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent)
         gridPanel.addView(gridView)
-        gridPanel.addView(text(LEGEND_SP, theme.textDim, LEGEND, theme.workFace))
+        gridPanel.addView(text(LEGEND_SP, theme.textDim, GridLegend.GLYPHS, theme.workFace))
+        // Thin-wall entry (amendment A-6): shown on every mission so the reader
+        // learns the concept once per container (PLAN-EDGE-WALLS.md 5), the same
+        // wording the web legend gets in step E4.
+        gridPanel.addView(thinWallLegendRow())
         content.addView(gridPanel)
 
         content.addView(instrumentRow())
@@ -318,6 +323,16 @@ class MissionRunSurface(
 
     // ---- refresh ------------------------------------------------------------------
 
+    /**
+     * How many thin wall segments the grid draws for the current world. Same
+     * mapping the view strokes with, so the accessibility line never disagrees
+     * with the canvas (step E3).
+     */
+    private fun thinWallCount(): Int = EdgeWallGeometry.segmentsOf(
+        session.currentWorld.wallVertRowMajor(),
+        session.currentWorld.wallHorizRowMajor(),
+    ).size
+
     private fun refresh() {
         val t = session.telemetry()
         gridView.world = session.currentWorld
@@ -329,7 +344,8 @@ class MissionRunSurface(
                 " tick " + t.tick + " of " + t.timeLimit +
                 " rover at x " + t.roverX + " y " + t.roverY + " facing " + t.roverFacing +
                 " hp " + t.hp + " heat " + t.heat + " water " + t.water +
-                " fire distance " + t.fireDist + " civilians " + t.civCount
+                " fire distance " + t.fireDist + " civilians " + t.civCount +
+                " thin walls " + thinWallCount()
         tickLine.text = "TICK ${t.tick} / ${t.timeLimit}"
         tickLine.contentDescription = tickLine.text
         statusLine.text = when {
@@ -393,6 +409,32 @@ class MissionRunSurface(
             layoutParams = LinearLayout.LayoutParams(wrapContent, wrapContent)
         }
 
+    /**
+     * Thin-wall legend entry (PLAN-EDGE-WALLS.md 5, DESIGN-FIRELINE.md
+     * amendment A-6): a short thick segment in the wall token followed by the
+     * wording, so the legend carries the same visual the grid draws - a line on
+     * the border between two cells - and not a glyph. Always present; the entry
+     * teaches the concept whether or not the current mission uses it.
+     */
+    private fun thinWallLegendRow(): View {
+        val row = row(matchParent, wrapContent).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, theme.dp(3), 0, 0)
+        }
+        row.addView(View(activity).apply {
+            setBackgroundColor(theme.wall)
+            contentDescription = GridLegend.THIN_WALL_LABEL
+            layoutParams = LinearLayout.LayoutParams(
+                theme.dp(GridLegend.THIN_WALL_SWATCH_WIDTH_DP),
+                theme.dp(GridLegend.THIN_WALL_SWATCH_HEIGHT_DP),
+            )
+        })
+        row.addView(text(LEGEND_SP, theme.textDim, GridLegend.THIN_WALL_ENTRY, theme.workFace).apply {
+            setPadding(theme.dp(6), 0, 0, 0)
+        })
+        return row
+    }
+
     private fun chipRow(chips: List<String>): View {
         val row = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(4), 0, theme.dp(4)) }
         for (chip in chips) {
@@ -438,8 +480,8 @@ class MissionRunSurface(
         private const val EVENT_SLOTS = 4
         private const val CONTEXT_SLOTS = 5
         private const val LEGEND_SP = 6
-        private const val LEGEND =
-            "1-4 FIRE   R ROVER   * PACKET   C CIV   E EXIT   W REFILL   F FUEL   P ASSET   # WALL   . FLOOR"
+        // Legend wording lives in GridLegend (step E3): the glyph line plus the
+        // thin-wall entry, both assertable without an Activity.
         private val TELEMETRY_ORDER =
             listOf("FIRE_DIST", "FIRE_LEVEL", "CIV_COUNT", "WATER", "HP", "HEAT", "SHIELD", "WIND", "MISSION")
         private val matchParent = ViewGroup.LayoutParams.MATCH_PARENT
