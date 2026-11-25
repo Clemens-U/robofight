@@ -275,6 +275,31 @@ class ConsoleModelTest {
         assertEquals("\$d3ea4711", run.fingerprintHex(), "replayed fingerprint")
     }
 
+    /** Owner rule 2026-11-25: any firmware loads into any mission. `draftFirmware` checks the
+     *  source through `WebInputLimits` and the real assembler and nothing mission-local, so every
+     *  authored firmware must open in every authored mission (mission 06's thin-wall program in
+     *  mission 02 and mission 02's corridor program in mission 06 both included). */
+    @Test
+    fun everyAuthoredFirmwareDraftsIntoEveryAuthoredMission() {
+        for (sourceMission in Missions.ALL) {
+            for (targetMission in Missions.ALL) {
+                val draft = model.draftFirmware(
+                    targetMission.id,
+                    sourceMission.id.toString(),
+                    sourceMission.referenceSource,
+                )
+                assertTrue(
+                    draft is ConsoleModel.DraftResult.Accepted,
+                    "mission ${sourceMission.id} firmware refused on mission ${targetMission.id}: " +
+                        if (draft is ConsoleModel.DraftResult.Rejected) draft.problems.joinToString(" | ") else "rejected",
+                )
+                val run = (draft as ConsoleModel.DraftResult.Accepted).run
+                assertEquals(targetMission.id, run.missionId, "draft opened in the wrong mission")
+                assertEquals(sourceMission.referenceSource, run.session.firmwareSource, "source altered")
+            }
+        }
+    }
+
     /** `$0BF`-style telemetry hex -> decimal, so assertions can name fixture decimals. */
     private fun parseHex(value: String): Int {
         val digits = value.removePrefix("$").removePrefix("0x")

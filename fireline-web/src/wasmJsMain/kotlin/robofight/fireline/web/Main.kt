@@ -90,7 +90,7 @@ private fun openReferenceMission(missionId: Int) {
     val mission = model.missions.firstOrNull { it.id == missionId } ?: return
     openRun = model.openMission(missionId, mission.referenceSource, referenceName(mission))
     seedOverride = Permalink.AUTHORED_SEED
-    uiState = uiState.copy(libraryTargetMissionId = missionId, importMissionId = missionId, editDraft = null)
+    uiState = uiState.copy(firmwareMissionId = missionId, editDraft = null)
     schedule()
 }
 
@@ -115,8 +115,7 @@ private fun openFromPermalink(fragment: String): Boolean {
     openRun = (draft as ConsoleModel.DraftResult.Accepted).run
     seedOverride = ok.seedOverride
     uiState = uiState.copy(
-        libraryTargetMissionId = ok.missionId,
-        importMissionId = ok.missionId,
+        firmwareMissionId = ok.missionId,
         editDraft = null,
         statusLine = "opened from a share link",
     )
@@ -257,15 +256,20 @@ private fun saveCurrentFirmware() {
     val run = openRun ?: return
     uiState = uiState.copy(
         library = WebLibrary.saved(uiState.library, run.firmwareName, run.session.firmwareSource),
+        firmwareMissionId = run.missionId,
         statusLine = "saved ${run.firmwareName} in this browser",
     )
     persistLibrary()
     render()
 }
 
+/** LOAD (§15.2c 2): the target select names the mission, and any assembled firmware
+ *  opens in any authored mission. `draftFirmware` gates the SOURCE (`WebInputLimits`,
+ *  then the real RF-8 assembler) and checks nothing mission-local: a program written
+ *  for one arena is legal input for another, and the run shows what it does there. */
 private fun loadLibraryFirmware(name: String) {
     val entry = WebLibrary.find(uiState.library, name) ?: return
-    val missionId = readSelectValue(ConsoleRender.ID_LIBRARY_TARGET)
+    val missionId = readSelectValue(ConsoleRender.ID_FIRMWARE_TARGET)
     val draft = model.draftFirmware(missionId, entry.name, entry.source)
     if (draft is ConsoleModel.DraftResult.Rejected) {
         uiState = uiState.copy(statusLine = "$name refused: " + draft.problems.joinToString(" | "))
@@ -276,7 +280,7 @@ private fun loadLibraryFirmware(name: String) {
     seedOverride = Permalink.AUTHORED_SEED
     uiState = uiState.copy(
         library = WebLibrary.withSelected(uiState.library, name),
-        libraryTargetMissionId = missionId,
+        firmwareMissionId = missionId,
         editDraft = null,
         statusLine = "loaded ${entry.name} into mission $missionId",
     )
@@ -314,7 +318,7 @@ private fun importFirmwareFile(fileName: String, sourceText: String) {
         render()
         return
     }
-    val missionId = readSelectValue(ConsoleRender.ID_IMPORT_MISSION)
+    val missionId = readSelectValue(ConsoleRender.ID_FIRMWARE_TARGET)
     val draft = model.draftFirmware(missionId, name, sourceText)
     if (draft is ConsoleModel.DraftResult.Rejected) {
         uiState = uiState.copy(statusLine = "$name refused: " + draft.problems.joinToString(" | "))
@@ -325,8 +329,7 @@ private fun importFirmwareFile(fileName: String, sourceText: String) {
     seedOverride = Permalink.AUTHORED_SEED
     uiState = uiState.copy(
         library = WebLibrary.saved(uiState.library, name, sourceText),
-        importMissionId = missionId,
-        libraryTargetMissionId = missionId,
+        firmwareMissionId = missionId,
         editDraft = null,
         statusLine = "imported $name into mission $missionId",
     )
@@ -401,12 +404,8 @@ private fun render(scheduleFollowUpLayout: Boolean = true) {
         onClick(ConsoleRender.libraryLoadButtonId(entry.name)) { loadLibraryFirmware(entry.name) }
         onClick(ConsoleRender.libraryDeleteButtonId(entry.name)) { deleteLibraryFirmware(entry.name) }
     }
-    onChange(ConsoleRender.ID_LIBRARY_TARGET) {
-        uiState = uiState.copy(libraryTargetMissionId = readSelectValue(ConsoleRender.ID_LIBRARY_TARGET))
-        render()
-    }
-    onChange(ConsoleRender.ID_IMPORT_MISSION) {
-        uiState = uiState.copy(importMissionId = readSelectValue(ConsoleRender.ID_IMPORT_MISSION))
+    onChange(ConsoleRender.ID_FIRMWARE_TARGET) {
+        uiState = uiState.copy(firmwareMissionId = readSelectValue(ConsoleRender.ID_FIRMWARE_TARGET))
         render()
     }
     onImportFileSelected(ConsoleRender.ID_IMPORT_FILE) { name, text -> importFirmwareFile(name, text) }

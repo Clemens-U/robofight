@@ -74,7 +74,14 @@ class ConsoleModel(val missions: List<Mission> = Missions.ALL) {
             ?: return DraftResult.Rejected(listOf("no authored mission with id $missionId"))
         val problems = WebLibrary.sourceProblems(firmwareSource)
         if (problems.isNotEmpty()) return DraftResult.Rejected(problems)
-        return DraftResult.Accepted(ConsoleRun(mission, MissionSession(mission, firmwareName, firmwareSource)))
+        // §15.2c 2: no mission-local gate here, and an engine refusal is reported as a
+        // refusal rather than thrown, so the shell can name the reason on the status line.
+        val run = try {
+            ConsoleRun(mission, MissionSession(mission, firmwareName, firmwareSource))
+        } catch (e: Throwable) {
+            return DraftResult.Rejected(listOf("the engine refused ${firmwareName}: " + (e.message ?: e.toString())))
+        }
+        return DraftResult.Accepted(run)
     }
 
     /** Outcome of [draftFirmware]: an openable run, or the refusal reasons. */

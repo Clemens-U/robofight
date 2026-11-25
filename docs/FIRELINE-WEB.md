@@ -841,6 +841,30 @@ Owner review of the live console page (screenshot of the FIRMWARE LIBRARY sectio
    OS language, e.g. "Datei auswählen") is visually hidden but focusable; the shell chip
    `IMPORT .ASM` on the label opens the picker.
 
+### 15.2c Dated shell deviation (2026-11-25, owner-directed, `docs/WEB-W3-RECORD.md` 18)
+
+Owner review of the live console page (screenshot of the FIRMWARE LIBRARY row: a `load into`
+select plus a `into` select one row above it, and the question what the second select is for):
+
+1. **One firmware target**: the shell renders exactly ONE `<select>`, labelled `firmware target`,
+   offering every authored mission. It names the mission a library `LOAD` and an `IMPORT .ASM` open
+   their firmware in, and it names the mission `SAVE CURRENT` stores the open firmware under; every
+   `LOAD` / `SAVE CURRENT` label carries the target number (`LOAD 06`, `SAVE CURRENT INTO 06`), so
+   the target is visible at the button and not only in the select. The former `into` (import) and
+   `load into` (library) selects are gone. The target starts at the mission the console currently
+   has open (opened from the picker, a permalink, or a `LOAD`), so opening mission 06 makes 06 the
+   target without a second choice.
+2. **Any firmware loads into any mission** (owner rule 2026-11-25): `ConsoleModel.draftFirmware`
+   gates the SOURCE (`WebInputLimits`, then the real RF-8 assembler) and checks nothing
+   mission-local, so a program written for one arena is legal input for another and the run shows
+   what it does there. Pinned by `everyAuthoredFirmwareDraftsIntoEveryAuthoredMission` (all 36
+   authored mission pairs). An engine refusal comes back as a refusal reason on the status line
+   instead of breaking the shell (`draftFirmware` is a pure draft function under 15.1; the headless
+   path stays authoritative for what a run is, 12a D1).
+3. **Scale and touch**: the single target select renders at the 12px control scale, and the 49dp
+   `pointer:coarse` gate covers `.librarytarget select`, the way 15.4 and 15.2b raise touch targets
+   to 49dp.
+
 ### 15.3 Binding numeric rules (desktop, measured 1312px viewport)
 
 | rule | value |

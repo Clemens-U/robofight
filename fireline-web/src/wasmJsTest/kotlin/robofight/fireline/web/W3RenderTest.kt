@@ -247,16 +247,54 @@ class W3RenderTest {
         assertTrue(empty.contains("empty. the library is browser `localStorage` under `${WebLibrary.STORAGE_KEY}`"), empty)
     }
 
+    /** §15.2b item 3 (W3 record 18): ONE firmware target select replaces the former `into` and
+     *  `load into` pair, offers every authored mission, and its button labels carry the target. */
     @Test
-    fun importAndLibraryTargetSelectsOfferEveryAuthoredMission() {
+    fun singleFirmwareTargetSelectOffersEveryAuthoredMission() {
         val html = render()
         assertTrue(html.contains("type=\"file\" id=\"${ConsoleRender.ID_IMPORT_FILE}\""), html)
         assertTrue(html.contains("accept=\".asm,.txt\""), html)
+        assertEquals(1, countOf(html, "<select id="), "expected exactly one firmware target select")
+        assertTrue(html.contains("<select id=\"${ConsoleRender.ID_FIRMWARE_TARGET}\""), html)
+        assertTrue(
+            html.contains("<div class=\"librarytarget\">${ConsoleRender.FIRMWARE_TARGET_LABEL}<select id=\"${ConsoleRender.ID_FIRMWARE_TARGET}\""),
+            html,
+        )
         for (row in model.pickerRows()) {
-            assertTrue(html.contains("<option value=\"${row.id}\""), "mission ${row.id} not selectable for import")
+            assertTrue(html.contains("<option value=\"${row.id}\""), "mission ${row.id} not selectable as target")
         }
-        assertEquals(2, countOf(html, "<select id="), "expected exactly the import and load target selects")
-        assertEquals(2, countOf(html, " selected>"), "exactly one selected option per select")
+        assertEquals(1, countOf(html, " selected>"), "the single select carries exactly one selected option")
+        assertTrue(html.contains("<option value=\"2\" selected>02 CORRIDOR</option>"), html)
+        val withSix = ConsoleUiState.DEFAULT.copy(firmwareMissionId = 6)
+        assertTrue(render(withSix).contains("<option value=\"6\" selected>06 THIN WALL</option>"), "target 06 not selected")
+    }
+
+    /** W3 record 18: the LOAD and SAVE CURRENT labels name the mission they act on, so the target
+     *  is visible at the button and not only in the select. */
+    @Test
+    fun libraryButtonsNameTheMissionTheyActOn() {
+        val store = WebLibrary.saved(WebLibrary.EMPTY, "MY-LOOP.ASM", "loop:  WAIT\n       JMP    loop")
+        val html = render(ConsoleUiState(library = store, firmwareMissionId = 6))
+        assertTrue(html.contains(">LOAD 06</button>"), html)
+        val runHtml = ConsoleRender.renderConsoleHtml(
+            model,
+            model.openMission(6),
+            ConsoleUiState(library = store, firmwareMissionId = 6),
+        )
+        assertTrue(runHtml.contains(">SAVE CURRENT INTO 06</button>"), runHtml)
+    }
+
+    /** W3 record 18: every mission the console can open becomes the firmware target, including the
+     *  one a share link carries. */
+    @Test
+    fun everyOpenMissionSelectsItselfAsFirmwareTarget() {
+        for (row in model.pickerRows()) {
+            val html = render(ConsoleUiState.DEFAULT.copy(firmwareMissionId = row.id), missionId = row.id)
+            assertTrue(
+                html.contains("<option value=\"${row.id}\" selected>"),
+                "mission ${row.id} not the selected target",
+            )
+        }
     }
 
     @Test

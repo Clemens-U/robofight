@@ -71,9 +71,12 @@ object ConsoleRender {
     const val ID_SAVE = "fl-btn-save"
     const val ID_IMPORT_FILE = "fl-import-file"
     const val ID_CLEAR_LIBRARY = "fl-btn-clear-library"
-    const val ID_IMPORT_MISSION = "fl-import-mission"
-    const val ID_LIBRARY_TARGET = "fl-library-target"
     const val ID_LIBRARY_LIST = "fl-library-list"
+
+    /** §15.2c 1 (W3 record 18): ONE target select replaces the former `fl-import-mission`
+     *  (`into`) and `fl-library-target` (`load into`) pair. */
+    const val ID_FIRMWARE_TARGET = "fl-firmware-target"
+    const val FIRMWARE_TARGET_LABEL = "firmware target"
 
     fun speedButtonId(ticksPerSecond: Int): String = ID_SPEED_PREFIX + ticksPerSecond
 
@@ -93,10 +96,11 @@ object ConsoleRender {
     /** `PANIC uncapped, no speed limit` of §15.4. */
     const val PANIC_LABEL = "PANIC"
 
-    /** Which mission an IMPORT / LOAD targets when the console has not been told
+    /** Which mission the firmware target names when the console has not been told
      *  otherwise: the console's startup mission (2 / CORRIDOR), the mission the
-     *  frozen golden master is drawn from. */
-    const val DEFAULT_LIBRARY_MISSION_ID = 2
+     *  frozen golden master is drawn from. Every mission-opening path re-points the
+     *  target at the mission it opens (W3 record 18), so this is only the first render. */
+    const val DEFAULT_TARGET_MISSION_ID = 2
 
     fun cardId(missionId: Int): String = "fl-card-" + missionId
     fun openCardButtonId(missionId: Int): String = "fl-card-open-" + missionId
@@ -555,43 +559,40 @@ object ConsoleRender {
 
     /**
      * The `localStorage` library block (§8 "Storage", §12a D4): stored firmwares
-     * with LOAD / DELETE, SAVE CURRENT, IMPORT .ASM, the mission an imported or
-     *  stored firmware is loaded into, and DELETE LIBRARY (the §8 in-page
-     *  removal of the whole store). It renders below the mission picker: §15.2
-     *  freezes the ten regions of the monitor panel, and the library is a console
-     *  tool, not one of those regions, so it sits in the tools tail with the
-     *  picker rather than being inserted into the frozen order.
+     * with LOAD / DELETE, SAVE CURRENT, IMPORT .ASM, ONE firmware target naming the
+     * mission LOAD, SAVE CURRENT and IMPORT act on (§15.2c 1, W3 record 18), and
+     * DELETE LIBRARY (the §8 in-page removal of the whole store). It renders below
+     * the mission picker: §15.2 freezes the ten regions of the monitor panel, and
+     * the library is a console tool, not one of those regions, so it sits in the
+     * tools tail with the picker rather than being inserted into the frozen order.
      */
     private fun firmwareLibraryBlock(model: ConsoleModel, run: ConsoleRun?, state: ConsoleUiState): String {
         val sb = StringBuilder()
+        val target = decPad(state.firmwareMissionId, 2)
         sb.append("<div class=\"prompt\" style=\"margin-top:1.6rem\">FL:&gt; FIRMWARE LIBRARY</div>")
-        sb.append("<div class=\"librarycontrols\">")
-        if (run != null) {
-            sb.append("<button type=\"button\" class=\"chip btn\" id=\"").append(ID_SAVE).append("\">SAVE CURRENT</button>")
-        }
-        sb.append("<label class=\"importlabel file\">IMPORT .ASM")
-        sb.append("<input type=\"file\" id=\"").append(ID_IMPORT_FILE).append("\" accept=\".asm,.txt\">")
-        sb.append("</label>")
-        sb.append("<label class=\"importlabel\">into")
-        sb.append("<select id=\"").append(ID_IMPORT_MISSION).append("\">")
-        model.pickerRows().forEach { row ->
-            val selected = if (row.id == state.importMissionId) " selected" else ""
-            sb.append("<option value=\"").append(row.id).append("\"").append(selected).append(">")
-                .append(decPad(row.id, 2)).append(" ").append(escapeHtml(row.title)).append("</option>")
-        }
-        sb.append("</select></label>")
-        sb.append("<button type=\"button\" class=\"chip btn\" id=\"").append(ID_CLEAR_LIBRARY).append("\">DELETE LIBRARY</button>")
-        sb.append("</div>")
-        sb.append("<div class=\"librarytarget\">load into")
-        // aria-label because the visible "load into" text sits outside the control, so a
+        sb.append("<div class=\"librarytarget\">").append(FIRMWARE_TARGET_LABEL)
+        // aria-label because the visible label text sits outside the control, so a
         // screen reader reading the select alone would only hear the mission options.
-        sb.append("<select id=\"").append(ID_LIBRARY_TARGET).append("\" aria-label=\"load library entry into mission\">")
+        sb.append("<select id=\"").append(ID_FIRMWARE_TARGET)
+            .append("\" aria-label=\"load or import firmware into mission\">")
         model.pickerRows().forEach { row ->
-            val selected = if (row.id == state.libraryTargetMissionId) " selected" else ""
+            val selected = if (row.id == state.firmwareMissionId) " selected" else ""
             sb.append("<option value=\"").append(row.id).append("\"").append(selected).append(">")
                 .append(decPad(row.id, 2)).append(" ").append(escapeHtml(row.title)).append("</option>")
         }
         sb.append("</select></div>")
+        sb.append("<div class=\"librarycontrols\">")
+        if (run != null) {
+            sb.append("<button type=\"button\" class=\"chip btn\" id=\"").append(ID_SAVE)
+                .append("\">SAVE CURRENT INTO ").append(target).append("</button>")
+        }
+        // The native file button renders in the OS language, so the chip is the label
+        // and the input stays hidden but focusable (15.2b 2).
+        sb.append("<label class=\"importlabel file\">IMPORT .ASM")
+        sb.append("<input type=\"file\" id=\"").append(ID_IMPORT_FILE).append("\" accept=\".asm,.txt\">")
+        sb.append("</label>")
+        sb.append("<button type=\"button\" class=\"chip btn\" id=\"").append(ID_CLEAR_LIBRARY).append("\">DELETE LIBRARY</button>")
+        sb.append("</div>")
         sb.append("<div class=\"library\" id=\"").append(ID_LIBRARY_LIST).append("\">")
         val entries = state.library.entries
         if (entries.isEmpty()) {
@@ -604,7 +605,8 @@ object ConsoleRender {
                 sb.append("<span class=\"libname\">").append(escapeHtml(entry.name)).append("</span>")
                 sb.append("<span class=\"libmeta\">").append(entry.source.lines().size).append(" source lines")
                     .append(if (entry.name == state.library.selectedName) "  selected" else "").append("</span>")
-                sb.append("<button type=\"button\" class=\"mini\" id=\"").append(libraryLoadButtonId(entry.name)).append("\">LOAD</button>")
+                sb.append("<button type=\"button\" class=\"mini\" id=\"").append(libraryLoadButtonId(entry.name))
+                    .append("\">LOAD ").append(target).append("</button>")
                 sb.append("<button type=\"button\" class=\"mini\" id=\"").append(libraryDeleteButtonId(entry.name)).append("\">DELETE</button>")
                 sb.append("</div>")
             }
@@ -630,10 +632,10 @@ data class ConsoleUiState(
     val editDraft: EditDraft? = null,
     /** The decoded `localStorage` store (§8); never trusted, always re-checked. */
     val library: WebLibrary.Store = WebLibrary.EMPTY,
-    /** Mission a LOAD button opens its firmware in. */
-    val libraryTargetMissionId: Int = ConsoleRender.DEFAULT_LIBRARY_MISSION_ID,
-    /** Mission an IMPORT .ASM is checked and opened in. */
-    val importMissionId: Int = ConsoleRender.DEFAULT_LIBRARY_MISSION_ID,
+    /** §15.2c 1 (W3 record 18): the ONE mission a LOAD, SAVE CURRENT or IMPORT acts
+     *  on. `Main.kt` keeps it equal to the mission the console currently has open, so
+     *  opening mission 06 makes 06 the target without a second click. */
+    val firmwareMissionId: Int = ConsoleRender.DEFAULT_TARGET_MISSION_ID,
     /** One-line feedback about the last COPY / SAVE / IMPORT / library action. */
     val statusLine: String = "",
     val asmNote: String = ConsoleRender.DEFAULT_ASSEMBLER_NOTE,

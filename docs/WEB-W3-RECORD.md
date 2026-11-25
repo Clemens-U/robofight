@@ -1161,3 +1161,86 @@ rendering OS-language chrome ("Datei auswählen", "Keine Datei ausgewählt") ins
 - Known accepted looseness (not a gate): the control row flex-wraps `DELETE LIBRARY` to a second
   line only below the width where the row no longer fits; at desktop content width all five
   controls share one row.
+
+## 18. Firmware target 18 (2026-11-25): one select instead of two, any firmware into any mission
+
+Owner user tests on the live console page (screenshot of the FIRMWARE LIBRARY row: a `load into`
+select under `SAVE CURRENT` / `IMPORT .ASM` / `into <select>` / `DELETE LIBRARY`) asked what the
+`load into` line is for and whether the row above already covers it. Answer after tracing: the two
+selects were the two halves of the same question (which mission an IMPORT is checked and opened in,
+which mission a library LOAD opens in), a duplicate the owner never saw as two decisions. They are
+merged into ONE firmware target, plus the owner rule "any firmware should be able to load into any
+mission".
+
+### 18.1 What changed
+
+- **One firmware target (15.2c 1).** `ConsoleRender` renders exactly one `<select>`,
+  `#fl-firmware-target`, labelled `firmware target`, with an `aria-label` (`load or import firmware
+  into mission`) because the visible label sits outside the control. `#fl-import-mission` and
+  `#fl-library-target` are gone, and with them `ConsoleUiState.importMissionId` and
+  `libraryTargetMissionId`; one field `firmwareMissionId` carries the target.
+- **Target defaults to the open mission.** `Main.kt` writes `firmwareMissionId` on every mission
+  open: the picker (`openMission`), a `#run=` permalink (`openFromPermalink`), a library LOAD, an
+  IMPORT, and `SAVE CURRENT` (which stores the open run's firmware, so its own label and its stored
+  mission cannot disagree). Opening mission 06 makes 06 the target with no second choice.
+- **The target is named at the button:** `LOAD 06`, `SAVE CURRENT INTO 06` (15.2c 1). The label
+  wording `firmware target` is one constant (`ConsoleRender.FIRMWARE_TARGET_LABEL`) in the shell and
+  the render layer.
+- **Any firmware loads into any mission (15.2c 2, owner rule).** `ConsoleModel.draftFirmware` gates
+  the SOURCE (`WebLibrary.sourceProblems` -> `WebInputLimits`, then the real RF-8 assembler inside
+  `MissionSession`) and checks nothing mission-local. It now also reports an engine refusal as
+  `DraftResult.Rejected` instead of throwing, so a bad program shows its reason on the status line
+  instead of breaking the shell (`draftFirmware` is a pure draft function under 15.1; the headless
+  path stays authoritative for what a run is, 12a D1).
+- **Scale and touch (15.2c 3).** The merged select keeps the 12px control scale; the
+  `pointer:coarse` block gained an explicit `.librarycontrols select,.librarytarget select{min-height:49px}`
+  (the blanket `select{min-height:49px}` already covered it; naming it keeps the gate honest if the
+  blanket rule ever moves).
+- **Tests:** `W3RenderTest` +3 (`singleFirmwareTargetSelectOffersEveryAuthoredMission`,
+  `libraryButtonsNameTheMissionTheyActOn`, `everyOpenMissionSelectsItselfAsFirmwareTarget`),
+  `ConsoleModelTest` +1 (`everyAuthoredFirmwareDraftsIntoEveryAuthoredMission`, all 36 authored
+  mission pairs). Two test-side bugs found while landing them: an assertion demanding
+  `<div class="librarytarget">firmware target</div>` (a label cannot be a self-closing div around
+  its own select) and an assertion message that cast the draft to `Rejected` even when the draft was
+  `Accepted`, which threw `ClassCastException` with an empty wasm message and masked the real result.
+  A third, unrelated failure in the same round was the stale-artifact class again: a `BUILD FAILED`
+  in `compileTestKotlinWasmJs` (one unresolved reference) left the previous run's result XMLs in
+  place, and the two "failures" read out of those dead XMLs. Read the log before reading the XMLs.
+
+### 18.2 Gate status
+
+- Full matrix 2026-11-25 (`--rerun-tasks --no-build-cache`, explicit task list): **557 tests,
+  0 failures, 0 errors, 0 skipped** (57 fresh result XMLs) = rf8-core 15+15, engine 15,
+  fireline-engine 187+187, fireline-web 63 (ConsoleModel 9, ConsoleRender 8, WorldGrid 13,
+  W3Render 15, W3LibraryDraft 8, W3Permalink 8, W3Interop 3), app 3+9, fireline-app 52, plus
+  `:fireline-app:assembleDebug` and `assembleRelease -x lintVitalRelease` green. 550 + 7 new tests.
+- `docs/web/verify_layout_v1.py`: **58 checks, 0 failed** (55 + three 15.2c checks: merged select at
+  the 12px scale, the coarse gate naming the merged select, no superseded select id left in the
+  shell). `docs/web/fixtures/verify_snapshots.py` and `verify_crosscheck.py`: RC 0. The 15.2c gate
+  comment first pointed at a file name (`docs/WEB-W3-RECORD-18.md`) that this repo does not use;
+  corrected to `docs/WEB-W3-RECORD.md` 18.
+- Live Chrome measurement (dev-library distribution rebuilt 14:36, served on a NEW port 8823 with
+  `?cb=rec18…`): `document.querySelectorAll('select').length` = 1; both legacy ids report `gone`;
+  `#fl-card-open-6` -> prompt `MISSION 06 / THIN WALL`, target value 6 (`06 THIN WALL` selected),
+  `SAVE CURRENT INTO 06`; pressing it wrote `THIN-WALL-REF.ASM` (status `saved THIN-WALL-REF.ASM in
+  this browser`) with buttons `LOAD 06 | DELETE`; switching the one target to 02 renamed the buttons
+  to `LOAD 02` / `SAVE CURRENT INTO 02`, and `LOAD 02` opened **mission 06's thin-wall firmware in
+  mission 02** (source pane shows its 37 lines, status `loaded THIN-WALL-REF.ASM into mission 2`):
+  fingerprint `$765da43f` at tick 2, `$541a8e14` at tick 120, `SUCCESS` at tick 102 with fingerprint
+  `$d3ea4711` = mission 02's authored reference. The same firmware loaded into mission 03 the same
+  way. The library survived a reload (`THIN-WALL-REF.ASM`, target `02 CORRIDOR`).
+- Measurements: target select 27.6px tall, 12px font (desktop 1312px and at 420px); chips
+  `SAVE CURRENT INTO 02` 194 x 30.2, `IMPORT .ASM` 100.4 x 30.2, `DELETE LIBRARY` 142.2 x 30.2;
+  entry minis 26px; `scrollWidth == clientWidth` at 1312, 420 and 393px. Screenshot review: one
+  select labelled `firmware target`, one compact button row, no native OS file chrome.
+- Limitation (recorded, not claimed): this host's browser harness cannot flip `pointer: coarse`.
+  `setDeviceMetricsOverride(mobile=True)` and `setEmulatedMedia(features=[pointer=coarse,
+  hover=none])` both left `matchMedia('(pointer: coarse)').matches` false, so the 49dp target could
+  not be measured live. Proof instead: the coarse `@media` block read out of the live CSSOM carries
+  `.librarycontrols select, .librarytarget select { min-height: 49px; }` (12 rules in the block),
+  its specificity (0,2,1) outranks the desktop-only select rule (0,1,1), and the static gate asserts
+  the declaration. Desktop boxes are unchanged, so the target only grows on a real touch device.
+- Superseded wording check: the compiled IR strings table carries `firmware target`,
+  `fl-firmware-target` and `SAVE CURRENT INTO`, and zero occurrences of `load into`.
+- Spec: `docs/FIRELINE-WEB.md` gains §15.2c (dated shell deviation, 2026-11-25) with items 1-3 above;
+  15.2b stays as the record-17 deviation.

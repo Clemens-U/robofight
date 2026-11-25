@@ -122,6 +122,10 @@ def main():
     #    overlay exists in the shell CSS and the legend, and it never touches a cell.
     shell_css_gate_for_15_8()
 
+    # 10. dated shell deviation 15.2c (docs/WEB-W3-RECORD.md 18): ONE firmware target
+    #     select replaced the `into` / `load into` pair; its scale and touch gate.
+    shell_css_gate_for_15_2c()
+
     return report()
 
 
@@ -278,6 +282,29 @@ def shell_css_gate_for_15_8():
     check("15.8 the thin wall gets a bar, not a new glyph",
           item in g and 'class="wall"' not in item and item.count("<span") == 1
           and gleg.count("<b>") == 11, "legend items: %d" % gleg.count("<b>"))
+
+
+def shell_css_gate_for_15_2c():
+    """W3 record 18 (2026-11-25, owner review): the `into` (import) and `load into`
+    (library) selects become ONE firmware target select that also names the mission
+    the LOAD / SAVE CURRENT buttons act on."""
+    c = SHELL.read_text(encoding="utf-8")
+
+    def rule(sel):
+        i = c.find(sel)
+        return c[i:c.find("}", i)] if i >= 0 else ""
+
+    target = rule(".librarycontrols select,.librarytarget select{")
+    check("15.2c 3 the single target select renders at the 12px control scale",
+          "font-size:12px" in target, target[:80])
+    coarse = c[c.find("@media (pointer: coarse)"):]
+    check("15.2c 3 the touch gate covers the merged target select",
+          ".librarytarget select" in coarse and "min-height:49px" in coarse,
+          coarse[coarse.find(".librarytarget select"):coarse.find(".librarytarget select") + 90]
+          if ".librarytarget select" in coarse else "not in the coarse block")
+    check("15.2c 1 the two superseded selects are gone from the shell",
+          "fl-import-mission" not in c and "fl-library-target" not in c,
+          "legacy id left: %s" % [n for n in ("fl-import-mission", "fl-library-target") if n in c])
 
 
 def report():

@@ -370,6 +370,9 @@ textarea.source.editor{width:100%;box-sizing:border-box;height:var(--pane-h,316p
      desktop measures only; touch screens get the 49dp target back */
   .consolecontrols .runrow .btn,.consolecontrols .chip.btn,.pacing .chip.btn{min-height:49px}
   .librarycontrols .chip.btn,.librarycontrols .importlabel.file{min-height:49px;padding:.55rem .8rem}
+  /* 15.2c: the single firmware target select named explicitly (the blanket `select` rule above
+     already covers it; naming it keeps the gate honest if the blanket rule ever moves) */
+  .librarycontrols select,.librarytarget select{min-height:49px}
   .libentry .mini{min-height:49px;padding:.55rem .8rem}
   /* 15.8: the same rule for the edge wall stroke: 2px is a desktop measure, a touch screen gets
      the 4px floor back. A rule may not read the custom property it declares on the same element:
