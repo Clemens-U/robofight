@@ -4,6 +4,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+import robofight.fireline.DIR_E
+import robofight.fireline.DIR_N
+import robofight.fireline.DIR_S
+import robofight.fireline.DIR_W
 import robofight.fireline.GRID
 import robofight.fireline.TERRAIN_EXIT
 import robofight.fireline.TERRAIN_FLOOR
@@ -53,8 +57,11 @@ class WorldGridTest {
     /** One rendered cell node: its palette class, its inline attributes, its
      *  inner markup (the rover's `<i class="nose">` caret stays in it). */
     private data class CellNode(val cssClass: String, val attrs: String, val inner: String) {
-        val glyph: String get() = inner.substringBefore("<")
-        val nose: String get() = inner.substringAfter("<i class=\"nose\">", "").substringBefore("<")
+        // 15.9: a wall cell wraps its block glyph in a span (the shell needs a box to stretch), so
+        // the glyph is the first text after that opening tag; every other cell keeps its bare glyph.
+        val glyph: String
+            get() = inner.removePrefix("<span>").substringBefore("<")
+        val nose: String get() = Regex("<i class=\"nose[^\"]*\">([^<])").find(inner)?.groupValues[1] ?: ""
     }
 
     private val cellRegex = Regex("<span class=\"cell ([^\"]+)\"([^>]*)>(.*?)</span>", RegexOption.DOT_MATCHES_ALL)
@@ -265,16 +272,23 @@ class WorldGridTest {
         for ((x, y) in listOf(wallAt, pocketWallAt, refillAt, exitAt)) {
             val cell = cellAt(html, x, y)
             val expectedGlyph = TextGrid.glyphAt(world, x, y)
-            assertEquals(expectedGlyph.toString(), cell.glyph,
-                "cell $x,$y renders TextGrid.glyphAt (terrain ${world.terrainAt(x, y)})")
-            assertEquals(terrainGlyph(world.terrainAt(x, y)).toString(), cell.glyph,
-                "a cell nothing stands on renders the terrain glyph of its own terrain id")
+            // 15.9 (W3 record 19): TERRAIN_WALL is the one cell kind the grid DRAWS differently from
+            // the engine's text glyph: `WorldGrid.WALL_BLOCK_GLYPH` (U+2588), the glyph the legend's
+            // wall swatch shows, so a wall reads as a block instead of a stray '#'. The engine read
+            // below still reports GLYPH_WALL for the same coordinate.
+            val drawn = if (world.terrainAt(x, y) == TERRAIN_WALL) WorldGrid.WALL_BLOCK_GLYPH
+                else expectedGlyph.toString()
+            assertEquals(drawn, cell.glyph,
+                "cell $x,$y renders what the grid draws for terrain ${world.terrainAt(x, y)}")
+            assertEquals(terrainGlyph(world.terrainAt(x, y)).toString(), expectedGlyph.toString(),
+                "the engine's terrain glyph of its own terrain id (drawn wall block is the one exception)")
         }
         assertEquals("wall", cellAt(html, wallAt.first, wallAt.second).cssClass, "TERRAIN_WALL renders the mockup's wall class (glyph_for terrain table)")
         assertEquals("wall", cellAt(html, pocketWallAt.first, pocketWallAt.second).cssClass, "TERRAIN_WALL renders the mockup's wall class")
         assertEquals("refill", cellAt(html, refillAt.first, refillAt.second).cssClass, "TERRAIN_REFILL renders the mockup's refill class")
         assertEquals("exit", cellAt(html, exitAt.first, exitAt.second).cssClass, "TERRAIN_EXIT renders the mockup's exit class")
-        assertEquals("#", cellAt(html, wallAt.first, wallAt.second).glyph, "wall glyph is TextGrid's terrain glyph for TERRAIN_WALL")
+        assertEquals(WorldGrid.WALL_BLOCK_GLYPH, cellAt(html, wallAt.first, wallAt.second).glyph,
+            "wall cell draws WorldGrid.WALL_BLOCK_GLYPH, the legend's wall glyph (15.9, record 19; the engine glyph stays TextGrid.GLYPH_WALL)")
         assertEquals("W", cellAt(html, refillAt.first, refillAt.second).glyph, "refill glyph is TextGrid's terrain glyph for TERRAIN_REFILL")
         assertEquals("E", cellAt(html, exitAt.first, exitAt.second).glyph, "exit glyph is TextGrid's terrain glyph for TERRAIN_EXIT")
 
@@ -287,12 +301,77 @@ class WorldGridTest {
         assertEquals(".", floorCell.glyph, "floor glyph is TextGrid.glyphAt for TERRAIN_FLOOR")
         assertTrue(floorCell.attrs.contains(WorldGrid.IDLE_CELL_STYLE), "idle floor cell carries the mockup's idle style (grid_html)")
 
-        // Class/glyph agreement for all 400 cells, cell by cell, engine-read.
+        // Class/glyph agreement for all 400 cells, cell by cell, engine-read. The one drawn glyph
+        // the grid re-paints is TERRAIN_WALL (15.9, record 19): the block of `WALL_BLOCK_GLYPH`,
+        // asserted against the legend swatch by `wallBlockGlyphIsTheGlyphTheLegendSwatchPromises`.
         for (y in 0 until GRID) for (x in 0 until GRID) {
             val cell = cellAt(html, x, y)
-            assertEquals(TextGrid.glyphAt(world, x, y).toString(), cell.glyph, "glyph of cell $x,$y equals TextGrid.glyphAt(world,$x,$y)")
+            val engineGlyph = TextGrid.glyphAt(world, x, y).toString()
+            val drawn = if (world.terrainAt(x, y) == TERRAIN_WALL &&
+                WorldGrid.cellClassFor(world, x, y) == "wall") WorldGrid.WALL_BLOCK_GLYPH else engineGlyph
+            assertEquals(drawn, cell.glyph, "glyph of cell $x,$y follows TextGrid.glyphAt(world,$x,$y) (wall block is the drawn exception)")
             assertEquals(WorldGrid.cellClassFor(world, x, y), cell.cssClass, "class of cell $x,$y follows that same glyph")
         }
+    }
+
+    /**
+     * 15.9 (W3 record 19): the grid's wall block and the legend's wall swatch are the same glyph.
+     * The legend item is byte-identical to `LEGEND` in `gen_web_mockups.py`, whose wall swatch is
+     * `&#x2588;`; decoding that entity must answer `WorldGrid.WALL_BLOCK_GLYPH`, so a cell and its
+     * key can never drift apart again (that drift was what made walls read as stray `#`).
+     */
+    @Test
+    fun wallBlockGlyphIsTheGlyphTheLegendSwatchPromises() {
+        val legendItem = Regex("<b><span class=\"wall\">([^<]+)</span> wall</b>")
+            .find(WorldGrid.legendHtml())
+        assertTrue(legendItem != null, "the legend carries its wall item")
+        val entity = legendItem!!.groupValues[1]
+        assertTrue(entity.startsWith("&#x") && entity.endsWith(";"),
+            "the legend's wall swatch is a numeric entity, got $entity")
+        val decoded = entity.removePrefix("&#x").removeSuffix(";").toInt(16).toChar().toString()
+        assertEquals(WorldGrid.WALL_BLOCK_GLYPH, decoded,
+            "legend wall swatch decodes to WALL_BLOCK_GLYPH (15.9, record 19)")
+    }
+
+    /**
+     * 15.9 (W3 record 19): the facing caret names its direction on the element so the shell CSS can
+     * anchor it on the cell edge it points at. `noseDirectionClass` derives from the engine's own
+     * letter (`TextGrid.dirName`), the markup keeps the caret glyph the legend shows, and an unknown
+     * letter yields the bare `nose` class rather than a caret anchored the wrong way.
+     */
+    @Test
+    fun facingCaretNamesItsDirectionOnTheElementAndFollowsATurn() {
+        val run = corridor()
+        val t = run.telemetry()
+        val rover = cells(ConsoleRender.renderConsoleHtml(model, run))[t.roverY * GRID + t.roverX]
+        // `TelemetrySnapshot.roverFacing` IS the engine's direction letter (TextGrid.dirName).
+        val letter = t.roverFacing.lowercase()
+        assertTrue(WorldGrid.noseDirectionClass(t.roverFacing) == "nose-$letter",
+            "the class the render layer would write for facing ${t.roverFacing} is nose-$letter (15.9)")
+        assertTrue(rover.inner.contains("<i class=\"nose nose-$letter\">"),
+            "the caret carries nose-<engine letter> for facing ${t.roverFacing} (15.9), inner: ${rover.inner}")
+
+        // Mission 02's authored reference source opens TURN R: STEP 1 turns the rover, and the
+        // direction named in the markup follows the engine's new facing.
+        run.step()
+        val turned = run.telemetry()
+        val turnedHtml = ConsoleRender.renderConsoleHtml(model, run)
+        val turnedRover = cells(turnedHtml)[turned.roverY * GRID + turned.roverX]
+        val turnedLetter = turned.roverFacing.lowercase()
+        assertTrue(Regex("<i class=\"nose nose-$turnedLetter\">[▸▾◂▴]").containsMatchIn(turnedRover.inner),
+            "after TURN R the named direction and the painted caret point the same way (facing " +
+                turned.roverFacing + "), inner: ${turnedRover.inner}")
+    }
+
+    /** 15.9: `noseDirectionClass` maps the engine's direction letters, nothing else. */
+    @Test
+    fun noseDirectionClassMapsOnlyTheEngineDirectionLetters() {
+        assertEquals("nose-w", WorldGrid.noseDirectionClass(TextGrid.dirName(DIR_W)))
+        assertEquals("nose-n", WorldGrid.noseDirectionClass(TextGrid.dirName(DIR_N)))
+        assertEquals("nose-e", WorldGrid.noseDirectionClass(TextGrid.dirName(DIR_E)))
+        assertEquals("nose-s", WorldGrid.noseDirectionClass(TextGrid.dirName(DIR_S)))
+        assertEquals("", WorldGrid.noseDirectionClass(""))
+        assertEquals("", WorldGrid.noseDirectionClass("Q"))
     }
 
     /**
@@ -437,7 +516,7 @@ class WorldGridTest {
 
         val style = WorldGrid.cellStyleAttr(320)
         assertTrue(style == "style=\"--cell:14px;--grid-h:296px;--wall-stroke:2px;\"",
-            "the scaling hands over exactly one measured cell plus the paired grid height: ${style}")
+            "the scaling hands over exactly one measured cell plus the paired grid height and the wall stroke (14px -> tier 2, 1px per side): ${style}")
         assertTrue(WorldGrid.GRID_TRACK_CELLS * WorldGrid.cellSizePx(320) + 2 == 310,
             "the CSS box term 22 * --cell + 2 is 310px at a 320px column, inside the column")
         assertTrue(WorldGrid.GRID_ROW_COUNT * WorldGrid.cellSizePx(320) + 2 == 296,
@@ -455,6 +534,35 @@ class WorldGridTest {
             "the measured cell is inline on the pair element, the grid reads it through CSS")
         assertTrue(html.contains("<div class=\"grid\">"), "the grid div itself carries no inline style (CSS reads --cell)")
         assertEquals(400, cells(html).size, "the scaling touches geometry only: 400 cells as always (verify_layout_v1 400-cell gate)")
+    }
+
+    /**
+     * 15.9 (W3 record 19): the wall cell contract between the render layer and the shell CSS.
+     *  `WALL_BLOCK_GLYPH` (U+2588, the block the legend's wall swatch shows) is the cell's TEXT and
+     *  every TERRAIN_WALL cell markup carries it; the render layer adds no scale token (measured in
+     *  Chrome with canvas metrics: the glyph advances 0.600 em and its ink covers only 81% of its em
+     *  box, 4px..25px inside a 26px em, so no font size or stretch fills a cell - the old 14px block
+     *  left 11.6px gaps between neighbouring wall cells). The fill lives in `console.html`,
+     *  `.cell.wall{background:var(--wall)}` over the cell's whole border box, with the glyph hidden
+     *  as text so the grid is still exactly 400 cells (§15.6). The gate asserts the markup side and
+     *  that the style contract carries only the three measured tokens.
+     */
+    @Test
+    fun wallCellsCarryTheBlockGlyphAndTheShellFillsThemWithoutASecondToken() {
+        assertEquals("\u2588", WorldGrid.WALL_BLOCK_GLYPH, "the wall cell glyph is the legend's block")
+        assertTrue(WorldGrid.WALL_BLOCK_FILL_NOTE.contains("background"),
+            "the render layer documents that the fill is the cell's own background: " + WorldGrid.WALL_BLOCK_FILL_NOTE)
+        assertEquals("style=\"--cell:27px;--grid-h:569px;--wall-stroke:4px;\"", WorldGrid.cellStyleAttr(613),
+            "the pair hands over cell, grid height and stroke only: a block scale was measured away")
+        assertTrue(!WorldGrid.cellStyleAttr(613).contains("wall-block"),
+            "no block scale token on the pair: " + WorldGrid.cellStyleAttr(613))
+
+        val html = ConsoleRender.renderConsoleHtml(model, corridor(), worldColumnPx = 613)
+        val walls = cells(html).filter { it.cssClass == "wall" }
+        assertTrue(walls.isNotEmpty(), "mission 02 / CORRIDOR draws wall cells (measured golden master: 96)")
+        val offenders = walls.filterNot { it.glyph.contains(WorldGrid.WALL_BLOCK_GLYPH) }
+        assertTrue(offenders.isEmpty(),
+            "every wall cell carries " + WorldGrid.WALL_BLOCK_GLYPH + "; offenders: " + offenders.take(3))
     }
 
     /**

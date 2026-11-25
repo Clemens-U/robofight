@@ -126,10 +126,16 @@ def main():
     #     select replaced the `into` / `load into` pair; its scale and touch gate.
     shell_css_gate_for_15_2c()
 
+    # 11. dated amendment 15.9 (docs/WEB-W3-RECORD.md 19): the facing caret is PAINTED
+    #     (anchored on the facing cell edge, scaled by the `--cell` token) and a thick
+    #     wall cell is drawn as a BLOCK, the glyph its legend swatch shows.
+    shell_css_gate_for_15_9()
+
     return report()
 
 
 SHELL = HERE.parent.parent / "fireline-web" / "console.html"
+WORLD_GRID = SHELL.parent / "src" / "wasmJsMain" / "kotlin" / "robofight" / "fireline" / "web" / "WorldGrid.kt"
 
 
 def shell_css_gate_for_15_2a():
@@ -305,6 +311,63 @@ def shell_css_gate_for_15_2c():
     check("15.2c 1 the two superseded selects are gone from the shell",
           "fl-import-mission" not in c and "fl-library-target" not in c,
           "legacy id left: %s" % [n for n in ("fl-import-mission", "fl-library-target") if n in c])
+
+
+def shell_css_gate_for_15_9():
+    """W3 record 19 (2026-11-25, owner review): two drawing defects in the world grid.
+    The rover's facing caret existed in the markup but measured 4x12px next to a 13px bold
+    R, so it read as no direction at all; a thick wall cell painted the engine's text glyph
+    '#', while the legend keys a wall as the block U+2588. Both are render-layer fixes: the
+    caret is anchored on the cell edge `noseDirectionClass` names and rides the measured
+    `--cell` token, and the wall block is stretched to the cell from the same token. The
+    engine's terrain glyph stays `TextGrid.GLYPH_WALL` '#'."""
+    c = SHELL.read_text(encoding="utf-8")
+    g = GOLDEN.read_text(encoding="utf-8")
+
+    def rule(sel):
+        i = c.find(sel)
+        return c[i:c.find("}", i)] if i >= 0 else ""
+
+    nose = rule(".cell.rover .nose{")
+    check("15.9 the facing caret is absolutely anchored, not a static hint",
+          "position:absolute" in nose and nose != "", nose[:70])
+    check("15.9 the caret scales with the measured cell token (0.6, clamped 7..13px: 13 at 26px, 9 at 15px, 7 at 11px)",
+          "clamp(7px, calc(var(--cell, 11px) * 0.6), 13px)" in nose
+          and "font-size:8px" not in nose, nose[nose.find("font-size"):][:64])
+    anchored = 0
+    for d, edge in (("e", "right:0"), ("w", "left:0"), ("n", "top:0"), ("s", "bottom:0")):
+        r = rule(".cell.rover .nose.nose-%s{" % d)
+        anchored += 1 if ("transform:translate" in r and edge in r) else 0
+    check("15.9 each named direction anchors its caret on the facing cell edge",
+          anchored == 4, "anchored rules: %d of 4" % anchored)
+    check("15.9 the caret direction is named in the markup, not guessed by the shell",
+          "noseDirectionClass" in c, "the shell comments must name the markup contract")
+
+    wall = rule(".cell.wall{")
+    wallglyph = rule(".cell.wall > *{")
+    caret = rule(".cell.rover .nose{")
+    check("15.9 the block is the cell's own paint: the wall token fills the whole cell box, clipped",
+          "background:var(--wall)" in wall and "var(--wall)" in wall and "overflow:hidden" in wall, wall[:100])
+    check("15.9 the block glyph stays in the DOM as hidden text (400 text cells, §15.6)",
+          "font-size:1px" in wallglyph and "color:transparent" in wallglyph, wallglyph[:80])
+    check("15.9 the hidden glyph stays hidden where the frozen narrow rule re-states a cell font size",
+          c.count(".cell.wall > *{font-size:1px;color:transparent}") == 2
+          and ".cell.wall{font-size:11px}" in c, "desktop rule + the max-width:900px media rule")
+    check("15.9 the facing caret is painted on the cell edge and rides the measured cell (0.6, clamped 7..13px)",
+          "position:absolute" in caret and "clamp(7px, calc(var(--cell, 11px) * 0.6), 13px)" in caret
+          and "line-height:1" in caret, caret[:100])
+    check("15.9 the wall key in the frozen legend is the block the grid draws",
+          g.count('<span class="wall">&#x2588;</span>') == 1, "legend wall swatch")
+    # The arithmetic lives in the render layer's measured note, not in a second inline token.
+    src = WORLD_GRID.read_text(encoding="utf-8")
+    check("15.9 the render layer hands over cell, grid height and stroke only (no block scale token)",
+          '--cell:${cell}px;--grid-h:${GRID_ROW_COUNT * cell + 2}px;"' in src
+          and '--wall-stroke:${wallStrokePx(cell)}px;' in src
+          and "wall-block" not in src, "WorldGrid.cellStyleAttr")
+    check("15.9 the measured glyph metrics that forced the CSS fill are recorded in the render layer",
+          "const val WALL_BLOCK_GLYPH: String = \"\\u2588\"" in src
+          and "0.600 em" in src and "81%" in src and "11.6px" in src,
+          "WorldGrid.WALL_BLOCK_GLYPH / WALL_BLOCK_FILL_NOTE")
 
 
 def report():

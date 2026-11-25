@@ -974,6 +974,48 @@ model of 15.3 does not move and the 400-cell gate is untouched:
   identity (`layoutDigest`, `layoutVersion`, `edgeCount`, `wallVertRowMajor`/
   `wallHorizRowMajor`) stays engine-side, where the fixtures read it.
 
+### 15.9 Dated shell deviation (2026-11-25, owner-directed, `docs/WEB-W3-RECORD.md` 19): the rover's facing is painted, a thick wall cell is a block
+
+Owner report: on the live console the rover's direction indicator was not visible, and thick walls
+read as a lone `#` bar instead of the solid block the legend's wall swatch promises. Both are
+render-layer deviations inside the grid region; the engine, its glyphs and its terrain model are
+untouched.
+
+1. **Facing caret (painted, measured).** The caret keeps its markup (`WorldGrid.noseCaret`, the four
+   glyphs U+25B8 U+25BE U+25C2 U+25B4 from `grid_html()`'s `dir_caret` table) and gains a direction
+   class named from the engine's own letter, `nose-<e|s|w|n>` (`WorldGrid.noseDirectionClass`); the
+   shell anchors it on the cell edge the rover faces. Its size rides the measured cell token,
+   `font-size:clamp(7px, calc(var(--cell, 11px) * 0.6), 13px)` with `line-height:1`, replacing the
+   fixed `font-size:8px` that measured a 4x12px ink box beside the 13px bold `R`. Measured boxes:
+   13x13 inside a 27px cell, 13x13 inside 26px, 9x9 inside 15px, 7x7 inside 11px (0.8 measured 4px
+   past the top and bottom edges of a 15px cell). The caret stays a child of the rover cell, so the
+   grid keeps exactly 400 cell nodes (15.6).
+2. **Thick wall cells (filled, not typeset).** `TERRAIN_WALL` renders `WorldGrid.WALL_BLOCK_GLYPH`
+   (U+2588, the glyph the legend's `<span class="wall">` swatch already carries) inside the cell, and
+   the block is **painted by the cell**: `.cell.wall{background:var(--wall)}` over its whole border
+   box, `overflow:hidden`, and the glyph kept in the DOM as hidden text (`font-size:1px;
+   color:transparent`, restated inside the `max-width:900px` block because 15.5 re-states a cell font
+   size there). No font size can do this: U+2588 advances 0.6 em and its ink covers 81% of its own em
+   (advance 14.40px at 24px, 15.60px at 26px; ink 4px..25px inside a 26px em), which is what left
+   11.6px of column gap between neighbours at the old 14px. Adjacent wall cells share their 1px
+   border, so a run reads as one continuous block: measured 26x26, 15x15, 11x11 cells, and live on
+   mission 02 a contiguous run of 17 wall cells measuring 442.0x26.0 with every interior gap 0.00px. The
+   engine glyph stays `TextGrid.GLYPH_WALL` (`#`) for layout text, snapshot fixtures and the Android grid.
+3. **Grid token list unchanged.** `WorldGrid.cellStyleAttr` still hands over exactly `--cell`,
+   `--grid-h` and `--wall-stroke` (15.3, 15.8); this deviation adds no scale token, because a painted
+   fill needs no number.
+4. **Legend wording (recorded, unchanged).** The legend item for facing shows the sample glyph
+   `nose-txt` U+25B8 from the mockups; the live caret shows the direction the rover actually has.
+5. **Gate:** `WorldGridTest` +4 (`facingCaretNamesItsDirectionOnTheElementAndFollowsATurn`,
+   `noseDirectionClassMapsOnlyTheEngineDirectionLetters`,
+   `wallCellsCarryTheBlockGlyphAndTheShellFillsThemWithoutASecondToken`,
+   `wallBlockGlyphIsTheGlyphTheLegendSwatchPromises`: decoding the legend swatch's entity answers
+   `WALL_BLOCK_GLYPH`, so a cell and its key cannot drift apart again). `docs/web/verify_layout_v1.py`
+   gains 11 checks (caret anchored rather than hinted, scaled off `--cell`, named in the markup; the
+   wall token filling the whole clipped cell box in the desktop and the narrow rule set; the glyph
+   hidden rather than typeset or scaled; the legend key equal to the drawn block; three tokens and no
+   fourth; the measured glyph metrics recorded in the render layer).
+
 ## 16. What would make this worth doing
 
 Honest assessment: the web build is not required for the game to exist, and it

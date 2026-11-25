@@ -97,8 +97,37 @@ h4{margin:0 0 .4rem;color:var(--dim);font-size:11px;letter-spacing:.14em;font-we
 .ruler,.corner{color:var(--dim);font-size:9px;display:flex;align-items:center;justify-content:center}
 .corner:before{content:"y/x"}
 .cell.rover{color:var(--yellow);font-weight:bold;font-size:13px}
-.cell.rover .nose{position:absolute;font-size:8px;font-style:normal;color:var(--green)}
-.cell.wall{color:var(--wall);font-size:14px}
+/* 15.9 (W3 record 19): the facing caret is PAINTED, not hinted. It is anchored ON the cell edge it
+   points at, and its size rides the measured `--cell` token (`0.6 * cell`, clamped 7..13px) instead
+   of the old fixed 8px desktop hint, which measured 4x12px and was invisible next to the 13px bold
+   R. The clamp keeps the caret inside the cell at every cell size this build produces (measured box
+   13x13 inside 26px at --cell 26, 9x9 inside 15px at 15, 7x7 inside 11px at 11; a 0.8 ratio measured
+   4px past the top and bottom edges of a 15px cell). `WorldGrid.noseDirectionClass` names the
+   direction on the element so no CSS has to guess it. The caret is a child of the rover cell, so the
+   grid still renders exactly 400 cell nodes (§15.6). */
+.cell.rover .nose{position:absolute;font-style:normal;color:var(--green);line-height:1;
+  font-size:clamp(7px, calc(var(--cell, 11px) * 0.6), 13px)}
+.cell.rover .nose.nose-e{right:0;top:50%;transform:translateY(-50%)}
+.cell.rover .nose.nose-w{left:0;top:50%;transform:translateY(-50%)}
+.cell.rover .nose.nose-n{left:50%;top:0;transform:translate(-50%,50%)}
+.cell.rover .nose.nose-s{left:50%;bottom:0;transform:translate(-50%,-50%)}
+/* 15.9 (W3 record 19): a thick wall cell reads as a BLOCK, the way the legend's wall swatch
+   (U+2588) and the Android cell paint read. Measured in Chrome: Courier New's `WALL_BLOCK_GLYPH`
+   (U+2588) advances only 0.6 em AND its ink spans only 81% of its own em box (advance 14.40px at
+   24px, 15.60px at 26px; ink box 4px..25px inside a 26px em), so no font size can make the glyph
+   reach a cell's edges: at the old 14px the cell showed a 14px-wide bar with 11.6px of column gaps
+   between neighbours. The fill is therefore painted by the CELL, `background:var(--wall)` over its
+   whole border box, the same token the edge-wall strokes use; two adjacent wall cells share their
+   1px border, so a wall run paints as one continuous block, and `overflow:hidden` keeps any glyph
+   ink inside its own cell. `WALL_BLOCK_GLYPH` stays in the DOM (`WorldGrid.cellHtml`) as the cell's
+   text - hidden with `font-size:1px` and `color:transparent` - so the grid still renders exactly 400
+   text cells (§15.6) and the markup names the terrain.
+   Measured at --cell 26 / 15 / 11: wall cell boxes 26x26, 15x15, 11x11 filled edge to edge; live on
+   mission 02 the corridor band is one contiguous run of 17 wall cells measuring 442.0x26.0 with every
+   interior gap 0.00px.
+   Gate: docs/web/verify_layout_v1.py 15.9; docs/WEB-W3-RECORD.md 19. */
+.cell.wall{color:var(--wall);background:var(--wall);overflow:hidden}
+.cell.wall > *{font-size:1px;color:transparent}
 .cell.refill{color:var(--cyan)}.cell.exit{color:var(--green)}.cell.fuel{color:var(--fuel)}
 .cell.civ{color:var(--civ)}.cell.prot{color:var(--prot)}
 .cell.packet{color:var(--cyan)}
@@ -356,6 +385,9 @@ textarea.source.editor{width:100%;box-sizing:border-box;height:var(--pane-h,316p
   grid-template-rows:repeat(21, var(--cell, 11px));max-width:calc(22 * var(--cell, 11px) + 2px);
   height:calc(21 * var(--cell, 11px) + 2px)}
   .cell{font-size:10px}.cell.rover{font-size:11px}.cell.wall{font-size:11px}
+  /* 15.9 (record 19): the frozen §15.5 line above re-states a cell font size, so the hidden wall
+     glyph has to be re-hidden here too, otherwise the U+2588 would inherit 11px. */
+  .cell.wall > *{font-size:1px;color:transparent}
   .status4{grid-template-columns:1fr 1fr}}
 /* W3 gate (docs/FIRELINE-WEB.md §9 W3): 48dp-equivalent touch targets on touch
    screens. Scoped to coarse pointers so the frozen desktop layout keeps its

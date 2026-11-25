@@ -1244,3 +1244,131 @@ mission".
   `fl-firmware-target` and `SAVE CURRENT INTO`, and zero occurrences of `load into`.
 - Spec: `docs/FIRELINE-WEB.md` gains §15.2c (dated shell deviation, 2026-11-25) with items 1-3 above;
   15.2b stays as the record-17 deviation.
+
+## 19. Grid paint 19 (2026-11-25): the rover's facing is painted, a thick wall cell is a block
+
+Owner looked at the live console (mission 02 CORRIDOR, run and idle views) and reported two render
+defects: (1) "the direction indicator is not visible/drawn for the rover", (2) "the thick walls are
+drawn as simple `#` and not as blocks as the grid legend shows and as it should be". Both trace to the
+grid's CSS and one render-layer constant; the engine (`TextGrid`, the terrain model, its wall glyph) is
+untouched.
+
+### 19.1 What the two defects were (measured before changing anything)
+
+- **The caret had no anchor and no scale.** `WorldGrid.cellHtml` already emitted
+  `<i class="nose">▸</i>` inside the rover cell (glyph from `grid_html()`'s `dir_caret` table) and the
+  shell had `.cell.rover .nose{position:absolute;font-size:8px;...}`. `position:absolute` with **no edge
+  offset** pins the caret at its static position inside the cell, and at 8px the caret glyphs advance
+  0.500 em with near-zero ink height: the live cell measured a 7x13px caret box holding a 4x12px ink
+  hint next to a 13px bold `R`. It was present in the DOM and absent to the eye.
+- **A wall cell was typeset, not painted.** `.cell.wall{color:var(--wall);font-size:14px}` rendered
+  `TextGrid.GLYPH_WALL` (`#`) as a bare text node. `#` advances 0.700 em, so at 14px the cell showed a
+  ~10px mark inside a 26px cell: the wall band read as scattered hash marks. The legend already promised
+  something else, its wall item is `LEGEND[1] = "&#x2588;|wall"`, a **full block** swatch.
+- **The glyph could never have filled the cell** (measured in Chrome with canvas metrics in the shell's
+  font stack): U+2588 advances **0.600 em at every size** (14.40px at 24px, 15.60px at 26px) and its ink
+  covers **81% of its own em** (at 26px: ascent 22, descent 8, ink spanning 4px..25px inside a 26px em).
+  A font size cannot reach a cell's edges, so the fill has to be paint.
+
+### 19.2 What changed
+
+- **Caret: named direction, anchored edge, measured scale.** `WorldGrid.noseDirectionClass` names the
+  engine's own letter on the element (`nose-e|s|w|n`; an unknown letter yields the bare `nose` class,
+  which renders unanchored rather than pointing the wrong way), and the shell anchors each direction on
+  the edge it points at (`.nose-e{right:0;top:50%;transform:translateY(-50%)}` and its three mirrors).
+  Its size rides the record 16 cell token:
+  `font-size:clamp(7px, calc(var(--cell, 11px) * 0.6), 13px)` with `line-height:1`. 0.6 because a 0.8
+  ratio measured the caret 4px past the top and bottom edges of a 15px cell. The caret stays a child of
+  the rover cell, so the grid is still exactly 400 cell nodes (15.6).
+- **Wall: the cell's own paint.** `WorldGrid.WALL_BLOCK_GLYPH` (U+2588) is what a wall cell renders,
+  wrapped in a `<span>` (a bare text node has no box to style), and `console.html` fills the cell:
+  `.cell.wall{color:var(--wall);background:var(--wall);overflow:hidden}` plus
+  `.cell.wall > *{font-size:1px;color:transparent}`. The glyph stays in the DOM as the cell's text so
+  15.6's "400 text cells" holds and the markup still names the terrain. Two adjacent wall cells share
+  their 1px border, so a run paints as one continuous block. `--wall` is the token the E4 edge strokes
+  already use (15.8), so interior walls and thin edge walls are the same colour. The engine's `#` stays
+  the layout glyph (snapshot fixtures, layout text, the Android grid).
+- **No new scale token.** `WorldGrid.cellStyleAttr` still hands over exactly `--cell`, `--grid-h` and
+  `--wall-stroke` (15.3, 15.8): a fill needs no number. A glyph-scale token added mid-record was
+  measured and removed again for exactly that reason, and `WALL_BLOCK_FILL_NOTE` records the reasoning.
+
+### 19.3 Cascade trap: the frozen narrow rule re-declared the wall font size
+
+`@media(max-width:900px)` (frozen 15.5) ends with `.cell{font-size:10px}.cell.rover{font-size:11px}`
+**`.cell.wall{font-size:11px}`**. That rule out-ranks the new glyph-hide rule inside the block, so the
+hidden U+2588 would inherit 11px on a narrow viewport: wall cell 11px wide, advance 6.6px, ink 1..10px,
+the defect re-appearing at ≤900px. The hide is therefore restated inside the media block, with a note
+naming the trap. The gate counts **both** copies, because one copy is precisely what fails. Live after
+the fix: glyph `font-size:1px`, `color:rgba(0,0,0,0)` at 1352, 900, 430 and 320px viewport.
+
+### 19.4 Measurements (dev library rebuilt, console served on a NEW port 8848 with `?cb=19…`)
+
+Viewport sweep (`Emulation.setDeviceMetricsOverride`, mission 02 CORRIDOR open):
+
+| viewport | --cell | grid box | world column | fits | rover cell / caret box | wall cell | caret ink |
+|---|---|---|---|---|---|---|---|
+| 1352 | 27px | 596x569 | 608 | yes | 27x27 / 13x13 | 27x27 filled | 9.1x12.7 at 13px |
+| 1180 | 23px | 508x485 | 522 | yes | 23x23 / 13x13 | 23x23 filled | |
+| 900 | 34px | 750x716 | 783 | yes | 34x34 / 13x13 | 34x34 filled | |
+| 760 | 29px | 640x611 | 643 | yes | 29x29 / 13x13 | 29x29 filled | |
+| 430 | 14px | 310x296 | 313 | yes | 14x14 / 8x8 | 14x14 filled | 5.6x7.8 at 8.4px |
+| 320 | 11px | 244x233 | 203 | **no** | 11x11 / 7x7 | 11x11 filled | 4.7x6.9 at 7px |
+
+- The caret box is inside its cell at every width. The north/south pair centres its em square on the
+  shared edge, so about 3px of caret ink crosses that 1px border deliberately (19.2 "anchored on the
+  edge it points at").
+- Wall runs: 26 wall cells per mission-02 grid, in 4 rows. Live at `--cell 26`: the corridor band is a
+  contiguous run of **17 wall cells measuring 442.0x26.0 with every interior gap 0.00px** (two 3-cell runs
+  measure 78.0x26.0, gaps 0.00), and the fill resolves to `#8a6d5e`, the `--wall` token the E4 edge strokes
+  use. Mission 02 has no thin edge walls, so the overlay is empty there by design (`wallseg` count 0);
+  mission 06 keeps them. At the 78px probe cell the same fill reads as a continuous block across shared
+  borders in the screenshot.
+- Visual proof at 3x scale: `docs/web/w3/make_probe19_fixture.py` lifts the **shipped** `console.html`
+  style block (no copied CSS) onto a synthetic mission-02 layout, four grids with the rover facing
+  e/s/w/n, at `--cell 78`; `docs/web/w3/serve_mjs.py` serves the dev library with the MIME types Chrome
+  demands. Fixture markup verified glyph for glyph: `R<i class="nose nose-e">▸</i>`, `nose-w` ▿,
+  `nose-n` ▴, `nose-s` ▾. Both scripts are committed; the generated `probe19_fixture.html` is
+  gitignored scratch. Screenshot review read continuous filled wall blocks and a green caret triangle on
+  the facing edge, and confirmed the caret moved with the rover's facing across a run.
+
+### 19.5 Gate status
+
+- Full matrix 2026-11-25 (`--rerun-tasks --no-build-cache`, explicit task list, plus both assembleDebug
+  targets): **561 tests, 0 failures, 0 errors, 0 skipped** (64 fresh result XMLs) = rf8-core 15+15,
+  engine 15, fireline-engine 192+192, fireline-web 68 (WorldGrid 18, ConsoleModel 9, ConsoleRender 8,
+  W3Render 15, W3LibraryDraft 8, W3Permalink 8, W3Interop 3), app 3+9, fireline-app 52;
+  `BUILD SUCCESSFUL`, 155/155 tasks executed. 557 + 4 new `WorldGridTest` tests.
+- `docs/web/verify_layout_v1.py`: **69 checks, 0 failed** (58 + 11 new 15.9 checks: caret anchored
+  rather than hinted, scaled off `--cell`, named in the markup, one rule per direction; the wall token
+  filling the whole clipped cell box; the glyph hidden as text in the desktop **and** the narrow rule
+  set; the glyph neither scaled nor typeset; the legend key equal to the drawn block; three tokens and no
+  fourth; the measured metrics recorded in the render layer).
+- `WorldGridTest` 15 -> 18 with the four 15.9 tests (`facingCaretNamesItsDirectionOnTheElementAndFollowsATurn`,
+  `noseDirectionClassMapsOnlyTheEngineDirectionLetters`,
+  `wallCellsCarryTheBlockGlyphAndTheShellFillsThemWithoutASecondToken`,
+  `wallBlockGlyphIsTheGlyphTheLegendSwatchPromises`; the last decodes the legend item's entity, so a cell
+  and its key cannot drift apart again, which is how walls became stray `#` marks).
+- Snapshot gates: `docs/web/fixtures/verify_snapshots.py` and `verify_crosscheck.py` RC 0 (the engine
+  glyphs and the layout fixtures are untouched by this record).
+- Two tooling traps hit while verifying, recorded so they are not rediscovered:
+  (1) `make_probe19_fixture.py`'s first form, `open(path)` on one line and `(mode)` on the next, is not
+  valid Python (it calls the file object), so the generator writes with `print(..., open(path, "w"))`;
+  (2) a "fixed" fixture silently masqueraded as the real console: the sweep ran on the fixture tab
+  (4 pairs, cell 78px) and only a re-navigation to the console URL showed real numbers. Combine that with
+  the record 18 lesson, a **new port** for every rebuilt dev library, and the reading order is: rebuild,
+  serve on a new port, navigate, then measure.
+
+### 19.6 Open items carried forward
+
+- **Narrow viewport overflow (pre-existing, not fixed here).** At a 320px viewport the world column is
+  203px while the grid box is 244px (`fits=no`, `document.body.scrollWidth` 337), and the chrome is wider
+  still: the offender list names `page` (344px), `console`/`cols`/`rows`/`status4`/`runline` (308px).
+  Cause: the frozen ≤900px cascade declares `--col:320px` while `.page` keeps its 1.25rem padding, so
+  below roughly 348px viewport the page overflows horizontally regardless of the grid. This is a chrome
+  defect of its own (record 16 territory); the caret and the block themselves are correct at 11px. The
+  320px floor is a design decision, so it needs an owner-approved amendment rather than a bug fix.
+- **Legend sample glyph (unchanged, recorded).** The legend's facing item shows the mockups' sample caret
+  `nose-txt` ▸ while the live caret shows the direction the rover actually has. The wall key and the wall
+  cell are now the same glyph; the facing key remains a sample, not the live state.
+- Spec: `docs/FIRELINE-WEB.md` gains §15.9 (dated shell deviation, 2026-11-25) with items 1-5. 15.8 (E4)
+  and 15.2c (record 18) stand as written.

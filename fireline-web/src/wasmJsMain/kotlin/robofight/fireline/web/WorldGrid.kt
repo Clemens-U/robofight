@@ -161,7 +161,9 @@ object WorldGrid {
      * `--wall-stroke`: the `.grid` CSS rule reads the cell token, the pair's `--pane-h` derives from
      * `--grid-h`, and the `.wallseg` overlay rules read both the cell token and the stroke token, so
      * grid tracks, grid box, rows, firmware pane height and the edge overlay all come from one
-     * measured number.
+     * measured number. 15.9 (record 19) added a glyph scale token to this list and measured it away
+     * again: the block is filled by `.cell.wall`'s own background, which needs no number
+     * (`WALL_BLOCK_FILL_NOTE`).
      *
      * Label geometry measured in Chrome: the `y/x` corner and the row rulers are not grid tracks
      * (the renderer lays them out inside the label area), so `repeat(2, c) repeat(20, c)` computes
@@ -176,7 +178,8 @@ object WorldGrid {
      */
     fun cellStyleAttr(worldColumnPx: Int): String {
         val cell = cellSizePx(worldColumnPx)
-        return "style=\"--cell:${cell}px;--grid-h:${GRID_ROW_COUNT * cell + 2}px;--wall-stroke:${wallStrokePx(cell)}px;\""
+        return "style=\"--cell:${cell}px;--grid-h:${GRID_ROW_COUNT * cell + 2}px;" +
+            "--wall-stroke:${wallStrokePx(cell)}px;\""
     }
 
     /** §15.3 grid height lock, written as the rule: 21 rows x 15px + 1px border
@@ -197,6 +200,35 @@ object WorldGrid {
     /** Styles `grid_html()` puts on the two cell kinds that need one. */
     const val IDLE_CELL_STYLE: String = "font-size:8px;opacity:.75"
     const val FIRE_CELL_STYLE: String = "font-weight:bold"
+
+    /**
+     * 15.9 (W3 record 19): the glyph a `TERRAIN_WALL` cell is DRAWN with. The engine's terrain
+     *  glyph stays `TextGrid`'s `GLYPH_WALL` '#' (layout text, snapshot fixtures, the Android grid);
+     *  the web grid paints the full block U+2588 so a wall cell reads as the solid block the legend's
+     *  wall swatch already promises (`<span class="wall">&#x2588;</span>`) and as the Android cell
+     *  paints it. One constant, used by the render layer, asserted against the legend item by
+     *  `WorldGridTest` and against the live page by the browser measurement.
+     */
+    const val WALL_BLOCK_GLYPH: String = "\u2588"
+
+    /**
+     * 15.9 (W3 record 19): why the wall block is filled by CSS and not by a font size or a scale.
+     *  Measured in Chrome with canvas metrics for `WALL_BLOCK_GLYPH` (U+2588) in the shell's font
+     *  stack: the horizontal advance is 0.600 em at every size (14.40px at 24px, 15.60px at 26px),
+     *  and the ink box covers only 81% of its own em (at 26px: ascent 22, descent 8, ink spanning
+     *  4px..25px inside a 26px em). So a glyph can never reach a cell's edges: the old 14px block
+     *  left 11.6px of column gaps between neighbouring wall cells.
+     *
+     *  The fill is therefore the cell's own paint, in `console.html`: `.cell.wall` backgrounds
+     *  `var(--wall)` (the token the edge wall strokes use) across its whole border box, so two
+     *  adjacent wall cells share their 1px border and a wall run reads as one continuous block;
+     *  `WALL_BLOCK_GLYPH` stays in the DOM as the cell's text, hidden at 1px transparent, so the grid
+     *  still renders exactly 400 text cells (§15.6). Measured live on mission 02 at --cell 26: wall
+     *  cells 26x26 filled with `#8a6d5e`, and the corridor band is one contiguous run of 17 wall cells
+     *  measuring 442.0x26.0 with every interior gap 0.00px (`WorldGridTest`, `verify_layout_v1.py` 15.9,
+     *  `docs/WEB-W3-RECORD.md` 19.4).
+     */
+    const val WALL_BLOCK_FILL_NOTE: String = "cell background fills the block; the glyph marks the terrain"
 
     /** `grid_html()`: the whole grid, in row-major order (row 0 first, x 0..19).
      *  Cell node `y * GRID + x` is therefore the cell at coordinate (x, y), which
@@ -276,15 +308,32 @@ object WorldGrid {
 
     private fun cellHtml(world: FirelineWorld, x: Int, y: Int, nose: String): String {
         val cssClass = cellClassFor(world, x, y)
-        val glyph = ConsoleRender.escapeHtml(TextGrid.glyphAt(world, x, y).toString())
+        // 15.9 (W3 record 19): TERRAIN_WALL renders `WALL_BLOCK_GLYPH`, wrapped in an element so the
+        // shell can stretch the block to the cell (a bare text node has no box to transform). Every
+        // other cell keeps the engine glyph exactly as `TextGrid.glyphAt` produced it.
+        val glyph = when (cssClass) {
+            "wall" -> "<span>" + ConsoleRender.escapeHtml(WALL_BLOCK_GLYPH) + "</span>"
+            else -> ConsoleRender.escapeHtml(TextGrid.glyphAt(world, x, y).toString())
+        }
         val style = when {
             cssClass == "empty" -> " style=\"$IDLE_CELL_STYLE\""
             cssClass.startsWith("fire") -> " style=\"$FIRE_CELL_STYLE\""
             else -> ""
         }
-        val noseMarkup = if (cssClass == "rover") "<i class=\"nose\">$nose</i>" else ""
+        val dirClass = noseDirectionClass(TextGrid.dirName(world.rover.facing))
+        val noseMarkup = if (cssClass == "rover") "<i class=\"nose $dirClass\">$nose</i>" else ""
         return "<span class=\"cell $cssClass\"$style>$glyph$noseMarkup</span>"
     }
+
+    /**
+     * 15.9 (W3 record 19): the facing direction named on the caret element, derived from the
+     *  engine's own letter (`TextGrid.dirName`), so the shell can anchor the caret on the cell edge
+     *  it points at instead of leaving it at the glyph's static position. `nose-<letter>`; an
+     *  unknown letter yields the bare `nose` class and the caret renders unanchored rather than in
+     *  the wrong place.
+     */
+    fun noseDirectionClass(dirName: String): String =
+        if (dirName.length == 1 && dirName[0].lowercase() in "eswn") "nose-" + dirName.lowercase() else ""
 
     /**
      * Facing caret inside the rover cell: the four glyphs `grid_html()`'s
