@@ -70,6 +70,9 @@ h4{margin:0 0 .4rem;color:var(--dim);font-size:11px;letter-spacing:.14em;font-we
 .cell.empty{color:var(--empty)}
 .legend{display:flex;flex-wrap:wrap;gap:.2rem 1rem;font-size:11px;color:var(--dim);margin-top:.6rem}
 .legend b{font-weight:normal}
+/* 15.8 (E4): the thin-wall legend key, a short thick bar, so a filled wall cell
+   (`wall`) and an edge wall (a bar between two cells) read as two things. */
+.legend .edgebar{display:inline-block;width:18px;height:4px;background:var(--wall);vertical-align:middle}
 .wall{color:var(--wall)}.rover{color:var(--yellow)}.nose-txt{color:var(--green)}
 .refill,.packet{color:var(--cyan)}.exit{color:var(--green)}.civ{color:var(--civ)}
 .fuel{color:var(--fuel)}.prot{color:var(--prot)}
@@ -167,7 +170,7 @@ footer{border-top:1px solid var(--line);padding-top:.7rem;margin-top:1rem;font-s
 </style>
 </head>
 <body>
-<div class="meta"><b>fl-web-3-result-failure.html</b> &nbsp; engine snapshot of the documented failing firmware: engine snapshots: 01-ref-t0 (tick 0, 28838868ad3468ed), 01-ref-t12 (tick 12, f3dd62629ba58d1f), 01-ref-final (tick 17, 245faa6d10316e00), 01-never-t30 (tick 30, b77a46e1e4308ad0), 01-never-final (tick 60, 7cbfe49993c17318) (+5 more)</div>
+<div class="meta"><b>fl-web-3-result-failure.html</b> &nbsp; engine snapshot of the documented failing firmware: engine snapshots: 01-ref-t0 (tick 0, 28838868ad3468ed), 01-ref-t12 (tick 12, f3dd62629ba58d1f), 01-ref-final (tick 17, 245faa6d10316e00), 01-never-t30 (tick 30, b77a46e1e4308ad0), 01-never-final (tick 60, 7cbfe49993c17318) (+10 more)</div>
 <div class="page"><div class="topline">OPCODE FIRELINE WEB CONSOLE <span class="right">RF-8 / LIVE</span></div><hr class="rule"><nav class="nav"><a>MISSION</a><a>FIRMWARE</a><a>RUN</a><a class="on">RESULT</a><a>PRIVACY</a></nav><div class="banner fail">FAILURE // TIME_EXPIRED
 <div class="small">MISSION 01 / NOZZLE CHECK ended at tick 30 of 200. Objectives are mandatory:
 EXTINGUISH_ALL was not met.</div></div>

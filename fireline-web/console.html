@@ -87,7 +87,7 @@ h4{margin:0 0 .4rem;color:var(--dim);font-size:11px;letter-spacing:.14em;font-we
    22 * cell + 2px is never wider than the column. No percentage width is used on the grid either:
    `width:100%` let the column size the box while the tracks sized past it (offsetWidth 613 with
    scrollWidth 636). */
-.grid{display:grid;grid-template-columns:calc(2 * var(--cell, 11px)) repeat(20, var(--cell, 11px));
+.grid{display:grid;position:relative;grid-template-columns:calc(2 * var(--cell, 11px)) repeat(20, var(--cell, 11px));
   grid-template-rows:repeat(21, var(--cell, 11px));
   width:calc(22 * var(--cell, 11px) + 2px);max-width:calc(22 * var(--cell, 11px) + 2px);
   height:calc(21 * var(--cell, 11px) + 2px);
@@ -104,11 +104,26 @@ h4{margin:0 0 .4rem;color:var(--dim);font-size:11px;letter-spacing:.14em;font-we
 .cell.packet{color:var(--cyan)}
 .cell.fire1{color:var(--f1)}.cell.fire2{color:var(--f2)}.cell.fire3{color:var(--f3)}.cell.fire4{color:var(--f4)}
 .cell.empty{color:var(--empty)}
+/* E4 (15.8, docs/EDGE-E4-RECORD.md; PLAN-EDGE-WALLS.md section 5): the thin edge wall overlay. A
+   wall is a line ON a cell border, never a cell, so it is an absolutely positioned child of the
+   grid (`.grid` carries `position:relative`) and the grid keeps exactly 400 cell nodes. The inline
+   `left` / `top` that `WorldGrid.wallSegmentsHtml` writes are raw px anchors ON the border, counted
+   from the grid's padding box (the 1px border is outside it, so an inner cell border sits exactly at
+   n * --cell). The stroke and the length are the same tokens the tracks and the box are built from:
+   `--cell` makes a segment exactly one cell long, `--wall-stroke` (WorldGrid.wallStrokePx, the
+   Android recipe `cell * 0.14` rounded to an even pixel count) is its thickness, and the half-stroke
+   translate centres the line on its border so a 2px and a 4px stroke straddle the same border. */
+.wallseg{position:absolute;background:var(--wall);pointer-events:none}
+.wallseg.v{width:var(--wall-stroke, 2px);height:var(--cell, 11px);transform:translate(-50%,0)}
+.wallseg.h{height:var(--wall-stroke, 2px);width:var(--cell, 11px);transform:translate(0,-50%)}
 .legend{display:flex;flex-wrap:wrap;gap:.2rem 1rem;font-size:11px;color:var(--dim);margin-top:var(--gap-major)}
 .legend b{font-weight:normal}
 .wall{color:var(--wall)}.rover{color:var(--yellow)}.nose-txt{color:var(--green)}
 .refill,.packet{color:var(--cyan)}.exit{color:var(--green)}.civ{color:var(--civ)}
 .fuel{color:var(--fuel)}.prot{color:var(--prot)}
+/* 15.8: the legend key of the thin edge wall: a short thick bar, so a cell wall (`wall`, a filled
+   cell) and an edge wall (a bar between two cells) are visibly two different things. */
+.legend .edgebar{display:inline-block;width:18px;height:4px;background:var(--wall);vertical-align:middle}
 .fire1{color:var(--f1)}.fire2{color:var(--f2)}.fire3{color:var(--f3)}.fire4{color:var(--f4)}
 .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem;margin-top:.8rem}
 .kv{border-collapse:collapse;width:100%;font-size:12px}
@@ -356,6 +371,18 @@ textarea.source.editor{width:100%;box-sizing:border-box;height:var(--pane-h,316p
   .consolecontrols .runrow .btn,.consolecontrols .chip.btn,.pacing .chip.btn{min-height:49px}
   .librarycontrols .chip.btn,.librarycontrols .importlabel.file{min-height:49px;padding:.55rem .8rem}
   .libentry .mini{min-height:49px;padding:.55rem .8rem}
+  /* 15.8: the same rule for the edge wall stroke: 2px is a desktop measure, a touch screen gets
+     the 4px floor back. A rule may not read the custom property it declares on the same element:
+     `.wallseg{--wall-stroke:max(4px,var(--wall-stroke))}` references itself and is invalid at
+     computed-value time, so that bump silently did nothing (measured, EDGE-E4-RECORD
+     deviation 2). The bump therefore arrives on the pair as a second token that `.wallseg`
+     prefers, with the pair's inline token as the fallback: on touch every painted bar is the
+     4px floor (the desktop recipe already caps at 4px, so no cell loses width), on a fine
+     pointer nothing is defined and the inline token stands. The half-stroke translate keeps the
+     thicker line centred on the same border. */
+  .pair{--wall-stroke-touch:4px}
+  .wallseg{--wall-stroke:var(--wall-stroke-touch, var(--wall-stroke))}
+  .legend .edgebar{height:max(4px, calc(var(--cell, 11px) * 0.185))}
 }
 </style>
 </head>

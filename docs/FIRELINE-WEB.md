@@ -913,6 +913,43 @@ tick 46 state with `CORRIDOR-REF.ASM`:
   all duplicate content that already has a home.
 - Wrapping the source pane in a second `pre`: nested scrollable boxes.
 
+### 15.8 Dated layout amendment (2026-11-25, step E4, `docs/EDGE-E4-RECORD.md`)
+
+The grid gains a **thin edge wall** overlay: a bar painted ON a cell border, never a
+cell, never a glyph (`PLAN-EDGE-WALLS.md` §3, §5; `DESIGN-FIRELINE.md` amendment A-6).
+The rules are render-layer arithmetic over the measured cell token of 15.3, so the box
+model of 15.3 does not move and the 400-cell gate is untouched:
+
+- The engine's renderer copies are the only source: `wallVertRowMajor()` (20 x 19) then
+  `wallHorizRowMajor()` (19 x 20), read row-major, vertical before horizontal. A
+  wall-free mission emits no overlay node and its grid markup is byte-identical to the
+  wall-free build.
+- Overlay nodes are `<span class="wallseg v|h" data-edge="v5,2">` written after the 400
+  cells and before `</div>`, positioned inline with `left`/`top` px from the pair's
+  `--cell` (`cellLeftBorderPx`/`cellTopBorderPx` arithmetic), `--wall-stroke` from the
+  same token. They add no grid track and no cell node: `grid-template-columns: repeat(22,
+  var(--cell, 26px))` and the `22 * --cell + 2` x `21 * --cell + 2` box stay as written
+  in 15.3.
+- Stroke width: `cell * 0.14` rounded in two integer steps (half-up to a whole pixel,
+  then nearest even, tie up), clamped to 2..4 px, handed to the overlay as the pair's
+  inline `--wall-stroke`. A `pointer: coarse` media rule raises the painted floor to
+  4 px for touch, the way 15.4 and 15.2b raise touch targets to 49dp:
+  `.pair{--wall-stroke-touch:4px}` plus `.wallseg{--wall-stroke:var(--wall-stroke-touch,
+  var(--wall-stroke))}`. The bump cannot be written on `.wallseg` reading its own
+  `--wall-stroke`: a rule that references the custom property it declares is invalid at
+  computed-value time, and the bar would keep the 2 px desktop width (measured,
+  `EDGE-E4-RECORD.md` deviation 2). The legend bar follows the Android
+  `EdgeWallGeometry` ratio under the same floor,
+  `.legend .edgebar{height:max(4px, calc(var(--cell, 11px) * 0.185))}`. The web ratios
+  match the Android recipe; the rounding differs because CSS cannot stroke a fraction
+  (`EDGE-E4-RECORD.md` deviation 1).
+- Legend: the block under the grid gains an 11th item, a drawn `<span class="edgebar">`
+  plus `thin wall, blocks the way`, single occurrence (15.4) inside the grid region only.
+- The overlay adds nothing to the readouts: telemetry and the runout keep their v1 rows
+  (`PLAN-EDGE-WALLS.md` §7 E4 does not ask for a wall counter), and the layout's own
+  identity (`layoutDigest`, `layoutVersion`, `edgeCount`, `wallVertRowMajor`/
+  `wallHorizRowMajor`) stays engine-side, where the fixtures read it.
+
 ## 16. What would make this worth doing
 
 Honest assessment: the web build is not required for the game to exist, and it

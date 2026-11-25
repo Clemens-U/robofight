@@ -133,6 +133,31 @@ private fun terrainGrid(world: FirelineWorld): List<String> {
     }
 }
 
+/**
+ * E4 (PLAN-EDGE-WALLS.md §13.7 item 4): the thin edge walls as the engine's own
+ * renderer copies - WALL_VERT 20 rows x 19 glyphs, WALL_HORIZ 19 rows x 20 glyphs,
+ * '#' where the edge is blocked, '.' open. Row-major, like the terrain rows.
+ * These are the same arrays `fireline-web/WorldGrid.edgeWalls` draws the overlay
+ * from and `fireline-app`'s `EdgeWallGeometry` strokes with (steps E4 / E3).
+ */
+private fun wallVertGrid(world: FirelineWorld): List<String> {
+    val v = world.layout.wallVertRowMajor()
+    return (0 until WALL_VERT_ROWS).map { y ->
+        StringBuilder().apply {
+            for (x in 0 until VERT_EDGE_COLUMNS) append(if (v[y * VERT_EDGE_COLUMNS + x]) '#' else '.')
+        }.toString()
+    }
+}
+
+private fun wallHorizGrid(world: FirelineWorld): List<String> {
+    val h = world.layout.wallHorizRowMajor()
+    return (0 until WALL_HORIZ_ROWS).map { y ->
+        StringBuilder().apply {
+            for (x in 0 until GRID) append(if (h[y * GRID + x]) '#' else '.')
+        }.toString()
+    }
+}
+
 /** Engine's own live-intensity glyph mapping (TextGrid.fireGlyph). */
 private fun fireGrid(world: FirelineWorld): List<String> =
     (0 until GRID).map { y ->
@@ -224,6 +249,9 @@ private fun snapshot(
         "halt_reason" to (halt?.let { q(it) } ?: "null"),
         "firmware_bytes" to d.firmware.size.toString(),
         "terrain" to arr(terrainGrid(world).map { q(it) }),
+        "wall_vert" to arr(wallVertGrid(world).map { q(it) }),
+        "wall_horiz" to arr(wallHorizGrid(world).map { q(it) }),
+        "wall_count" to world.layout.edgeCount().toString(),
         "fire" to arr(fireGrid(world).map { q(it) }),
         "fire_cells" to arr(fireCells),
         "fire_intensity_total" to world.fireIntensitySum().toString(),
@@ -339,6 +367,16 @@ fun main(args: Array<String>) {
     snapshots += scenario(nozzle, nozzle.referenceSource, listOf(0 to "01-ref-t0", 12 to "01-ref-t12", -1 to "01-ref-final")).map { it.second }
     snapshots += scenario(nozzle, never.second, listOf(30 to "01-never-t30", -1 to "01-never-final")).map { it.second }
     snapshots += scenario(corridor, corridor.referenceSource, listOf(12 to "02-ref-t12", 46 to "02-ref-t46", -1 to "02-ref-final")).map { it.second }
+
+    // E4 (PLAN-EDGE-WALLS.md §13.7 item 4): mission 06 THIN WALL, the first
+    // authored mission whose snapshots must carry the wall rows. Reference
+    // firmware at the matrix probe tick 12 plus a mid-run and final state; the
+    // documented failing firmware (spray through the thin wall) at its final.
+    val thinWall = Missions.THIN_WALL
+    val thinWallFail = thinWall.failingSources[0].second
+    snapshots += scenario(thinWall, thinWall.referenceSource,
+        listOf(0 to "06-ref-t0", 12 to "06-ref-t12", 24 to "06-ref-t24", -1 to "06-ref-final")).map { it.second }
+    snapshots += scenario(thinWall, thinWallFail, listOf(-1 to "06-fail-final")).map { it.second }
 
     val json = "{\n  \"snapshots\": [\n    " + snapshots.joinToString(",\n    ") + "\n  ]\n}\n"
     out.writeText(json)

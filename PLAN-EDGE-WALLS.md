@@ -1,9 +1,12 @@
 # PLAN-EDGE-WALLS: thin walls as real mechanics in FIRELINE
 
-> Status: **engine step E1 built (section 10), engine step E1b built (section 11),
-> DW3 decided (section 8)**. The
-> other section 8 decisions are assumed for E1 and stay reversible. Not yet
-> specced into `FIRELINE-DESIGN.md`, not yet scheduled against the web phases.
+> Status: **E1, E1b, E2, E3, E4 and E5 of section 7 are built** (records:
+> sections 10 and 11, `docs/EDGE-E3-RECORD.md`, `docs/EDGE-E4-RECORD.md`,
+> section 13). DW3 decided (section 8); the other section 8 decisions are
+> assumed and stay reversible. The mechanic is specced into
+> `FIRELINE-DESIGN.md` 3.2/6.2/9/11.4 and into the frozen web layout lock as
+> `docs/FIRELINE-WEB.md` 15.8, and it is scheduled against the web phases per
+> DW6(a): E1/E2 ran on their own, E4 landed with the W3 console shell.
 >
 > What this is: give FIRELINE the same wall geometry the Arena already ships,
 > which `DESIGN.md` calls **edge walls**, "line segments on the border *between*
@@ -856,3 +859,61 @@ Deliberate limit of this device proof: E3 has not landed, so the Android grid dr
 4. `docs/web/fixtures/snapshots.json` still carries 8 snapshots for missions 01 and 02 only, and mission 06 has none. Decision: its snapshots arrive with E4, not before. Reason: a snapshot of a thin-wall mission is wall-blind today. `TextGrid` renders cells, and a thin wall is not a cell, so a mission 06 snapshot would show a wall-free grid for the mission that is named after its wall. The snapshot schema has to carry the `WALL_VERT` 20x19 and `WALL_HORIZ` 19x20 rows (engine `Layout.wallVertRowMajor`/`wallHorizRowMajor`) for the data to be honest, and E4 needs exactly that data to draw the web overlay. E4 therefore owns: the two wall fields in `SnapshotFixtures.kt`, the corresponding checks in `verify_snapshots.py` and `verify_crosscheck.py`, the mission 06 snapshot set, the console edge overlay, and the `verify_layout_v1.py` edge gate.
 5. No challenge-code content. `CHALLENGE-CODES.md` is untouched: challenge codes are the Opcode Arena surface, and this is a FIRELINE mission.
 6. Carried forward from §10.8, unresolved by this step: edge walls are static layout state and are not part of `canonicalState`, so two layouts that agree on terrain, fire, rover and packets but differ in edges hash identically. Harmless while every mission source is fixed in code (this step proves the mission's own canonical text round trips with its walls, `6-reference`/`6-failing` `roundtrip` = yes), and a decision before The Circuit ships variable arena layouts, most likely a `walls=` line in the canonical state. Not taken here because it would move every fingerprint again with no content to show for it.
+
+---
+
+## 14. E3 and E4 landed: both product surfaces draw the thin wall
+
+Rendering step E3 landed 2026-11-25 on branch `codex/edge-walls-e1` (previous
+HEAD `e5e7b1e`), scope `:fireline-app`: 4 tracked files changed
+(`MissionRunSurface.kt` 46/4, `FirelineGridView.kt` 31/1) plus 4 new files
+(`view/EdgeWallGeometry.kt`, `mission/GridLegend.kt` and their two test files).
+
+Rendering step E4 landed the same day on top of E3, scope `:fireline-web` (4
+tracked files: `console.html` 28/1, `ConsoleRender.kt` 1/1,
+`WorldGrid.kt` 122/9, `WorldGridTest.kt` 154/4) and `docs/web` (the snapshot and
+crosscheck fixture generators, the regenerated fixture data, the layout
+verifier's 15.8 gate, the 5 frozen mockups) plus the dated layout amendment
+`docs/FIRELINE-WEB.md` 15.8.
+
+The full step records are `docs/EDGE-E3-RECORD.md` and
+`docs/EDGE-E4-RECORD.md`: unit tests by name, the close-out matrix run with the
+canonical §11.6 command (`BUILD SUCCESSFUL in 35s`, 178 actionable tasks, exit
+0, 570 tests across 9 result directories, 0 failures), the fixture regeneration
+digests, the device pixel measurement and the browser measurement.
+
+The §7 acceptance items:
+
+- **E3, "grid shows a wall line that is visibly not a wall cell"**: closed by 3
+  wall-coloured canvas components (1 010 px in exactly 3 connected components)
+  centred on shared cell borders, one cell side long, `0.120-0.140` of a cell
+  thick, with the two cells each bar separates holding no filled wall block
+  (`EDGE-E3-RECORD.md` §5). "BEST badges behave as DW3 decided": closed by
+  `BEST: SUCCESS  TICK 59` on mission 06, `BEST: SUCCESS  TICK 102` untouched on
+  mission 02, and four cards reading `no run recorded yet for engine v2`
+  (`EDGE-E3-RECORD.md` §5).
+- **E4, "web and Android describe the same edges for the same mission"**: closed
+  across five channels (Android unit, Android device, web unit, the `WALL` /
+  `wall_count` fixture rows, and the live browser) that all describe
+  `VERTICAL(5,2)`, `HORIZONTAL(2,1)`, `HORIZONTAL(2,2)` for mission 06, and by
+  the browser run finishing at `TICK 59` with fingerprint `61fe3d4c` against
+  `parity_matrix.tsv` `6-reference` `59 SUCCESS 61fe3d4c35449094` and the device
+  badge `BEST: SUCCESS  TICK 59` (`EDGE-E4-RECORD.md` §6, §7).
+
+Deviations of these two steps, in full in the records' deviation sections: the
+A-6 label collision resolved by annotation (`EDGE-E3-RECORD.md` 7.1), the legend
+entry on its own row on both surfaces (7.2), the Android accessibility wall
+counter that the plan did not ask for (7.3), the web's integer stroke rounding
+(`EDGE-E4-RECORD.md` 9.1), the touch bump that had to move off `.wallseg`
+because a rule may not read the custom property it declares (9.2, measured),
+the fixed-size legend keys (9.3), the dropped telemetry counter (9.4, §15.8 now
+states what the code does), the snapshot harness tick cap (9.5), and the
+pre-existing 320px pair-floor overflow recorded but not fixed (9.6, §8).
+
+The line "E3 has not landed, so the Android grid draws no edge segments yet"
+(`§13.6`) was true when §13 was written and is not rewritten; this section is
+what closed it.
+
+Open items this step leaves: the §13.7 item 6 decision (edges are not in
+`canonicalState`, to be taken before The Circuit ships variable arena layouts),
+and the Circuit-side content step of §7's "one Circuit mission later".

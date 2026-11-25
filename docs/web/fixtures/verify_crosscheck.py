@@ -21,9 +21,22 @@ for parts in rows:
     if kind == "ACTIVITY":
         print(f"ACTIVITY {label:14} {parts[2]}")
         continue
+    if kind == "WALL":
+        # E4: the engine's wall glyph rows ('#' blocked, '.' open), vert 20x19
+        # then horiz 19x20, comma-separated on one TSV line.
+        rows = parts[2].split(",")
+        assert len(rows) == 39, (label, len(rows))
+        if label.startswith("06"):
+            s = n[label]
+            assert rows[:20] == s["wall_vert"], (label, "wall_vert")
+            assert rows[20:] == s["wall_horiz"], (label, "wall_horiz")
+        else:
+            assert all(row.count("#") == 0 for row in rows), (label, "wall-free mission carries a wall glyph")
+        print(f"WALL  {label:14} cross-checked 39 wall rows: OK")
+        continue
     s = n[label]
     if kind == "PROBE":
-        tick, status, reason, x, y, hp, heat, water, fire, pkts, shots, moves, h = parts[2:]
+        tick, status, reason, x, y, hp, heat, water, fire, pkts, shots, moves, h, wv, wh, wt = parts[2:]
         want = [
             ("tick", int(tick), s["tick"]),
             ("status", status, s["status"]),
@@ -38,9 +51,12 @@ for parts in rows:
             ("stats.shots", int(shots), s["stats"]["shots"]),
             ("stats.moves", int(moves), s["stats"]["moves"]),
             ("fingerprint", h, s["fingerprint"]),
+            ("wall_vert '#'", int(wv), "".join(s["wall_vert"]).count("#")),
+            ("wall_horiz '#'", int(wh), "".join(s["wall_horiz"]).count("#")),
+            ("wall_count", int(wt), s["wall_count"]),
         ]
     else:  # FINAL, produced by FirelineRun.runWithGuard (headless authority path)
-        tick, status, reason, hp, heat, water, fire, burning, h, identical = parts[2:]
+        tick, status, reason, hp, heat, water, fire, burning, h, identical, wv, wh, wt = parts[2:]
         assert identical.startswith("runner==stepByStep:true"), (label, identical)
         want = [
             ("tick", int(tick), s["tick"]),
@@ -52,6 +68,9 @@ for parts in rows:
             ("fire_intensity_total", int(fire), s["fire_intensity_total"]),
             ("stats.burning_cells", int(burning), s["stats"]["burning_cells"]),
             ("fingerprint", h, s["fingerprint"]),
+            ("wall_vert '#'", int(wv), "".join(s["wall_vert"]).count("#")),
+            ("wall_horiz '#'", int(wh), "".join(s["wall_horiz"]).count("#")),
+            ("wall_count", int(wt), s["wall_count"]),
         ]
     for name, a, b in want:
         if a != b:

@@ -71,6 +71,16 @@ class WorldGridTest {
 
     private fun cellAt(html: String, x: Int, y: Int): CellNode = cells(html)[y * GRID + x]
 
+    /** One `wallSegmentsHtml()` overlay child: its key plus the raw px anchor it is placed at. */
+    private data class Seg(val kind: String, val key: String, val left: Int, val top: Int)
+
+    private val segRegex = Regex(
+        "<span class=\"wallseg ([vh])\" data-edge=\"([^\"]+)\" style=\"left:(\\d+)px;top:(\\d+)px\"></span>",
+    )
+
+    private fun segMarkup(markup: String): List<Seg> =
+        segRegex.findAll(markup).map { Seg(it.groupValues[1], it.groupValues[2], it.groupValues[3].toInt(), it.groupValues[4].toInt()) }.toList()
+
     /** The world column only, isolated the way `verify_layout_v1.py` isolates it. */
     private fun worldColumn(html: String): String =
         html.substringAfter("<div class=\"pair").substringBefore("<div class=\"pairfirm")
@@ -342,7 +352,8 @@ class WorldGridTest {
 
     /**
      * §15.4: the symbol legend appears once, under the grid and above the EVENT
-     * LOG, with the mockup's own items, wording, HTML entities and class names.
+     * LOG, with the mockup's own items, wording, HTML entities and class names,
+     * plus the dated E4 thin-wall item of 15.8 (`PLAN-EDGE-WALLS.md` §5).
      */
     @Test
     fun legendAppearsOnceWithTheMockupsItemsAndClasses() {
@@ -362,6 +373,7 @@ class WorldGridTest {
 
         val items = listOf(
             "<b><span class=\"wall\">&#x2588;</span> wall</b>",
+            "<b><span class=\"edgebar\"></span> thin wall, blocks the way</b>",
             "<b><span class=\"rover\">R</span><span class=\"nose-txt\">&#x25b8;</span> rover + facing</b>",
             "<b><span class=\"fire1\">1</span><span class=\"fire2\">2</span><span class=\"fire3\">3</span><span class=\"fire4\">4</span> fire, engine display bands 1..24 / 25..49 / 50..74 / 75..100</b>",
             "<b><span class=\"packet\">*</span> water packet</b>",
@@ -375,7 +387,7 @@ class WorldGridTest {
         items.forEach { item ->
             assertTrue(legend.contains(item), "legend item '$item' byte-identical to LEGEND in gen_web_mockups.py")
         }
-        assertEquals(items.size, Regex("<b>").findAll(legend).toList().size, "ten legend items, no more (LEGEND of gen_web_mockups.py)")
+        assertEquals(items.size, Regex("<b>").findAll(legend).toList().size, "eleven legend items, no more (10 of LEGEND in gen_web_mockups.py + the 15.8 thin wall)")
         val expectedLegend = "<div class=\"legend\">\n" + items.joinToString("\n") + "\n</div>"
         assertEquals(expectedLegend, WorldGrid.legendHtml(), "the whole legend block is byte-identical to LEGEND in gen_web_mockups.py")
         assertTrue(html.contains(expectedLegend), "the shell renders that legend block verbatim, in the world column")
@@ -424,7 +436,7 @@ class WorldGridTest {
         assertEquals(11, WorldGrid.cellSizePx(264), "the 11px floor only binds below 266px of column (22 * 11 + 2 = 244px box, 264 + 2 = 266)")
 
         val style = WorldGrid.cellStyleAttr(320)
-        assertTrue(style == "style=\"--cell:14px;--grid-h:296px;\"",
+        assertTrue(style == "style=\"--cell:14px;--grid-h:296px;--wall-stroke:2px;\"",
             "the scaling hands over exactly one measured cell plus the paired grid height: ${style}")
         assertTrue(WorldGrid.GRID_TRACK_CELLS * WorldGrid.cellSizePx(320) + 2 == 310,
             "the CSS box term 22 * --cell + 2 is 310px at a 320px column, inside the column")
@@ -439,9 +451,147 @@ class WorldGridTest {
 
         val run = corridor()
         val html = ConsoleRender.renderConsoleHtml(model, run, worldColumnPx = 613)
-        assertTrue(html.contains("<div class=\"pair\" style=\"--cell:27px;--grid-h:569px;\">"),
+        assertTrue(html.contains("<div class=\"pair\" style=\"--cell:27px;--grid-h:569px;--wall-stroke:4px;\">"),
             "the measured cell is inline on the pair element, the grid reads it through CSS")
         assertTrue(html.contains("<div class=\"grid\">"), "the grid div itself carries no inline style (CSS reads --cell)")
         assertEquals(400, cells(html).size, "the scaling touches geometry only: 400 cells as always (verify_layout_v1 400-cell gate)")
+    }
+
+    /**
+     * E4 (docs/FIRELINE-WEB.md 15.8, PLAN-EDGE-WALLS.md step E4): the thin edge
+     * wall overlay. The acceptance claim: web and Android describe the same edges
+     * for the same mission, each wall is a line ON a cell border and never a cell,
+     * and a wall-free mission's grid markup stays byte-identical to the wall-free
+     * build. Edge data comes only from the engine's renderer copies
+     * (`Layout.wallVertRowMajor` / `wallHorizRowMajor`), the same arrays the
+     * Android `EdgeWallGeometry` strokes with and the fixture records as
+     * `WALL_VERT` / `WALL_HORIZ`.
+     */
+    @Test
+    fun thinWallStrokeIsTheAndroidRatioRoundedToWholeEvenPixels() {
+        assertEquals(2, WorldGrid.wallStrokePx(11), "the 11px narrow floor: 11 * 0.14 = 1.54 -> 2px")
+        assertEquals(2, WorldGrid.wallStrokePx(15), "the frozen 15px desktop cell: 2.1 -> 2 -> 2px")
+        assertEquals(2, WorldGrid.wallStrokePx(17), "a 17px cell: 2.38 -> 2 -> 2px")
+        assertEquals(4, WorldGrid.wallStrokePx(18), "an 18px cell: 2.52 -> 3 -> nearest even rounds the tie up to 4px")
+        assertEquals(4, WorldGrid.wallStrokePx(21), "a 21px tablet cell: 2.94 -> 3 -> 4px")
+        assertEquals(4, WorldGrid.wallStrokePx(24), "a 24px tablet cell: 3.36 -> 3 -> 4px")
+        assertEquals(4, WorldGrid.wallStrokePx(27), "the measured 613px column's 27px cell: 3.78 -> 4 -> 4px")
+        assertEquals(4, WorldGrid.wallStrokePx(28), "the 28px cell: 3.92 -> 4 -> 4px")
+        assertEquals(4, WorldGrid.wallStrokePx(34), "the 34px ceiling: 4.76 -> 4px, never above WALL_STROKE_MAX_PX")
+        assertTrue(WorldGrid.wallStrokePx(0) >= WorldGrid.WALL_STROKE_MIN_PX, "never thinner than the floor")
+        for (cell in WorldGrid.NARROW_CELL_PX..WorldGrid.CELL_MAX_PX) {
+            val stroke = WorldGrid.wallStrokePx(cell)
+            assertTrue(stroke % 2 == 0, "stroke $stroke at cell $cell is even, so the line straddles its border symmetrically")
+            assertTrue(WorldGrid.WALL_STROKE_MIN_PX <= stroke && stroke <= WorldGrid.WALL_STROKE_MAX_PX, "stroke stays in [2, 4] at cell $cell")
+            assertTrue(stroke < cell / 2, "the stroke stays far under half a cell: the two cell interiors it separates stay open")
+        }
+    }
+
+    /**
+     * The web overlay and the Android segments describe the SAME edges for
+     * mission 06: the lane gate (the edge right of (5,2), authored `WALL_VERT`
+     * row 2 char 5) plus the spawn cell's north and south edges (`WALL_HORIZ`
+     * rows 1 and 2 char 2), the same three slots `EdgeWallGeometryTest` pins on
+     * the Android side and `parity_matrix.tsv` counts as `wall_count` 3.
+     */
+    @Test
+    fun thinWallOverlayDrawsExactlyTheEnginesEdgeSlotsForMission06() {
+        val run = model.openMission(6)
+        val world = run.currentWorld
+        assertEquals(3, world.layout.edgeCount(), "mission 06 carries three edge walls (parity_matrix 6-reference wall_count)")
+        val walls = WorldGrid.edgeWalls(world)
+        assertEquals(
+            listOf(
+                EdgeWallSpec(true, 5, 2),   // v 5,2  lane gate, right border of (5,2)
+                EdgeWallSpec(false, 2, 1),  // h 2,1  spawn cell's north edge
+                EdgeWallSpec(false, 2, 2),  // h 2,2  spawn cell's south edge
+            ),
+            walls,
+            "vertical edges row by row first, then horizontal, exactly the two renderer copies' row-major order",
+        )
+        assertEquals(3, walls.map { it.key }.distinct().size, "three distinct edge keys")
+
+        val html = ConsoleRender.renderConsoleHtml(model, run, worldColumnPx = 320)
+        val segs = Regex("<span class=\"wallseg ([vh])\" data-edge=\"([^\"]+)\" style=\"left:(\\d+)px;top:(\\d+)px\"></span>")
+            .findAll(html).toList()
+        assertEquals(3, segs.size, "one wallseg per engine edge (mission 06)")
+        assertEquals(listOf("v 5,2", "h 2,1", "h 2,2"), segs.map { it.groupValues[2] }, "overlay keys equal the engine slots")
+        val cell = WorldGrid.cellSizePx(320) // 14
+        // v 5,2 sits ON the right border of (5,2): x = (5 + 1) * cell, spanning one cell of y from
+        // the top border of row 2 (the ruler row is the extra row).
+        assertEquals((5 + 1) * cell, segs[0].groupValues[3].toInt(), "vertical anchor is cellRightBorderPx(5), on the border, not in a cell")
+        assertEquals((2 + 1) * cell, segs[0].groupValues[4].toInt(), "vertical anchor is cellTopBorderPx(2)")
+        // h 2,1 / h 2,2 start ON the left border of column 2 and sit ON the bottom borders of
+        // cells (2,1) / (2,2): cellBottomBorderPx(y) = (y + 2) * cell (the ruler row is the extra row).
+        assertEquals(2 * cell, segs[1].groupValues[3].toInt(), "horizontal anchor is cellLeftBorderPx(2)")
+        assertEquals(2 * cell, segs[2].groupValues[3].toInt(), "horizontal anchor is cellLeftBorderPx(2)")
+        assertEquals((1 + 2) * cell, segs[1].groupValues[4].toInt(), "horizontal anchor is cellBottomBorderPx(1)")
+        assertEquals((2 + 2) * cell, segs[2].groupValues[4].toInt(), "horizontal anchor is cellBottomBorderPx(2)")
+        assertEquals(400, cells(html).size, "the overlay adds no cell node: the 400-cell gate still holds with walls present")
+        assertEquals(0, Regex("class=\"cell [^\"]*wallseg").findAll(html).toList().size, "no wall is a cell class")
+        assertTrue(html.contains("--wall-stroke:${WorldGrid.wallStrokePx(cell)}px"), "the pair hands over the stroke token the .wallseg CSS reads")
+    }
+
+    /**
+     * Wall-free missions render no overlay at all, so every existing anchor of
+     * the wall-free build (cell counts, markup) stays byte-identical for the
+     * five missions that carry no edges.
+     */
+    @Test
+    fun wallFreeMissionsRenderTheByteIdenticalWallFreeGrid() {
+        for (missionId in 1..5) {
+            val run = model.openMission(missionId)
+            val world = run.currentWorld
+            assertTrue(world.layout.wallVertRowMajor().none { it } && world.layout.wallHorizRowMajor().none { it },
+                "mission $missionId declares no edges (PLAN-EDGE-WALLS.md DW4: no retrofit)")
+            assertEquals(0, WorldGrid.edgeWalls(world).size, "mission $missionId has no overlay")
+            assertEquals("", WorldGrid.wallSegmentsHtml(world, 14), "mission $missionId emits an empty overlay string")
+            val html = ConsoleRender.renderConsoleHtml(model, run, worldColumnPx = 613)
+            assertEquals(0, Regex("wallseg").findAll(html).toList().size, "no wallseg markup for mission $missionId")
+            assertEquals(400, cells(html).size, "mission $missionId keeps the frozen 400-cell grid")
+        }
+    }
+
+    /**
+     * E4 (15.8): the anchor arithmetic is the cell geometry, asserted against the cell nodes
+     * themselves and at both ends of the allowed cell range (the 11px narrow floor, the 34px
+     * desktop ceiling, plus a measured mid value). A vertical anchor must equal the inline left of
+     * the cell to its right and the inline left plus one cell of the cell to its left; a horizontal
+     * anchor must equal the inline top of the cell below it. This is what the browser measurement
+     * of `docs/EDGE-E4-RECORD.md` section 7 reads back in px: the 400 cells fill the grid's padding
+     * box, so a content column is `x * cell` and the ruler labels live in the padding margins.
+     */
+    @Test
+    fun thinWallAnchorsLandOnTheBorderTheTwoCellsShare() {
+        val run = model.openMission(6)
+        val world = run.currentWorld
+        for (cell in listOf(WorldGrid.NARROW_CELL_PX, 21, WorldGrid.CELL_MAX_PX)) {
+            val segs = segMarkup(WorldGrid.wallSegmentsHtml(world, cell))
+            assertEquals(3, segs.size, "mission 06 has three edges at cell $cell")
+            val (v, h1, h2) = segs
+            assertEquals("v 5,2", v.key)
+            assertEquals(6 * cell, v.left, "v 5,2 left is the right border of (5,2) = the left border of (6,2)")
+            assertEquals(3 * cell, v.top, "v 5,2 top is the top border of row 2 (ruler row is the extra row)")
+            assertEquals("h 2,1", h1.key)
+            assertEquals(2 * cell, h1.left, "h 2,1 left is the left border of column 2")
+            assertEquals(3 * cell, h1.top, "h 2,1 top is the bottom border of row 1")
+            assertEquals("h 2,2", h2.key)
+            assertEquals(2 * cell, h2.left, "h 2,2 left is the left border of column 2")
+            assertEquals(4 * cell, h2.top, "h 2,2 top is the bottom border of row 2")
+            // The same numbers as cell boxes: cell (6,2) starts where the vertical bar is, cell
+            // (2,3) starts where h 2,2 is. `--cell` is written inline by cellStyleAttr(worldColumnPx),
+            // so a chosen cell edge is the column (cell * GRID_TRACK_CELLS + 2) that fits it.
+            val columnPx = cell * WorldGrid.GRID_TRACK_CELLS + 2
+            val html = ConsoleRender.renderConsoleHtml(model, run, worldColumnPx = columnPx)
+            val styleOf = Regex("style=\"--cell:(\\d+)px").findAll(html).first().groupValues[1].toInt()
+            assertEquals(cell, styleOf, "the pair hands over the chosen cell token")
+            assertTrue(cellAt(html, 6, 2).cssClass != "wall" && cellAt(html, 5, 2).cssClass != "wall",
+                "the vertical bar straddles two cells that are not wall cells (mission 06 has no wall cell)")
+            assertTrue(cellAt(html, 2, 2).cssClass != "wall" && cellAt(html, 2, 3).cssClass != "wall",
+                "h 2,2 straddles two cells that are not wall cells")
+            assertEquals(0, Regex("class=\"cell wall\"").findAll(html).toList().size,
+                "mission 06 draws no wall cell next to its bars (E2 pin: 0 TERRAIN_WALL cells)")
+            assertEquals(0, Regex("class=\"cell [^\"]*wallseg").findAll(html).toList().size, "no bar is a cell")
+        }
     }
 }

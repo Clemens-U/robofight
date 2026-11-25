@@ -243,7 +243,7 @@ object ConsoleRender {
         val sb = StringBuilder("<div class=\"pairworld\">")
         sb.append("<div class=\"wind\">WIND ").append(escapeHtml(row.windLabel))
             .append("&nbsp;&nbsp;FORCE ").append(row.windForce).append("</div>")
-        sb.append(WorldGrid.gridHtml(run.currentWorld))
+        sb.append(WorldGrid.gridHtml(run.currentWorld, worldColumnPx))
         sb.append(statusLine(run))
         sb.append(WorldGrid.legendHtml())
         // The EVENT LOG section is gone (amendment, W3 record 11 f). The world column is

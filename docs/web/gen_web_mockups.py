@@ -179,6 +179,7 @@ def grid_html(snap):
 
 LEGEND = """<div class="legend">
 <b><span class="wall">&#x2588;</span> wall</b>
+<b><span class="edgebar"></span> thin wall, blocks the way</b>
 <b><span class="rover">R</span><span class="nose-txt">&#x25b8;</span> rover + facing</b>
 <b><span class="fire1">1</span><span class="fire2">2</span><span class="fire3">3</span><span class="fire4">4</span> fire, engine display bands 1..24 / 25..49 / 50..74 / 75..100</b>
 <b><span class="packet">*</span> water packet</b>
@@ -438,6 +439,9 @@ h4{margin:0 0 .4rem;color:var(--dim);font-size:11px;letter-spacing:.14em;font-we
 .cell.empty{color:var(--empty)}
 .legend{display:flex;flex-wrap:wrap;gap:.2rem 1rem;font-size:11px;color:var(--dim);margin-top:.6rem}
 .legend b{font-weight:normal}
+/* 15.8 (E4): the thin-wall legend key, a short thick bar, so a filled wall cell
+   (`wall`) and an edge wall (a bar between two cells) read as two things. */
+.legend .edgebar{display:inline-block;width:18px;height:4px;background:var(--wall);vertical-align:middle}
 .wall{color:var(--wall)}.rover{color:var(--yellow)}.nose-txt{color:var(--green)}
 .refill,.packet{color:var(--cyan)}.exit{color:var(--green)}.civ{color:var(--civ)}
 .fuel{color:var(--fuel)}.prot{color:var(--prot)}

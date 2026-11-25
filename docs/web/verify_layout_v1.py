@@ -118,6 +118,10 @@ def main():
     shell_css_gate_for_15_2a()
     shell_css_gate_for_15_2b()
 
+    # 9. dated amendment 15.8 (PLAN-EDGE-WALLS.md step E4): the thin edge wall
+    #    overlay exists in the shell CSS and the legend, and it never touches a cell.
+    shell_css_gate_for_15_8()
+
     return report()
 
 
@@ -225,6 +229,55 @@ def shell_css_gate_for_15_2b():
     check("15.2b 2 the 49dp touch gate covers the library controls",
           ".librarycontrols .chip.btn" in coarse and ".libentry .mini" in coarse and
           "min-height:49px" in coarse)
+
+
+def shell_css_gate_for_15_8():
+    """E4 (PLAN-EDGE-WALLS.md step E4, docs/FIRELINE-WEB.md 15.8): the thin edge
+    wall overlay. A wall is a line ON a cell border: an absolutely positioned
+    child of the grid, never a cell node, sized from the same --cell token."""
+    c = SHELL.read_text(encoding="utf-8")
+
+    def rule(sel):
+        i = c.find(sel)
+        return c[i:c.find("}", i)] if i >= 0 else ""
+
+    check("15.8 the grid is the position context for the overlay",
+          ".grid{display:grid;position:relative;" in c, "no position:relative on .grid")
+    seg = rule(".wallseg{")
+    check("15.8 a wall segment is an absolute overlay child, unclickable",
+          "position:absolute" in seg and "pointer-events:none" in seg and "var(--wall)" in seg, seg[:90])
+    check("15.8 a vertical segment is stroke-wide and one cell tall",
+          "width:var(--wall-stroke, 2px)" in rule(".wallseg.v{") and "height:var(--cell, 11px)" in rule(".wallseg.v{")
+          and "transform:translate(-50%,0)" in rule(".wallseg.v{"), rule(".wallseg.v{")[:90])
+    check("15.8 a horizontal segment is one cell wide and stroke tall",
+          "height:var(--wall-stroke, 2px)" in rule(".wallseg.h{") and "width:var(--cell, 11px)" in rule(".wallseg.h{")
+          and          "transform:translate(0,-50%)" in rule(".wallseg.h{"), rule(".wallseg.h{")[:90])
+    check("15.8 the stroke is a render-layer token handed over by the shell",
+          "--wall-stroke" in c and "var(--wall-stroke" in rule(".wallseg.v{"))
+    coarse = c[c.find("@media (pointer: coarse)"):]
+    cc = coarse.replace(" ", "").replace(".legend .edgebar", ".legend.edgebar")
+    check("15.8 the touch gate raises the stroke floor to 4px",
+          ".pair{--wall-stroke-touch:4px}" in cc
+          and ".wallseg{--wall-stroke:var(--wall-stroke-touch,var(--wall-stroke))}" in cc
+          and ".legend.edgebar{height:max(4px,calc(var(--cell,11px)*0.185))}" in cc,
+          cc[cc.find(".pair{--wall-stroke-touch"):cc.find(".pair{--wall-stroke-touch") + 170])
+    check("15.8 the legend keys the thin wall as a bar",
+          ".legend .edgebar{" in c and "background:var(--wall)" in rule(".legend .edgebar{"), rule(".legend .edgebar{")[:80])
+
+    # The frozen mockups: the 15.8 legend item joined the frozen LEGEND (11 items),
+    # and it is a bar plus wording, never a 12th glyph. GOLDEN = fl-web-5-playable-landing.html.
+    g = GOLDEN.read_text(encoding="utf-8")
+    check("15.8 the frozen legend carries the thin-wall item",
+          g.count('<b><span class="edgebar"></span> thin wall, blocks the way</b>') == 1
+          and g.count('class="edgebar"') == 1)
+    check("15.8 the mockup CSS keys the bar",
+          ".legend .edgebar{" in g, "no .legend .edgebar rule in the generated mockup")
+    item = '<b><span class="edgebar"></span> thin wall, blocks the way</b>'
+    gleg = g[g.find('<div class="legend">'):]
+    gleg = gleg[:gleg.find("</div>")]
+    check("15.8 the thin wall gets a bar, not a new glyph",
+          item in g and 'class="wall"' not in item and item.count("<span") == 1
+          and gleg.count("<b>") == 11, "legend items: %d" % gleg.count("<b>"))
 
 
 def report():

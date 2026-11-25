@@ -1,14 +1,30 @@
 package robofight.fireline.web
 
-import robofight.fireline.FirelineWorld
 import robofight.fireline.GRID
+import robofight.fireline.FirelineWorld
 import robofight.fireline.TERRAIN_EXIT
 import robofight.fireline.TERRAIN_FUEL
 import robofight.fireline.TERRAIN_PROTECTED
 import robofight.fireline.TERRAIN_REFILL
 import robofight.fireline.TERRAIN_WALL
 import robofight.fireline.TextGrid
+import robofight.fireline.VERT_EDGE_COLUMNS
+import robofight.fireline.WALL_HORIZ_ROWS
+import robofight.fireline.WALL_VERT_ROWS
 import robofight.isa.decPad
+
+/**
+ * One thin edge wall of a mission layout, as the engine's own `Layout` reports it
+ * (`Layout.wallVertRowMajor()` / `wallHorizRowMajor()`, the renderer copies of
+ * `PLAN-EDGE-WALLS.md` section 4). `vertical == true` is the edge to the RIGHT of cell
+ * `(x, y)`; `vertical == false` is the edge BELOW `(x, y)`. Nothing here invents a
+ * coordinate system: the same two arrays are what `docs/web/fixtures/SnapshotFixtures.kt`
+ * records as `WALL_VERT` / `WALL_HORIZ` and what the Android grid strokes in step E3.
+ */
+data class EdgeWallSpec(val vertical: Boolean, val x: Int, val y: Int) {
+    /** `v 5,2` / `h 2,1`, the key the browser overlay and the fixture checks both address. */
+    val key: String get() = (if (vertical) "v " else "h ") + x + "," + y
+}
 
 /**
  * The 20x20 world grid and the symbol legend of the FIRELINE WEB CONSOLE
@@ -76,10 +92,76 @@ object WorldGrid {
     }
 
     /**
+     * E4 (15.8): the edge wall stroke, the Android recipe of `PLAN-EDGE-WALLS.md` §5 rounded to a
+     * whole EVEN pixel count. `FirelineGridView` strokes `cell * 0.14` floored at 2px; the web
+     * grid keeps that ratio and rounds it in two integer steps so no browser has to round a
+     * fraction: half-up to a whole pixel (`(cell * 14 + 50) / 100`), then the nearest multiple of
+     * 2 with a tie rounding up. The line straddles its cell border symmetrically instead of
+     * half-covering the cell on one side: 2px up to a 17px cell (the 11px narrow floor, the
+     * frozen 15px desktop cell) and 4px from an 18px cell on (the measured 21/24/27px cells, up to
+     * the 34px desktop ceiling), clamped to
+     * [WALL_STROKE_MIN_PX, WALL_STROKE_MAX_PX]. The `pointer: coarse` gate in
+     * `fireline-web/console.html` raises the painted floor to 4px the way §15.4 and 15.2b raise
+     * the touch targets back to 49dp.
+     */
+    const val WALL_STROKE_MIN_PX: Int = 2
+    const val WALL_STROKE_MAX_PX: Int = 4
+
+    fun wallStrokePx(cellPx: Int): Int {
+        val ratioPx = (cellPx * 14 + 50) / 100
+        val nearestEven = ((ratioPx + 1) / 2) * 2
+        return nearestEven.coerceIn(WALL_STROKE_MIN_PX, WALL_STROKE_MAX_PX)
+    }
+
+    /**
+     * E4 (15.8): the four cell-border anchors inside the grid's padding box, as arithmetic over the
+     * measured cell (the same token `cellStyleAttr` writes). The 400 cell nodes fill the padding box
+     * exactly (`x` from 0 to `GRID * cell`, `y` from 0 to `GRID * cell`); the ruler labels are
+     * absolute children parked in the 2px padding margins, which is why the box is
+     * `GRID_TRACK_CELLS * cell + 2` wide while a CONTENT column is `x * cell` (browser measurement,
+     * `docs/EDGE-E4-RECORD.md` section 7: the rover at engine x 17 sits at padding left `1 + 17 *
+     * cell`). Row 0 of the grid is the
+     * ruler row, so cell row `y` starts one cell below the top edge. A wall is painted ON one of
+     * these four borders and never inside a cell. `LABEL_TRACK_CELLS` belongs to the box arithmetic
+     * in [cellSizePx], not to a content anchor; adding it here shifts every wall two cells right.
+     */
+    fun cellLeftBorderPx(x: Int, cellPx: Int): Int = x * cellPx
+    fun cellRightBorderPx(x: Int, cellPx: Int): Int = cellLeftBorderPx(x + 1, cellPx)
+    fun cellTopBorderPx(y: Int, cellPx: Int): Int = (y + 1) * cellPx
+    fun cellBottomBorderPx(y: Int, cellPx: Int): Int = cellTopBorderPx(y + 1, cellPx)
+
+    /**
+     * E4 (15.8): the edge walls of the world's layout, straight from the engine's renderer copies
+     * (`Layout.wallVertRowMajor()`, 20 rows x 19 columns; `Layout.wallHorizRowMajor()`, 19 rows x 20
+     * columns), read in the same row-major order the fixture records (§11.4). Vertical first, then
+     * horizontal, each row low to high: a mission with no walls returns an empty list and the grid
+     * markup is byte-identical to the wall-free build.
+     */
+    fun edgeWalls(world: FirelineWorld): List<EdgeWallSpec> {
+        val layout = world.layout
+        val out = ArrayList<EdgeWallSpec>()
+        val vert = layout.wallVertRowMajor()
+        for (y in 0 until WALL_VERT_ROWS) {
+            for (x in 0 until VERT_EDGE_COLUMNS) {
+                if (vert[y * VERT_EDGE_COLUMNS + x]) out.add(EdgeWallSpec(true, x, y))
+            }
+        }
+        val horiz = layout.wallHorizRowMajor()
+        for (y in 0 until WALL_HORIZ_ROWS) {
+            for (x in 0 until GRID) {
+                if (horiz[y * GRID + x]) out.add(EdgeWallSpec(false, x, y))
+            }
+        }
+        return out
+    }
+
+    /**
      * `cellStyleAttr(worldColumnPx)`: the inline `style` written on the PAIR element, cell edge in
-     * raw px from the MEASURED column (W3 record 16). It carries `--cell` and `--grid-h` only: the
-     * `.grid` CSS rule then reads that token, and the pair's `--pane-h` derives from `--grid-h`, so
-     * grid tracks, grid box, rows and the firmware pane height all come from one measured number.
+     * raw px from the MEASURED column (W3 record 16). It carries `--cell`, `--grid-h` and (E4, 15.8)
+     * `--wall-stroke`: the `.grid` CSS rule reads the cell token, the pair's `--pane-h` derives from
+     * `--grid-h`, and the `.wallseg` overlay rules read both the cell token and the stroke token, so
+     * grid tracks, grid box, rows, firmware pane height and the edge overlay all come from one
+     * measured number.
      *
      * Label geometry measured in Chrome: the `y/x` corner and the row rulers are not grid tracks
      * (the renderer lays them out inside the label area), so `repeat(2, c) repeat(20, c)` computes
@@ -94,7 +176,7 @@ object WorldGrid {
      */
     fun cellStyleAttr(worldColumnPx: Int): String {
         val cell = cellSizePx(worldColumnPx)
-        return "style=\"--cell:${cell}px;--grid-h:${GRID_ROW_COUNT * cell + 2}px;\""
+        return "style=\"--cell:${cell}px;--grid-h:${GRID_ROW_COUNT * cell + 2}px;--wall-stroke:${wallStrokePx(cell)}px;\""
     }
 
     /** §15.3 grid height lock, written as the rule: 21 rows x 15px + 1px border
@@ -118,8 +200,14 @@ object WorldGrid {
 
     /** `grid_html()`: the whole grid, in row-major order (row 0 first, x 0..19).
      *  Cell node `y * GRID + x` is therefore the cell at coordinate (x, y), which
-     *  is how `WorldGridTest` and the browser check address one cell. */
-    fun gridHtml(world: FirelineWorld): String {
+     *  is how `WorldGridTest` and the browser check address one cell.
+     *
+     *  E4 (15.8): the grid closes with the thin edge wall overlay of the world's layout
+     *  (`wallSegmentsHtml`), after all 400 cells and before `</div>`: a wall-free mission (every
+     *  mission but 06 today) emits an empty string, so its markup stays byte-identical.
+     *  `worldColumnPx` is the measured column `Main.kt` relayout passes; a caller that has not
+     *  measured passes nothing and gets the §15.5 floor cell. */
+    fun gridHtml(world: FirelineWorld, worldColumnPx: Int = 0): String {
         val sb = StringBuilder("<div class=\"grid\">")
         sb.append("<span class=\"corner\"></span>")
         for (x in 0 until GRID) sb.append("<span class=\"ruler\">").append(decPad(x, 2)).append("</span>")
@@ -128,11 +216,35 @@ object WorldGrid {
             sb.append("<span class=\"ruler\">").append(decPad(y, 2)).append("</span>")
             for (x in 0 until GRID) sb.append(cellHtml(world, x, y, nose))
         }
+        sb.append(wallSegmentsHtml(world, cellSizePx(worldColumnPx)))
         return sb.append("</div>").toString()
     }
 
-    /** The symbol legend, byte-identical to `LEGEND` in `gen_web_mockups.py`
-     *  (single occurrence rule §15.4: it lives here, under the grid, nowhere else). */
+    /**
+     * E4 (15.8): the edge overlay markup, one absolutely positioned
+     * `<span class="wallseg v|h" data-edge="v x,y">` per blocked edge of the layout. The inline
+     * `left` / `top` are raw px anchors ON the cell border (never inside a cell), derived from the
+     * same measured cell edge `cellStyleAttr` writes as `--cell`; the segment's length and stroke
+     * are the CSS `.wallseg` rules in `fireline-web/console.html`, which read `--cell` (one cell
+     * long, so a wall covers exactly one edge) and `--wall-stroke`. Nothing here changes a cell
+     * node, the 400-cell gate or the box arithmetic `22 * --cell + 2` x `21 * --cell + 2`.
+     */
+    fun wallSegmentsHtml(world: FirelineWorld, cellPx: Int): String {
+        val sb = StringBuilder()
+        for (w in edgeWalls(world)) {
+            val kind = if (w.vertical) "v" else "h"
+            val left = if (w.vertical) cellRightBorderPx(w.x, cellPx) else cellLeftBorderPx(w.x, cellPx)
+            val top = if (w.vertical) cellTopBorderPx(w.y, cellPx) else cellBottomBorderPx(w.y, cellPx)
+            sb.append("<span class=\"wallseg ").append(kind)
+                .append("\" data-edge=\"").append(w.key)
+                .append("\" style=\"left:").append(left).append("px;top:").append(top).append("px\"></span>")
+        }
+        return sb.toString()
+    }
+
+    /** The symbol legend: the 10 items of `LEGEND` in `gen_web_mockups.py` byte-identical, plus the
+     *  dated E4 thin-wall item of 15.8 (`PLAN-EDGE-WALLS.md` §5). Single occurrence rule §15.4: it
+     *  lives here, under the grid, nowhere else. */
     fun legendHtml(): String = LEGEND_HTML
 
     /**
@@ -190,6 +302,7 @@ object WorldGrid {
 
     private const val LEGEND_HTML = """<div class="legend">
 <b><span class="wall">&#x2588;</span> wall</b>
+<b><span class="edgebar"></span> thin wall, blocks the way</b>
 <b><span class="rover">R</span><span class="nose-txt">&#x25b8;</span> rover + facing</b>
 <b><span class="fire1">1</span><span class="fire2">2</span><span class="fire3">3</span><span class="fire4">4</span> fire, engine display bands 1..24 / 25..49 / 50..74 / 75..100</b>
 <b><span class="packet">*</span> water packet</b>

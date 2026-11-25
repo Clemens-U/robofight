@@ -780,6 +780,20 @@ segment look is a separate visual step (`PLAN-EDGE-WALLS.md` §7 steps E3 and E4
 `DESIGN-FIRELINE.md` §4 owns the glyph language and is not changed by this
 content step).
 
+Amended 2026-11-25 by steps E3 and E4 (`docs/EDGE-E3-RECORD.md`,
+`docs/EDGE-E4-RECORD.md`): the segment look now ships on both surfaces as
+amendment A-6 (`DESIGN-FIRELINE.md` §9). A thin wall is painted as a short thick
+line ON a cell border, in the existing wall token, never as a glyph and never as
+a cell class. Android strokes it over the grid lattice (`FirelineGridView` with
+`view/EdgeWallGeometry.kt`, `strokeWidth = cell * 0.14` floored at 2 px, the
+Arena recipe); the web console positions `.wallseg` overlay children on the raw
+cell borders of `.grid` (`fireline-web/src/wasmJsMain/kotlin/robofight/
+fireline/web/WorldGrid.kt`, the same ratio rounded to whole even pixels, 4 px on
+touch pointers). Both
+legends carry the same entry, `THIN WALL   wall, blocks the way`, plus a short
+bar key, and `TextGrid.glyphAt` stays the single glyph authority with no
+thin-wall glyph.
+
 Avoid relying on color alone; glyph/intensity must remain readable in
 grayscale and for color-vision deficiencies.
 
