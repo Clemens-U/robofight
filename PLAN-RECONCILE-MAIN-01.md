@@ -66,7 +66,7 @@ Content conflicts (13):
 | `fireline-engine/src/commonMain/.../FirelineRules.kt` | engine version 3 plus `WATER_RANGE` against version 2 plus `PACKET_LIFE = 20` |
 | `fireline-engine/src/commonMain/.../FirelineWorld.kt` | main's spawn refusal plus spread blocking plus canonical wall lines, against this branch's DW1 spread-crossing and renderer-only wall copies |
 | `fireline-engine/src/commonMain/.../Rover.kt` | both block `MOVE` across an edge; different surrounding code |
-| `fireline-engine/src/commonMain/.../WaterPacket.kt` | main's packet is consumed at an edge (`WaterPacket.process` line 42 checks `wallBetween` mid-flight; spawn refusal event `PACKET BLOCKED EDGE`) with 5-cell range, vs this branch's refusal with `PACKET REFUSED EDGE` plus 20-step life (`PACKET SPENT EDGE` is this branch's own string, not main's) |
+| `fireline-engine/src/commonMain/.../WaterPacket.kt` | both lines block a packet mid-flight (`WaterPacket.process` checks `wallBetween`) and both use `PACKET SPENT EDGE`, main printed with a source arrow (`$x,$y -> $nx,$ny`, line 43) and this branch without (`$nx,$ny`, line 47); spawn refusal is `PACKET BLOCKED EDGE` on both, main with the arrow (line 189), this branch bare (line 208). The only real difference is range: `WATER_RANGE = 5` there, `PACKET_LIFE = 20` here |
 | `fireline-engine/src/commonMain/.../session/MissionSession.kt` | this branch's shared session layer (E-series, W3.1) against main's app-side session |
 
 Structural conflicts (2):
@@ -181,12 +181,21 @@ The merged engine takes main's mechanics on every contested point.
 
 Consequences, in the order they have to be handled:
 
-1. DW1 is superseded, so mission 06 `THIN WALL` as authored is unwinnable: its fuel pocket is reachable
-   only through a wall crossing (`FIRE IGNITES 5,2 from 6,2`, tick 28). It must be redesigned under the
-   resolved rules or dropped. Measured confirmation of the lost ignitions is being produced now.
-2. `PACKET_LIFE` 20 to 5 changes every mission including the five with no walls, so the §10.7 re-baseline
-   is mandatory. The `limit_probe.tsv` rows `WATER_RANGE_BUDGET` and `PACKET_LIFE_SEMANTICS` must be
-   replaced from the merged engine, not adjusted by hand.
+1. DW1 is superseded. Measured 2026-11-26 (see §9): mission 06 `THIN WALL` has exactly one crossing ignition
+   (`FIRE IGNITES 5,2 floor from 6,2 dir=W chance=37<64` at tick 15) and it still finishes under the blocked
+   rule with the same reference firmware at the same tick 59 (HP 100, water 100, waterUsed 40), but the final
+   hash moves from `61fe3d4c35449094` to `781ff2b441b18b0d` and the lesson becomes vacuous: the two drown shots
+   aimed at (5,2) find no fire, the packets fly 4 steps to the boundary at (5,0) and expire. Mission 06
+   therefore does not need rescuing to be winnable, it needs redesigning to teach something the blocked rule
+   actually delivers. Deleting its three edge walls makes it FAIL (TIME_EXPIRED at 120, burning 2), so the walls
+   already carry real load under either rule.
+2. `PACKET_LIFE` 20 to 5 changes no authored solution. Measured 2026-11-26 (see §9): with `PACKET_LIFE = 5` the
+   HEAD twin reproduces all six reference rows byte for byte, and with `PACKET_LIFE = 20` the main twin
+   reproduces all five of main's reference rows byte for byte (the longest measured packet flight is 3 steps, in
+   mission 01 on both lines). What does move is the probe surface: the `limit_probe.tsv` rows
+   `WATER_RANGE_BUDGET` and `PACKET_LIFE_SEMANTICS` must be replaced from the merged engine, not adjusted by
+   hand, and mission design loses the long shot, so every future target must sit within 5 cells of a firing
+   position.
 3. Canonical state now includes both edge maps, so every stored best-run fingerprint changes even for
    missions without walls. The store copy and the RESULT card wording do not change, only their numbers.
 4. `EdgeWallsTest` must be rewritten to the resolved rules and absorb main's `ThinWallsTest` coverage.
@@ -198,3 +207,57 @@ Consequences, in the order they have to be handled:
 6. What this branch contributes after the merge is the KMP engine with a wasm target, the shared session
    layer, the browser console, the fixture and verification pipeline, the grid renderers, and one
    redesigned wall mission.
+
+## 9. Measured rule impact (2026-11-26, headless kotlinc twins)
+
+Twin fidelity: the HEAD twin reproduces all six reference rows of `docs/web/fixtures/parity_matrix.tsv` exactly,
+probe tick 12 hashes, finish ticks 17, 102, 38, 147, 45, 59 and their final hashes. The variants below therefore
+ran against an engine that matches the committed fixtures. Scratch tree
+`C:/Users/Clemens/AppData/Local/hermes/cache/scratch/edge_walls_e5` with `build.sh`, `head/`, `main/`,
+`variants/head_w5`, `variants/head_blocked`, `variants/main_life20`, `variants/main_open` and the run logs in
+`out/`. No Gradle task ran in that session; the test-case counts quoted in this document are static grep counts.
+
+### HEAD's six missions at `PACKET_LIFE = 5`
+
+| mission | finish | thin edge walls | longest packet flight | at range 5 |
+|---|---|---|---|---|
+| 01 NOZZLE CHECK | tick 17 SUCCESS `245faa6d10316e00` | 0 | 3 | identical tick and hash |
+| 02 CORRIDOR | tick 102 SUCCESS `d3ea47119fe3b101` | 0 | 1 | identical |
+| 03 FIRST RESPONSE | tick 38 SUCCESS `01663660e6731d0a` | 0 | 0 packets fired | identical |
+| 04 DOWNWIND | tick 147 SUCCESS `acf4656261a3c008` | 0 | 1 | identical |
+| 05 HOT ZONE | tick 45 SUCCESS `ba8e443d3c469c1d` | 0 | 0 packets fired | identical |
+| 06 THIN WALL | tick 59 SUCCESS `61fe3d4c35449094` | 3 | 1 | identical |
+
+The range decision costs nothing in shipped content. It removes the long shot from the design vocabulary.
+
+### main's five missions if spread crossed an edge instead (the DW1 rule applied to main)
+
+| mission | thin edge walls | main as shipped | with crossing spread |
+|---|---|---|---|
+| 01 NOZZLE CHECK | 2 | tick 17 SUCCESS `cb5930328878ce13` | FAIL: cross ignition at tick 15 from (5,2) to (5,3), TIME_EXPIRED at 60, burning 2 |
+| 02 CORRIDOR | 25 | tick 102 SUCCESS `9b29d6f318a738c8` | FAIL: cross ignitions at ticks 25 and 100 around the pocket, TIME_EXPIRED at 120, burning 5 |
+| 03 FIRST RESPONSE | 11 | tick 38 SUCCESS `6ef0d5b85fd5b770` | identical, no fire adjacent to its walls |
+| 04 DOWNWIND | 18 | tick 147 SUCCESS `238fe25103ef099b` | FAIL: 4 cross ignitions at ticks 10, 35, 95 and 110, CIVILIAN_LOST at 155, burning 47 |
+| 05 HOT ZONE | 40 | tick 45 SUCCESS `ad1043b1d323218e` | survives at tick 45 but diverges: 10 cross ignitions, burning 14 to 33, hash `3df41251fe14609b` |
+
+Three of main's five shipped missions only work because a thin wall stops fire, and one of them loses a civilian
+if the wall stops blocking. That is the measured case for the owner decision.
+
+### Mission content decision, still open
+
+main's missions 01 to 05 carry 2, 25, 11, 18 and 40 thin edge walls. This branch's missions 01 to 05 carry none.
+Under the resolved rules main's set is the coherent one, because it already teaches the wall mechanic under the
+rules that now win. Recommendation: keep main's five mission definitions and add a redesigned 06. Keeping this
+branch's wall-free 01 to 05 would leave the wall mechanic taught by a single mission and would discard the only
+missions in the repo that prove the blocking rule matters.
+
+### Corrections to earlier statements in this document and in chat
+
+- Mission 06 finishes at tick 59 with `61fe3d4c35449094` (fixture row `6-reference`). It is not unfinished at 60.
+- Mission 06 has no fuel cells at all; its lane rails are refill cells, and the crossing ignition lit a FLOOR
+  cell at tick 15 (`FIRE IGNITES 5,2 floor from 6,2 dir=W chance=37<64`), not at tick 28.
+- Both lines print `PACKET BLOCKED EDGE` at spawn refusal and `PACKET SPENT EDGE` mid-flight. Neither line has a
+  `PACKET REFUSED EDGE` or `MOVE BLOCKED EDGE` event; a blocked `MOVE` is a silent no-op through
+  `layout.stepBlocked` and still pays 2 ticks.
+- Test-case counts in this document (22 for `EdgeWallsTest`, 7 for `ThinWallsTest`) are static `@Test` counts,
+  not test-run results.
