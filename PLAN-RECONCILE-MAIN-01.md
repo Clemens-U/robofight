@@ -261,3 +261,48 @@ missions in the repo that prove the blocking rule matters.
   `layout.stepBlocked` and still pays 2 ticks.
 - Test-case counts in this document (22 for `EdgeWallsTest`, 7 for `ThinWallsTest`) are static `@Test` counts,
   not test-run results.
+
+## 10. Decisions closed (2026-11-26) and the execution order
+
+All owner decisions are now settled:
+
+- Edge walls keep main's semantics (decision 1), `WATER_RANGE = 5` with `PACKET_LIFE = WATER_RANGE` (decision 2),
+  three free missions with a progress unlock (decision 3), engine version 4, and `canonicalState` hashes the edge
+  grids.
+- Content: keep main's five mission definitions, because they already carry thin walls under the resolved rules,
+  and add a redesigned mission 06 as the capstone rather than dropping it.
+- Mission 06 brief: the objective sits behind a wall line the rover cannot shoot through, so the naive shot produces
+  `PACKET SPENT EDGE` and wastes water and ticks; the only solution walks around the gate and fires from the far
+  side; a bypass lane keeps it solvable; the refill sits outside the sealed lane so time applies the pressure; the
+  teaching text names the protective side of the same wall, a cell behind the wall stays unlit.
+- Catalog and unlock: mission ids 1, 2 and 3 are free, ids 4, 5 and 6 unlock on a success in the previous mission in
+  catalog order.
+
+Execution order. Each increment is committed and test green before the next one starts. The merge runs in the linked
+worktree `C:/Users/Clemens/Documents/github/robofight-reconcile` on `codex/reconcile-main-01`; the main checkout
+stays on `codex/edge-walls-e1`.
+
+1. Port main's engine rules onto this branch's `commonMain` engine. The diff is small and exact: `WATER_RANGE = 5`
+   plus `PACKET_LIFE = WATER_RANGE` (main's `FirelineRules.kt` lines 74 to 75); a `wallBetween` guard in
+   `runFireSpread`'s neighbour loop and any other `wallBetween` guard main has that this branch lacks; the
+   `canonicalState()` lines `verticalEdges=` and `horizontalEdges=` inserted after `terrain=` using
+   `verticalEdgesRowMajor()` and `horizontalEdgesRowMajor()` (main's lines 549 to 550). `PACKET_FIRE_REDUCE = 25`
+   keeps its name and value here. `WaterPacket` already blocks a packet mid-flight on this branch, so main's packet
+   semantics need no port.
+2. Rewrite `EdgeWallsTest` to the blocked semantics and absorb main's `ThinWallsTest` cases (its two `wallBetween`
+   cases, its spawn refusal case, and its packet consumed at a wall case). Main's `src/main` engine test tree goes
+   away after the port so only `commonTest` remains.
+3. Port main's five mission definitions from `src/main/.../Missions.kt` into `commonMain/.../Missions.kt` with their
+   thin wall blocks (2, 25, 11, 18 and 40 edges), keeping the slot after 05 for the redesigned capstone.
+4. Author mission 06 under the brief above: layout, teaching text, reference firmware and a failing control
+   firmware, with anchors measured on the headless twin and a `FailingReferenceCompletesWithPenalty` fixture row.
+5. App side: take main's `MissionRunSurface`, `MissionSurface`, `FirelineGridView` and firmware store rules, then
+   re-apply this branch's `MissionSession` extraction, the telemetry fix (telemetry only from
+   `MissionSession.runOutcome()`, never a raw tick 0 read) and the E3 edge-segment rendering.
+6. `MissionPickerModel`: ids 1 to 3 free, 4 to 6 unlocked by a success in the previous mission read from
+   `RunStores.bestSummary`, with `MissionPickerModelTest` and `FirmwareStoreRulesTest` updated to match.
+7. Re-baseline every anchor from the merged engine per `docs/DETERMINISM.md` §6: `parity_matrix.tsv`,
+   `probe_fixture.tsv`, `limit_probe.tsv`, the mission mockups, the mission rows in `docs/FIRELINE-WEB.md`, then
+   bump `FIRELINE_ENGINE_VERSION` to 4 in its own commit.
+8. Close-out matrix on `:fireline-engine` jvm and wasm plus wasmJs, and `:fireline-app` unit and instrumentation,
+   then the device regression on `emulator-5554` with edge segments visible on mission 06.
