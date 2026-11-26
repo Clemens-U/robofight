@@ -588,24 +588,36 @@ class EdgeWallsTest {
     // ==================== 6. nothing shipped changed ====================
 
     /**
-     * DW4 a, scoped after step E5. The five missions that shipped before the thin
-     * wall content must still carry zero edges, and mission 06 "THIN WALL" is the
-     * single authored mission that carries them (PLAN-EDGE-WALLS.md §7 step E5,
-     * §13). The isolation half is the point of the gate: adding wall content must
-     * not touch an existing layout, and the mission that does carry walls carries
-     * exactly the three edges the pinned E2 lane fixture carries.
+     * Mission-content adoption, PLAN-RECONCILE-MAIN-01.md §10 step 5. Since
+     * missions 01-05 are main's layouts, every authored mission carries thin
+     * edges: main's measured 2, 25, 11, 18 and 40 edges for missions 01-05
+     * (measured with the engine's own `Layout.edgeCount`) plus mission 06's
+     * three E2 lane edges. The isolation half of the gate survives: mission 06
+     * still carries exactly the three edges the pinned E2 lane fixture carries,
+     * and no mission validation depends on the old wall-free layouts.
      */
     @Test
-    fun shippedMissionLayoutsCarryNoWallsExceptTheTeachingMission() {
+    fun shippedMissionLayoutsAllCarryThinEdgesAndMission06StaysTheTeachingCapstone() {
         assertEquals(listOf(1, 2, 3, 4, 5, 6), Missions.ALL.map { it.id }, "the six authored missions (Missions.ALL)")
-        for (id in 1..5) {
+        val adopted = mapOf(1 to 2, 2 to 25, 3 to 11, 4 to 18, 5 to 40) // main's measured edge counts, missions 01-05
+        val verticals = mapOf(1 to 0, 2 to 0, 3 to 7, 4 to 0, 5 to 0)
+        for ((id, edges) in adopted) {
             val m = assertNotNull(Missions.byId(id), "mission $id must exist")
-            assertFalse(m.layout.wallsPresent(), "mission ${m.id} '${m.name}' must not carry edge walls (DW4 a)")
-            assertEquals(0, m.layout.edgeCount(), "mission ${m.id} '${m.name}' has zero edges")
-            assertFalse(m.layout.vertEdge.any { it }, "mission ${m.id} WALL_VERT must be all open")
-            assertFalse(m.layout.horizEdge.any { it }, "mission ${m.id} WALL_HORIZ must be all open")
-            assertEquals(emptyList<String>(), m.validate(), "mission ${m.id} '${m.name}' must still validate")
+            assertTrue(m.layout.wallsPresent(), "mission ${m.id} '${m.name}' carries main's thin edge walls")
+            assertEquals(edges, m.layout.edgeCount(), "mission ${m.id} '${m.name}' carries main's $edges thin edges (Layout.edgeCount)")
+            assertEquals(verticals.getValue(id), m.layout.vertEdge.count { it }, "mission ${m.id} WALL_VERT wall count")
+            assertEquals(edges - verticals.getValue(id), m.layout.horizEdge.count { it }, "mission ${m.id} WALL_HORIZ wall count")
+            assertEquals(emptyList<String>(), m.validate(), "mission ${m.id} '${m.name}' validates with its edge walls")
         }
+        assertTrue(Missions.byId(1)!!.layout.wallBetween(5, 1, 5, 2), "mission 01 seals the fire lane: the thin edge south of (5,1)")
+        assertTrue(Missions.byId(1)!!.layout.wallBetween(5, 2, 5, 3), "mission 01 seals the fire lane: the thin edge south of (5,2)")
+        assertTrue(Missions.byId(2)!!.layout.wallBetween(0, 2, 0, 3) && Missions.byId(2)!!.layout.wallBetween(1, 2, 1, 3), "mission 02's row-2 thin wall starts west of the gate")
+        assertFalse(Missions.byId(2)!!.layout.wallBetween(2, 2, 2, 3), "mission 02 keeps its one-cell gate at x=2")
+        assertTrue(Missions.byId(2)!!.layout.wallBetween(3, 2, 3, 3), "mission 02's row-2 thin wall continues east of the gate")
+        assertTrue(Missions.byId(2)!!.layout.wallBetween(9, 10, 9, 11), "mission 02 walls the pocket's south edge")
+        assertTrue(Missions.byId(3)!!.layout.wallBetween(7, 5, 8, 5), "mission 03's vertical edge column at x=7 gates row 5")
+        assertTrue(Missions.byId(4)!!.layout.wallBetween(8, 1, 8, 2) && Missions.byId(4)!!.layout.wallBetween(8, 2, 8, 3), "mission 04 seals the fuel lane north and south")
+        assertTrue(Missions.byId(5)!!.layout.wallBetween(0, 2, 0, 3) && Missions.byId(5)!!.layout.wallBetween(19, 1, 19, 2), "mission 05 seals the burning corridor end to end")
         val thin = assertNotNull(Missions.byId(6), "mission 06 THIN WALL must exist")
         assertTrue(thin.layout.wallsPresent(), "mission 06 is the authored teaching mission that carries edge walls")
         assertEquals(3, thin.layout.edgeCount(), "mission 06 carries the same three edges as the E2 lane fixture (parity_matrix.tsv wall-lane-move)")
@@ -618,42 +630,36 @@ class EdgeWallsTest {
     }
 
     /**
-     * Canonical text round trip per mission: missions 01-05 emit no WALL block at
-     * all (DW4 b), mission 06 emits both blocks and re-emits them byte-identically.
+     * Canonical text round trip per mission: since main's layouts were adopted,
+     * every authored mission emits both WALL blocks and re-emits them
+     * byte-identically (the engine always writes the two blocks, all-open rows
+     * included - measured against the merged engine).
      */
     @Test
-    fun missionSourcesRoundTripAndOnlyMission06CarriesWallBlocks() {
-        for (id in 1..5) {
+    fun missionSourcesRoundTripAndEveryMissionCarriesWallBlocks() {
+        val adopted = mapOf(1 to 2, 2 to 25, 3 to 11, 4 to 18, 5 to 40) // main's measured edge counts, missions 01-05
+        for (id in 1..6) {
             val m = assertNotNull(Missions.byId(id), "mission $id must exist")
             val text = m.layout.toCanonicalText()
-            assertFalse(text.contains(SECTION_WALL_VERT), "mission ${m.id} text carries no WALL_VERT block")
-            assertFalse(text.contains(SECTION_WALL_HORIZ), "mission ${m.id} text carries no WALL_HORIZ block")
+            assertTrue(text.contains(SECTION_WALL_VERT), "mission ${m.id} text carries the WALL_VERT block")
+            assertTrue(text.contains(SECTION_WALL_HORIZ), "mission ${m.id} text carries the WALL_HORIZ block")
             val reparsed = Layout.fromCanonicalText(text)
             assertSameLayoutArrays(m.layout, reparsed, "mission ${m.id} '${m.name}' canonical text")
             assertEquals(text, reparsed.toCanonicalText(), "mission ${m.id} '${m.name}' text is byte-identical after a round trip")
-            assertFalse(reparsed.wallsPresent(), "mission ${m.id} reparses wall-less")
-            assertEquals(0, reparsed.edgeCount(), "mission ${m.id} reparses with zero edges")
+            assertTrue(reparsed.wallsPresent(), "mission ${m.id} reparses with its edges")
+            assertEquals((adopted[id] ?: 3), reparsed.edgeCount(), "mission ${m.id} reparses with the same edge count")
         }
-        val m = assertNotNull(Missions.byId(6), "mission 06 THIN WALL must exist")
-        val text = m.layout.toCanonicalText()
-        assertTrue(text.contains(SECTION_WALL_VERT), "mission 06 text carries the WALL_VERT block")
-        assertTrue(text.contains(SECTION_WALL_HORIZ), "mission 06 text carries the WALL_HORIZ block")
-        val reparsed = Layout.fromCanonicalText(text)
-        assertSameLayoutArrays(m.layout, reparsed, "mission 06 canonical text")
-        assertEquals(text, reparsed.toCanonicalText(), "mission 06 text is byte-identical after a round trip")
-        assertTrue(reparsed.wallsPresent(), "mission 06 reparses with its edges")
-        assertEquals(3, reparsed.edgeCount(), "mission 06 reparses with the same three edges")
     }
 
     /**
-     * Anchors re-recorded from the merged engine (2026-11-26, headless kotlinc
-     * twin): the labels are the docs/web/fixtures probe ticks and finish ticks,
-     * and the TICKS are unchanged (`02-ref-final` at 102, `01-never-final` at 60
-     * = timeLimit); the fingerprints moved across the board, including for
-     * wall-free missions, because canonicalState now stamps both edge maps
-     * (PLAN-RECONCILE-MAIN-01.md §8: "canonical state hashes both edge maps
-     * row-major"). The docs/web/fixtures TSV/JSON columns are re-cut at the
-     * anchor re-baseline (engine v4); these assertions carry the same values.
+     * Anchors re-recorded from the merged engine after the mission-content
+     * adoption (2026-11-26, headless kotlinc twin MeasureR3): missions 01-05 now
+     * ship main's thin-wall layouts, so these fingerprints moved again (the
+     * canonical state stamps terrain plus both edge maps). The TICKS are
+     * unchanged - `02-ref-final` at 102 and `01-never-final` at 60 are main's
+     * shipped finish ticks (PLAN-RECONCILE-MAIN-01.md §8 decision 1). The
+     * docs/web/fixtures TSV/JSON columns are re-cut at the anchor re-baseline
+     * (engine v4); these assertions carry the same values.
      */
     @Test
     fun missionAnchorsMoveWithTheCanonicalEdgeMapsButTheirTicksDoNot() {
@@ -663,22 +669,22 @@ class EdgeWallsTest {
         val t12 = FirelineWorld(corridorDescriptor)
         repeat(12) { t12.tickOnce() }
         assertEquals(12, t12.tick, "anchor 02-ref-t12 tick")
-        assertEquals("894f4fbeb771c162", t12.finalStateHash(), "merged-engine re-record of label 02-ref-t12 (was d0f26fd5c0b02efa)")
+        assertEquals("579cf583444d2790", t12.finalStateHash(), "main-layout re-record of label 02-ref-t12 (was 894f4fbeb771c162 on the pre-adoption layout)")
 
         val t46 = FirelineWorld(corridorDescriptor)
         repeat(46) { t46.tickOnce() }
         assertEquals(46, t46.tick, "anchor 02-ref-t46 tick")
-        assertEquals("3c88e48d9e86ebf2", t46.finalStateHash(), "merged-engine re-record of label 02-ref-t46 (was 9b6e65741beac0ea)")
+        assertEquals("f188fe6c320394bc", t46.finalStateHash(), "main-layout re-record of label 02-ref-t46 (was 3c88e48d9e86ebf2 on the pre-adoption layout)")
 
         val t30 = FirelineWorld(corridorDescriptor)
         repeat(30) { t30.tickOnce() }
         assertEquals(30, t30.tick, "mission 02 CORRIDOR tick 30")
-        assertEquals("a4e289de3b43ffe4", t30.finalStateHash(), "measured in this build from mission 02 referenceSource (was 0d7fa9328d0ad4c4)")
+        assertEquals("aae3c24e24551f92", t30.finalStateHash(), "measured in this build from mission 02 referenceSource (was a4e289de3b43ffe4 on the pre-adoption layout)")
 
         val finished = FirelineRun.runWithGuard(corridor, corridorDescriptor)
         assertEquals(102, finished.tick, "anchor 02-ref-final tick")
-        assertEquals(RunStatus.SUCCESS, finished.status, "mission 02 reference firmware still succeeds")
-        assertEquals("d604c2a00e2b5de5", finished.finalStateHash, "merged-engine re-record of label 02-ref-final and parity_matrix 2-reference final_hash (tick 102, was d3ea47119fe3b101)")
+        assertEquals(RunStatus.SUCCESS, finished.status, "mission 02 reference firmware still succeeds at main's tick 102")
+        assertEquals("2b8f20db8081bf73", finished.finalStateHash, "main-layout re-record of label 02-ref-final and parity_matrix 2-reference final_hash (tick 102, was d604c2a00e2b5de5 on the pre-adoption layout)")
 
         val nozzle = assertNotNull(Missions.byId(1), "mission 01 NOZZLE CHECK must exist")
         val neverShoots = nozzle.failingSources.first { it.first == "never shoots" }
@@ -687,22 +693,27 @@ class EdgeWallsTest {
         val n30 = FirelineWorld(neverDescriptor)
         repeat(30) { n30.tickOnce() }
         assertEquals(30, n30.tick, "anchor 01-never-t30 tick")
-        assertEquals("7a8795328485c85c", n30.finalStateHash(), "merged-engine re-record of label 01-never-t30 (was b77a46e1e4308ad0)")
+        assertEquals("128031754936e24c", n30.finalStateHash(), "main-layout re-record of label 01-never-t30 (was 7a8795328485c85c on the pre-adoption layout)")
 
         val nFinal = FirelineRun.runWithGuard(nozzle, neverDescriptor)
         assertEquals(60, nFinal.tick, "anchor 01-never-final tick = timeLimit 60")
         assertEquals(FailureReason.TIME_EXPIRED, nFinal.failureReason, "mission 01 failing firmware fails for the documented reason")
-        assertEquals("c35cd239631ff200", nFinal.finalStateHash, "merged-engine re-record of label 01-never-final and parity_matrix 1-failing final_hash (tick 60 = timeLimit, was 7cbfe49993c17318)")
+        assertEquals("51fd5cb69657d680", nFinal.finalStateHash, "main-layout re-record of label 01-never-final and parity_matrix 1-failing final_hash (tick 60 = timeLimit, was c35cd239631ff200 on the pre-adoption layout)")
     }
 
     @Test
     fun canonicalStateCarriesBothEdgeMapsAndSeparatesWalllessFromWalled() {
-        val corridor = assertNotNull(Missions.byId(2), "mission 02 CORRIDOR must exist")
-        val state = FirelineWorld(corridor.descriptorForSource(corridor.referenceSource)).canonicalState()
-        assertTrue(state.contains("\nverticalEdges=" + "0".repeat(VERT_EDGE_SLOTS) + "\n"), "a wall-free mission stamps 380 open vertical edges")
-        assertTrue(state.contains("\nhorizontalEdges=" + "0".repeat(HORIZ_EDGE_SLOTS) + "\n"), "a wall-free mission stamps 380 open horizontal edges")
-        assertTrue(state.contains("terrain="), "canonicalState keeps its terrain line unchanged (PLAN-EDGE-WALLS.md section 4)")
-        assertTrue(state.contains("fire="), "canonicalState keeps its fire line unchanged")
+        // The synthetic open field is the wall-free half of this gate now: every
+        // authored mission carries thin edges since the main-layout adoption.
+        val openState = worldOfFixture(layoutOf()).canonicalState()
+        assertTrue(openState.contains("\nverticalEdges=" + "0".repeat(VERT_EDGE_SLOTS) + "\n"), "a wall-free layout stamps 380 open vertical edges")
+        assertTrue(openState.contains("\nhorizontalEdges=" + "0".repeat(HORIZ_EDGE_SLOTS) + "\n"), "a wall-free layout stamps 380 open horizontal edges")
+        assertTrue(openState.contains("terrain="), "canonicalState keeps its terrain line unchanged (PLAN-EDGE-WALLS.md section 4)")
+        assertTrue(openState.contains("fire="), "canonicalState keeps its fire line unchanged")
+        val m5 = assertNotNull(Missions.byId(5), "mission 05 HOT ZONE must exist")
+        val hotState = FirelineWorld(m5.descriptorForSource(m5.referenceSource)).canonicalState()
+        assertTrue(hotState.split("verticalEdges=")[1].take(VERT_EDGE_SLOTS).count { it == '1' } == 0, "mission 05 stamps no vertical edge (its walls are all horizontal)")
+        assertTrue(hotState.split("horizontalEdges=")[1].take(HORIZ_EDGE_SLOTS).count { it == '1' } == 40, "mission 05 stamps exactly its 40 horizontal edges (the corridor seal, rows 1 and 2)")
         val thin = assertNotNull(Missions.byId(6), "mission 06 THIN WALL must exist")
         val thinState = FirelineWorld(thin.descriptorForSource(thin.referenceSource)).canonicalState()
         assertTrue(thinState.contains("\nverticalEdges="), "mission 06 stamps its vertical gate")

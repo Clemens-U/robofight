@@ -113,16 +113,36 @@ class EdgeWallGeometryTest {
         assertEquals(2f, EdgeWallGeometry.strokeWidthPx(0f), 1e-4f)
     }
 
+    /**
+     * Since the mission-content adoption (PLAN-RECONCILE-MAIN-01.md §10 step 5)
+     * every authored mission carries thin edges: main's 2, 25, 11, 18 and 40
+     * for missions 01-05 plus mission 06's 3. The renderer must show each of
+     * them as edge segments straight from the engine arrays - and the half that
+     * proves the renderer never invents walls still holds: the segment sets are
+     * exactly the engine edge sets, cell for cell.
+     */
     @Test
-    fun wallFreeMissionsDrawNoSegments() {
-        for (mission in Missions.ALL.filter { it.id != 6 }) {
+    fun adoptedMissionsDrawExactlyTheirEngineEdgeSegments() {
+        val adoptedEdges = mapOf(1 to 2, 2 to 25, 3 to 11, 4 to 18, 5 to 40, 6 to 3)
+        for (mission in Missions.ALL) {
             val segments = EdgeWallGeometry.segmentsOf(
                 mission.layout.wallVertRowMajor(),
                 mission.layout.wallHorizRowMajor(),
             )
-            assertTrue(segments.isEmpty(), "mission ${mission.id} drew ${segments.size} segments")
-            assertFalse(mission.layout.wallsPresent())
+            val expected = adoptedEdges.getValue(mission.id)
+            assertEquals(expected, segments.size, "mission ${mission.id} drew ${segments.size} segments, expected $expected")
+            assertTrue(mission.layout.wallsPresent(), "mission ${mission.id} carries thin edges")
         }
+        // Mission 01's two edges concretely: WALL_HORIZ rows 1 and 2 char 5, the
+        // fire-lane seal south of (5,1) and (5,2); its only vertical column is open.
+        val m1 = Missions.byId(1)!!.layout
+        assertEquals(
+            listOf(
+                WallEdgeSegment(WallEdgeOrientation.HORIZONTAL, 5, 1),
+                WallEdgeSegment(WallEdgeOrientation.HORIZONTAL, 5, 2),
+            ),
+            EdgeWallGeometry.segmentsOf(m1.wallVertRowMajor(), m1.wallHorizRowMajor()),
+        )
     }
 
     @Test
@@ -166,6 +186,7 @@ class EdgeWallGeometryTest {
             assertEquals(mission.layout.edgeCount(), count, "mission ${mission.id}")
             total += count
         }
-        assertEquals(3, total)
+        // 2 + 25 + 11 + 18 + 40 for main's adopted missions 01-05, plus mission 06's 3.
+        assertEquals(99, total)
     }
 }

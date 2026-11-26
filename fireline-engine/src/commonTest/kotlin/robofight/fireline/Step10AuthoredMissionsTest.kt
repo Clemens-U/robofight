@@ -89,7 +89,9 @@ class Step10AuthoredMissionsTest {
         val m = Missions.CORRIDOR
         assertTrue(Objectives.has(m.objectives, Objectives.EXTINGUISH_ALL))
         assertTrue(Objectives.has(m.objectives, Objectives.REACH_EXIT))
-        assertTrue(m.layout.terrain.count { it == TERRAIN_WALL } > 20, "walls shape the corridor")
+        assertTrue(m.layout.terrain.count { it == TERRAIN_WALL } == 1, "main's corridor keeps one solid obstacle at (3,2)")
+        assertEquals(25, m.layout.edgeCount(), "main's corridor is shaped by 25 thin edges (row-2 line with a gate at x=2, plus the pocket walls)")
+        assertTrue(m.layout.wallBetween(2, 2, 2, 3).not(), "the drop through the gate at x=2 is open")
         assertTrue(m.layout.exitCells().size == 1)
         assertEquals(0, m.windForce, "isolated fires, no wind")
         val naive = FirelineWorld(m.descriptorForSource("loop:  MOVE\n       JMP    loop"))

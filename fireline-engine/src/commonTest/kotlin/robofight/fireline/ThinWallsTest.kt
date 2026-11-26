@@ -162,4 +162,57 @@ class ThinWallsTest {
         assertTrue(a.canonicalState().contains("verticalEdges="), "canonicalState carries the vertical edge map (main's line 549)")
         assertTrue(a.canonicalState().contains("horizontalEdges="), "canonicalState carries the horizontal edge map (main's line 550)")
     }
+
+    /**
+     * Main's thin walls are load-bearing in the adopted layouts (measured on the
+     * headless twin 2026-11-26, controls = the same missions with both edge maps
+     * open, reference firmware): mission 01's lane seal is what makes the parked
+     * extinguish loop finish, mission 02's pocket walls are what keep the pocket
+     * solvable, mission 04's fuel-lane seal is what saves the civilian, and
+     * missions 03/05 visibly change the spread they allow. An "edge-free" copy
+     * of any adopted layout must therefore NOT reproduce the shipped outcome.
+     */
+    @Test
+    fun adoptedMissionWallsAreLoadBearingAgainstEdgeOpenControls() {
+        for (m in Missions.ALL.take(5)) {
+            val openLayout = Layout(
+                m.layout.terrain.copyOf(), m.layout.fire.copyOf(),
+                m.layout.roverX, m.layout.roverY, m.layout.roverDir, m.layout.civilians,
+                openVertEdges(), openHorizEdges(),
+            )
+            val openMission = Mission(
+                id = m.id, name = m.name, briefing = m.briefing, layout = openLayout, seed = m.seed,
+                objectives = m.objectives, timeLimit = m.timeLimit, surviveUntil = m.surviveUntil,
+                startingWater = m.startingWater, windDir = m.windDir, windForce = m.windForce,
+                referenceSource = m.referenceSource, failingSources = m.failingSources, maxTicks = m.maxTicks,
+            ).requireValid()
+            val shipped = FirelineRun.runWithGuard(m, m.descriptorForSource(m.referenceSource))
+            val control = FirelineRun.runWithGuard(openMission, openMission.descriptorForSource(openMission.referenceSource))
+            assertNotEquals(shipped.finalStateHash, control.finalStateHash, "mission ${m.id}: an all-open copy must not reproduce the shipped fingerprint")
+            when (m.id) {
+                1 -> {
+                    assertEquals(RunStatus.SUCCESS, shipped.status, "mission 01 ships solvable: the lane seal holds fire off the rover's flank")
+                    assertEquals(FailureReason.TIME_EXPIRED, control.failureReason, "mission 01 edge-open control: fire leaks south and the eight shots no longer finish the mission")
+                    assertEquals(60, control.tick, "mission 01 edge-open control runs out at timeLimit 60 instead of succeeding at 17")
+                }
+                2 -> {
+                    assertEquals(RunStatus.SUCCESS, shipped.status, "mission 02 ships solvable through the gated row and the walled pocket")
+                    assertEquals(FailureReason.TIME_EXPIRED, control.failureReason, "mission 02 edge-open control: the pocket spreads and the route is no longer solvable")
+                    assertEquals(120, control.tick, "mission 02 edge-open control runs out at timeLimit 120 instead of succeeding at 102")
+                }
+                3 -> {
+                    assertEquals(38, control.tick, "mission 03's reference route never crosses its edges - the edges gate shortcuts, not the taught route")
+                    assertEquals(RunStatus.SUCCESS, control.status, "mission 03 is still solvable edge-free at the same tick")
+                }
+                4 -> {
+                    assertEquals(FailureReason.CIVILIAN_LOST, control.failureReason, "mission 04 edge-open control: the fuel lane pours fire onto the civilian")
+                    assertEquals(155, control.tick, "mission 04 edge-open control loses the civilian at tick 155 (shipped run succeeds at 147)")
+                }
+                5 -> {
+                    assertEquals(45, control.tick, "mission 05's shielded crossing does not cross the corridor walls")
+                    assertTrue(control.burningCells > shipped.burningCells, "mission 05 edge-open control lets the corridor spread outside it (33 burning cells vs 14)")
+                }
+            }
+        }
+    }
 }

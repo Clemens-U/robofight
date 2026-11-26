@@ -8,8 +8,14 @@ package robofight.fireline
  * `E` exit, `P` protected asset, `R` rover spawn, `C` civilian. Fire rows use
  * the authored levels `1`=25, `2`=50, `3`=75, `4`=100. Mission 06 additionally
  * carries the two thin edge wall blocks of PLAN-EDGE-WALLS.md §4 (WALL_VERT
- * 20x19, WALL_HORIZ 19x20); missions 01-05 carry neither block, so every edge
- * of theirs is open.
+ * 20x19, WALL_HORIZ 19x20).
+ *
+ * Missions 01-05 are the layouts origin/main ships (PLAN-RECONCILE-MAIN-01.md
+ * §8 decision 1 / §10 step 5): main revised all five MVP layouts to teach its
+ * thin walls, so each one now carries thin edge walls — 2, 25, 11, 18 and 40
+ * edges for missions 01 to 05 in order, measured with the engine's own
+ * `Layout.edgeCount()` — instead of the thick wall rows the pre-merge layouts
+ * used. Mission 06 carries the three edges of the pinned E2 lane fixture.
  *
  * Mission ID + name are immutable; changing a layout under an existing ID is a
  * content compatibility change (§9) and needs a new ID.
@@ -42,9 +48,6 @@ object Missions {
         return rows(*grid.map { it.concatToString() }.toTypedArray())
     }
 
-    /** A wall segment spanning x0..x1 on row y. */
-    private fun wallRow(y: Int, x0: Int, x1: Int) = (x0..x1).map { Triple(it, y, GLYPH_WALL) }
-
     /**
      * WALL_VERT rows (PLAN-EDGE-WALLS.md §4): `row to column` puts a thin wall on
      * the edge to the RIGHT of cell (column, row). Missing pairs stay open, so a
@@ -65,6 +68,14 @@ object Missions {
             }.joinToString("")
         }
 
+    /** Main's segment authoring form (`verticalRows`): thin walls on the edges to
+     *  the RIGHT of every cell `(x, y0..y1)`, as `vertEdgeRows` pairs. */
+    private fun vertEdgeSegment(x: Int, y0: Int, y1: Int): List<Pair<Int, Int>> = (y0..y1).map { it to x }
+
+    /** Main's segment authoring form (`horizontalRows`): thin walls on the edges
+     *  BELOW every cell `(x0..x1, y)`, as `horizEdgeRows` pairs. */
+    private fun horizEdgeSegment(y: Int, x0: Int, x1: Int): List<Pair<Int, Int>> = (x0..x1).map { y to it }
+
     /**
      * Shared reactive extinguishing pattern: shoot at the selected burning cell
      * while any fire remains, bounded so a broken layout can never loop forever.
@@ -82,14 +93,18 @@ object Missions {
     }
 
     // ---- 9.1 ----
+    // Main's seal for the firing lane: the wall cell east of the fire plus the
+    // thin edges south of (5,1) and south of (5,2). The fire at (5,2) can only
+    // ever be engaged from the west, down the lane the rover shoots along.
     val NOZZLE_CHECK = Mission(
         id = 1,
         name = "NOZZLE CHECK",
         briefing = "One stationary fire straight ahead. Read DIST/ANGLE, shoot, watch HEAT.",
         layout = Layout.decode(
-            terrainRows = field(2, 2, listOf(Triple(5, 1, GLYPH_WALL), Triple(5, 3, GLYPH_WALL), Triple(6, 2, GLYPH_WALL))),
+            terrainRows = field(2, 2, listOf(Triple(6, 2, GLYPH_WALL))),
             fireRows = fireAt(listOf(Triple(5, 2, '2'))),
             roverDir = DIR_E,
+            horizEdgeRows = horizEdgeRows(1 to 5, 2 to 5),
         ),
         seed = 1001,
         objectives = Objectives.EXTINGUISH_ALL,
@@ -105,11 +120,12 @@ object Missions {
     )
 
     // ---- 9.2 ----
-    // Row 3 is the unbreakable wall line: the naive east route dies at (3,2).
+    // Thin wall below row 2, with a gate at x=2; the naive east route hits
+    // the solid obstacle at (3,2).
     // The rover drops through the gap at (2,3), walks east along row 10 to the
     // pocket approach at (8,10) — a refill firebreak the pocket fire can never
     // ignite — and shoots the pocket cell (9,10) directly (the packet spawns
-    // on the burning cell). The pocket is ringed by wall cells on the north,
+    // on the burning cell). The pocket is ringed by thin walls on the north,
     // west-approach side and south and by the refill east of it, so the fixed
     // 5-tick spread cadence can never leave the pocket; the burning pocket is
     // also the barrier that makes the timed MOVE phase wait until the shots
@@ -122,10 +138,7 @@ object Missions {
             terrainRows = field(
                 2, 2,
                 listOf(Triple(3, 2, GLYPH_WALL)) +
-                    wallRow(3, 0, 19).filter { it.first != 2 } +
                     listOf(
-                        Triple(8, 9, GLYPH_WALL), Triple(9, 9, GLYPH_WALL), Triple(10, 9, GLYPH_WALL),   // pocket north
-                        Triple(8, 11, GLYPH_WALL), Triple(9, 11, GLYPH_WALL), Triple(10, 11, GLYPH_WALL), // pocket south
                         Triple(8, 10, GLYPH_REFILL),                           // approach side firebreak
                         Triple(10, 10, GLYPH_REFILL),                          // pocket east
                         Triple(11, 10, GLYPH_EXIT),                            // exit behind the pocket
@@ -133,6 +146,12 @@ object Missions {
             ),
             fireRows = fireAt(listOf(Triple(9, 10, '1'))),
             roverDir = DIR_E,
+            horizEdgeRows = horizEdgeRows(
+                *(
+                    horizEdgeSegment(2, 0, 1) + horizEdgeSegment(2, 3, 19) +      // one-cell gate at x=2
+                        horizEdgeSegment(9, 8, 10) + horizEdgeSegment(10, 8, 10)  // thin pocket walls
+                    ).toTypedArray(),
+            ),
         ),
         seed = 2002,
         objectives = Objectives.EXTINGUISH_ALL or Objectives.REACH_EXIT,
@@ -164,6 +183,9 @@ object Missions {
     )
 
     // ---- 9.3 ----
+    // Main's thin walls shape the rescue route: a vertical edge column at x=7
+    // for rows 3..9 and a horizontal edge row at y=9 for x=3..6 keep the rover
+    // on the (8,2) -> (8,10) -> exit corridor instead of cutting corners.
     val FIRST_RESPONSE = Mission(
         id = 3,
         name = "FIRST RESPONSE",
@@ -175,6 +197,8 @@ object Missions {
             ),
             fireRows = fireAt(listOf(Triple(12, 4, '1'), Triple(14, 14, '1'), Triple(3, 16, '1'))),
             roverDir = DIR_E,
+            vertEdgeRows = vertEdgeRows(*vertEdgeSegment(7, 3, 9).toTypedArray()),
+            horizEdgeRows = horizEdgeRows(*horizEdgeSegment(9, 3, 6).toTypedArray()),
         ),
         seed = 3003,
         objectives = Objectives.RESCUE_ALL or Objectives.REACH_EXIT,
@@ -237,11 +261,13 @@ object Missions {
                     Triple(7, 2, GLYPH_REFILL), Triple(8, 2, GLYPH_FUEL), Triple(9, 2, GLYPH_REFILL),
                     Triple(10, 2, GLYPH_REFILL), Triple(11, 2, GLYPH_FUEL), Triple(12, 2, GLYPH_REFILL),
                     Triple(2, 6, GLYPH_CIVILIAN), Triple(2, 12, GLYPH_EXIT),
-                ) +
-                    wallRow(1, 4, 12) + wallRow(3, 4, 12),
+                ),
             ),
             fireRows = fireAt(listOf(Triple(4, 2, '1'))),
             roverDir = DIR_E,
+            horizEdgeRows = horizEdgeRows(
+                *(horizEdgeSegment(1, 4, 12) + horizEdgeSegment(2, 4, 12)).toTypedArray(),
+            ),
         ),
         seed = 4004,
         objectives = Objectives.RESCUE_ALL or Objectives.EXTINGUISH_ALL or Objectives.REACH_EXIT,
@@ -299,8 +325,7 @@ object Missions {
         layout = Layout.decode(
             terrainRows = field(
                 1, 2,
-                wallRow(1, 0, 19) + wallRow(3, 0, 19) +
-                    listOf(Triple(0, 2, GLYPH_WALL)) +
+                listOf(Triple(0, 2, GLYPH_WALL)) +
                     (2..8).map { Triple(it, 2, GLYPH_FLOOR) } +
                     listOf(Triple(9, 2, GLYPH_REFILL)) +
                     (10..15).map { Triple(it, 2, GLYPH_FLOOR) } +
@@ -311,6 +336,9 @@ object Missions {
                 (2..8).map { Triple(it, 2, '4') } + (10..15).map { Triple(it, 2, '4') },
             ),
             roverDir = DIR_E,
+            horizEdgeRows = horizEdgeRows(
+                *(horizEdgeSegment(1, 0, 19) + horizEdgeSegment(2, 0, 19)).toTypedArray(),
+            ),
         ),
         seed = 5005,
         objectives = Objectives.RESCUE_ALL or Objectives.PROTECT_ASSETS or Objectives.REACH_EXIT,
