@@ -126,7 +126,9 @@ class Step2WaterShootPacketsTest {
     }
 
     @Test
-    fun packetLifeIsBoundedAtTwentyResolutionSteps() {
+    fun packetLifeIsBoundedAtWaterRangeResolutionSteps() {
+        assertEquals(5, WATER_RANGE, "main's water range: the adjacent cell is distance 1, the last reachable cell is 5 (PLAN-RECONCILE-MAIN-01.md §8)")
+        assertEquals(WATER_RANGE, PACKET_LIFE, "one resolution per cell, including the spawn cell: life equals the range")
         // Injected at a fixed tick so the life counter, not the grid edge, is
         // what ends the packet: it is injected facing a wall-free pocket cell
         // and driven without advancing by using a zero-distance spawn check.

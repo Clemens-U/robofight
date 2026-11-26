@@ -363,7 +363,7 @@ object Missions {
     val THIN_WALL = Mission(
         id = 6,
         name = "THIN WALL",
-        briefing = "The wall here is only a line between two cells. It stops your MOVE and it stops your water, but the fire crosses it. Read AHEAD, turn into the refill lane, drown the lane on both sides of the wall, then walk the bypass to the exit.",
+        briefing = "The wall here is only a line between two cells. It stops your MOVE, it stops your water, and it stops the fire too. Read AHEAD, turn into the refill lane, drown the burning cell from the bypass under it, then walk the bypass to the exit.",
         layout = Layout.decode(
             terrainRows = field(
                 2, 2,
@@ -397,7 +397,7 @@ object Missions {
                 "       SHOOT\n       SHOOT\n" +                       // drown (6,2): the packet spawns on it, no edge to cross
                 "       TURN   L\n       MOVE\n" +                     // N -> W, back to (5,3)
                 "       TURN   R\n" +                                  // W -> N
-                "       SHOOT\n       SHOOT\n" +                       // drown (5,2): the cell the fire reached THROUGH the wall
+                "       SHOOT\n       SHOOT\n" +                       // aimed at (5,2): under the merged rule the fire never crossed the gate, so these find no fire and expire at the boundary (06 is slated for redesign)
                 "       TURN   R\n" +                                  // N -> E, walk the refill bypass east
                 "       MOVE\n       MOVE\n       MOVE\n       MOVE\n" +
                 "       MOVE\n       MOVE\n       MOVE\n       MOVE\n" +   // (5,3) -> (17,3)
@@ -408,7 +408,7 @@ object Missions {
         failingSources = listOf(
             Triple("spray through the thin wall",
                 "       MOVE\n       MOVE\n       MOVE\nloop:  SHOOT\n       JMP    loop",
-                FailureReason.ROVER_DESTROYED),
+                FailureReason.TIME_EXPIRED),
         ),
         maxTicks = 300,
     )

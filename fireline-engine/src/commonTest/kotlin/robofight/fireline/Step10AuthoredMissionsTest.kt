@@ -167,15 +167,20 @@ class Step10AuthoredMissionsTest {
     }
 
     /**
-     * Mission 06 (FIRELINE-DESIGN.md §9.6, PLAN-EDGE-WALLS.md §13): the two facts
-     * a thin wall teaches. (1) It is not a cell: the cell behind it stays free
-     * terrain and a straight MOVE across the walled edge simply does not happen.
-     * (2) It gates water but not fire: every packet the documented failing variant
-     * fires at the lane is absorbed at the edge, while the fire crosses the very
-     * same edge and kills the rover standing behind it.
+     * Mission 06 (FIRELINE-DESIGN.md §9.6, PLAN-EDGE-WALLS.md §13, resolved by
+     * PLAN-RECONCILE-MAIN-01.md §8): the facts a thin wall teaches. (1) It is not
+     * a cell: the cell behind it stays free terrain and a straight MOVE across
+     * the walled edge simply does not happen. (2) Under the merged rules it gates
+     * water AND fire: every packet the documented failing variant fires at the
+     * lane is absorbed at the edge, and the fire beyond the gate never crosses
+     * it — so the spray-only bot survives behind the wall and simply runs out of
+     * time (TIME_EXPIRED at the 120-tick limit). The reference variant crosses
+     * the gate through the open bypass instead. Mission 06's content redesign
+     * (making the drown shots teach the bypass rather than shoot vacantly at
+     * (5,2)) is the next increment, not this one.
      */
     @Test
-    fun thinWallGatesMovementAndWaterButNotFire() {
+    fun thinWallGatesMovementWaterAndFire() {
         val m = Missions.THIN_WALL
         assertEquals(6, m.id)
         assertEquals(Objectives.EXTINGUISH_ALL or Objectives.REACH_EXIT, m.objectives)
@@ -207,14 +212,15 @@ class Step10AuthoredMissionsTest {
             }
         }
         failing.runUntilFinished(m.maxTicks)
-        assertTrue(blockedShots >= 3, "packets fired straight at a thin wall are absorbed at the edge ($blockedShots)")
-        assertTrue(crossedEdge, "fire spread from (6,2) westward across the walled edge into (5,2) (DW1)")
-        assertEquals(FailureReason.ROVER_DESTROYED, failing.failureReason,
-            "the fire crossed the wall the water could not cross, which is the lesson")
+        assertTrue(blockedShots >= 3, "packets fired straight at a thin wall are absorbed at the edge (measured: $blockedShots)")
+        assertFalse(crossedEdge, "the merged rule (PLAN-RECONCILE-MAIN-01.md §8) blocks fire spread across a walled edge: (6,2) never ignites (5,2)")
+        assertEquals(FailureReason.TIME_EXPIRED, failing.failureReason,
+            "the fire can no longer cross, the rover survives behind the gate, and the spray-only bot simply runs out of time (measured: hp ${failing.rover.hp} at tick ${failing.tick})")
+        assertTrue(failing.rover.hp > 0, "the wall that stops the fire also keeps the rover alive")
 
         val reference = referenceOf(m)
         assertEquals(RunStatus.SUCCESS, reference.status, reference.render())
-        assertEquals(0, reference.burningCells, "both lane cells, one on each side of the wall, are drowned")
+        assertEquals(0, reference.burningCells, "the lane cell beyond the gate is drowned from the bypass side (its spawn-cell shots)")
         assertEquals(0, reference.fireIntensitySum)
         assertTrue(reference.tick <= m.timeLimit!!, "reference ${reference.tick} ticks inside the limit ${m.timeLimit}")
         assertTrue(reference.firmwareBytes in 75..111, "firmware size in the range of missions 01-05: ${reference.firmwareBytes}")

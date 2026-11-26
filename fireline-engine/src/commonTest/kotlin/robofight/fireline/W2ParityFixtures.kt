@@ -17,6 +17,18 @@ package robofight.fireline
  * A fingerprint here that moves without a `FIRELINE_ENGINE_VERSION` bump is a
  * determinism defect; the same row moving on one target only is an arithmetic or
  * container defect (§10 risk: Long/Int drift on wasmJs).
+ *
+ * PROVENANCE OF THE CURRENT COLUMNS: the 2026-11-26 reconcile merge
+ * (PLAN-RECONCILE-MAIN-01.md §8) put main's blocked-edge semantics and main's
+ * canonical-state edge-map stamping into this branch's engine while
+ * `FIRELINE_ENGINE_VERSION` stays 2 for this increment. The probe/final hash
+ * columns and the 6-failing outcome (TIME_EXPIRED at 120 instead of
+ * ROVER_DESTROYED at 59) were re-recorded from the merged engine by a headless
+ * kotlinc twin running exactly this pipeline (MeasureMain, scratch tree,
+ * 2026-11-26). Every `traceHash` and every pinned trace line is unchanged: the
+ * merge touches state stamping and water range, not the instruction stream.
+ * The raw TSV/JSON under docs/web/fixtures and the version bump to 4 follow at
+ * the anchor re-baseline, where the generator runs on the merged engine.
  */
 
 internal const val PARITY_GENERATOR: String = "docs/web/fixtures/ParityMatrix.kt"
@@ -63,22 +75,22 @@ internal data class ParityFixtureRow(
 )
 
 internal val PARITY_FIXTURE_ROWS: List<ParityFixtureRow> = listOf(
-    ParityFixtureRow("1-reference", 1, "NOZZLE CHECK", "reference", "reference", 12, "f3dd62629ba58d1f", "4f4118286b349619", 17, "SUCCESS", "-", "245faa6d10316e00", 102, 34, 1001, 1, 60, null, 100, 0, 0, 200, 0, true),
-    ParityFixtureRow("1-failing", 1, "NOZZLE CHECK", "failing", "never shoots", 12, "df8ebe851b2c1670", "9f496c19b6af9b46", 60, "FAILURE", "TIME_EXPIRED", "7cbfe49993c17318", 6, 2, 1001, 1, 60, null, 100, 0, 0, 200, 0, true),
-    ParityFixtureRow("2-reference", 2, "CORRIDOR", "reference", "reference", 12, "d0f26fd5c0b02efa", "ceddf1a2fa7d7b10", 102, "SUCCESS", "-", "d3ea47119fe3b101", 75, 25, 2002, 5, 120, null, 100, 0, 0, 300, 0, true),
-    ParityFixtureRow("2-failing", 2, "CORRIDOR", "failing", "naive always forward", 12, "55814d5ffbe783d6", "88b5c429de62c944", 120, "FAILURE", "TIME_EXPIRED", "2e88bd6f1f4ed91e", 6, 2, 2002, 5, 120, null, 100, 0, 0, 300, 0, true),
-    ParityFixtureRow("3-reference", 3, "FIRST RESPONSE", "reference", "reference", 12, "ba3c37b47d2133b6", "28016f5459a44c4d", 38, "SUCCESS", "-", "01663660e6731d0a", 72, 24, 3003, 6, 120, null, 100, 0, 0, 300, 0, true),
-    ParityFixtureRow("3-failing", 3, "FIRST RESPONSE", "failing", "skips the second civilian", 12, "aec31f0cbb71140c", "d31f60893006df8f", 120, "FAILURE", "TIME_EXPIRED", "fee14c44c61f245a", 45, 15, 3003, 6, 120, null, 100, 0, 0, 300, 0, true),
-    ParityFixtureRow("4-reference", 4, "DOWNWIND", "reference", "reference", 12, "84736ea77c8e8a67", "9bafb261b891c1c0", 147, "SUCCESS", "-", "acf4656261a3c008", 105, 35, 4004, 7, 500, null, 100, 2, 2, 700, 0, true),
-    ParityFixtureRow("4-failing", 4, "DOWNWIND", "failing", "ignores the burning line", 12, "07fc73be7bf8f31e", "99752e4c059a058e", 500, "FAILURE", "TIME_EXPIRED", "51f0f7232dd88add", 9, 3, 4004, 7, 500, null, 100, 2, 2, 700, 0, true),
-    ParityFixtureRow("5-reference", 5, "HOT ZONE", "reference", "reference", 12, "426c4fdd8f395eef", "317eca23f0149509", 45, "SUCCESS", "-", "ba8e443d3c469c1d", 111, 37, 5005, 22, 200, null, 60, 1, 0, 400, 0, true),
-    ParityFixtureRow("5-failing", 5, "HOT ZONE", "failing", "no shield, straight through", 12, "2b88919b27fcd1e1", "def56526d10c1cf2", 29, "FAILURE", "ROVER_DESTROYED", "89bceb4241170566", 6, 2, 5005, 22, 200, null, 60, 1, 0, 400, 0, true),
-    ParityFixtureRow("6-reference", 6, "THIN WALL", "reference", "reference", 12, "a85a699d9f1ef675", "5f7fd7153968d3c2", 59, "SUCCESS", "-", "61fe3d4c35449094", 108, 36, 6027, 5, 120, null, 100, 0, 0, 300, 3, true),
-    ParityFixtureRow("6-failing", 6, "THIN WALL", "failing", "spray through the thin wall", 12, "a5e475326ab2e2af", "aae04624e85d38cf", 59, "FAILURE", "ROVER_DESTROYED", "42bdbe754583cd57", 15, 5, 6027, 5, 120, null, 100, 0, 0, 300, 3, true),
-    ParityFixtureRow("wall-lane-move", 101, "WALL LANE", "wall", "lane move loop", 12, "4ce6f21b96b15e4f", "88b5c429de62c944", 60, "FAILURE", "TIME_EXPIRED", "983902383703454a", 6, 2, 6001, 4, 60, null, 100, 0, 0, 200, 3, true),
-    ParityFixtureRow("wall-nozzle-seal", 102, "SEALED NOZZLE", "wall", "single shoot", 12, "f72074b3a2cbae1e", "b87628c5ec530355", 60, "FAILURE", "TIME_EXPIRED", "28621a2b7f6d5c29", 9, 3, 6002, 4, 60, null, 100, 0, 0, 200, 1, true),
-    ParityFixtureRow("wall-lane-suppress", 103, "WALL LANE SUPPRESS", "wall", "single shoot", 12, "afb0ccd208010c01", "e762879cfcc1a486", 60, "FAILURE", "TIME_EXPIRED", "c5c75948d2b9ec6f", 9, 3, 6003, 4, 60, null, 100, 0, 0, 200, 3, true),
-    ParityFixtureRow("wall-open-lane", 104, "OPEN LANE", "wall-open", "lane move loop", 12, "c0769f7efd8bf8a6", "88b5c429de62c944", 44, "SUCCESS", "-", "8204a0e863743898", 6, 2, 6001, 4, 60, null, 100, 0, 0, 200, 2, true),
+    ParityFixtureRow("1-reference", 1, "NOZZLE CHECK", "reference", "reference", 12, "bd325536d7b9c7c3", "4f4118286b349619", 17, "SUCCESS", "-", "af4580153d61b1b0", 102, 34, 1001, 1, 60, null, 100, 0, 0, 200, 0, true),
+    ParityFixtureRow("1-failing", 1, "NOZZLE CHECK", "failing", "never shoots", 12, "e9302d9d0bc14ec4", "9f496c19b6af9b46", 60, "FAILURE", "TIME_EXPIRED", "c35cd239631ff200", 6, 2, 1001, 1, 60, null, 100, 0, 0, 200, 0, true),
+    ParityFixtureRow("2-reference", 2, "CORRIDOR", "reference", "reference", 12, "894f4fbeb771c162", "ceddf1a2fa7d7b10", 102, "SUCCESS", "-", "d604c2a00e2b5de5", 75, 25, 2002, 5, 120, null, 100, 0, 0, 300, 0, true),
+    ParityFixtureRow("2-failing", 2, "CORRIDOR", "failing", "naive always forward", 12, "2cf9d069d384e856", "88b5c429de62c944", 120, "FAILURE", "TIME_EXPIRED", "253c0923a8f05716", 6, 2, 2002, 5, 120, null, 100, 0, 0, 300, 0, true),
+    ParityFixtureRow("3-reference", 3, "FIRST RESPONSE", "reference", "reference", 12, "35a762c2fee57856", "28016f5459a44c4d", 38, "SUCCESS", "-", "4d31436beaf3b6f2", 72, 24, 3003, 6, 120, null, 100, 0, 0, 300, 0, true),
+    ParityFixtureRow("3-failing", 3, "FIRST RESPONSE", "failing", "skips the second civilian", 12, "17bfb41771c585dc", "d31f60893006df8f", 120, "FAILURE", "TIME_EXPIRED", "14406434564a81de", 45, 15, 3003, 6, 120, null, 100, 0, 0, 300, 0, true),
+    ParityFixtureRow("4-reference", 4, "DOWNWIND", "reference", "reference", 12, "c9d405dfa8e8f757", "9bafb261b891c1c0", 147, "SUCCESS", "-", "f753254251a9a2ac", 105, 35, 4004, 7, 500, null, 100, 2, 2, 700, 0, true),
+    ParityFixtureRow("4-failing", 4, "DOWNWIND", "failing", "ignores the burning line", 12, "8553c6ceba0ad2ae", "99752e4c059a058e", 500, "FAILURE", "TIME_EXPIRED", "53dfd86ba42cc775", 9, 3, 4004, 7, 500, null, 100, 2, 2, 700, 0, true),
+    ParityFixtureRow("5-reference", 5, "HOT ZONE", "reference", "reference", 12, "7546cf4da3d5a66f", "317eca23f0149509", 45, "SUCCESS", "-", "60626fb4fbbf35a9", 111, 37, 5005, 22, 200, null, 60, 1, 0, 400, 0, true),
+    ParityFixtureRow("5-failing", 5, "HOT ZONE", "failing", "no shield, straight through", 12, "c6ccd31690245419", "def56526d10c1cf2", 29, "FAILURE", "ROVER_DESTROYED", "cff3b92d4677a226", 6, 2, 5005, 22, 200, null, 60, 1, 0, 400, 0, true),
+    ParityFixtureRow("6-reference", 6, "THIN WALL", "reference", "reference", 12, "535194c657ec67bc", "5f7fd7153968d3c2", 59, "SUCCESS", "-", "f18720e337c5d9fc", 108, 36, 6027, 5, 120, null, 100, 0, 0, 300, 3, true),
+    ParityFixtureRow("6-failing", 6, "THIN WALL", "failing", "spray through the thin wall", 12, "af58dd4b469871ae", "aae04624e85d38cf", 120, "FAILURE", "TIME_EXPIRED", "eb1f32cf5f83ed0f", 15, 5, 6027, 5, 120, null, 100, 0, 0, 300, 3, true),
+    ParityFixtureRow("wall-lane-move", 101, "WALL LANE", "wall", "lane move loop", 12, "ef26fe23202fe0b6", "88b5c429de62c944", 60, "FAILURE", "TIME_EXPIRED", "e53cc91a7afc2957", 6, 2, 6001, 4, 60, null, 100, 0, 0, 200, 3, true),
+    ParityFixtureRow("wall-nozzle-seal", 102, "SEALED NOZZLE", "wall", "single shoot", 12, "515c98beac49d34d", "b87628c5ec530355", 60, "FAILURE", "TIME_EXPIRED", "d4b68c352bb30e0e", 9, 3, 6002, 4, 60, null, 100, 0, 0, 200, 1, true),
+    ParityFixtureRow("wall-lane-suppress", 103, "WALL LANE SUPPRESS", "wall", "single shoot", 12, "cc2ed4624c1a1658", "e762879cfcc1a486", 60, "FAILURE", "TIME_EXPIRED", "22fc9570c4018b34", 9, 3, 6003, 4, 60, null, 100, 0, 0, 200, 3, true),
+    ParityFixtureRow("wall-open-lane", 104, "OPEN LANE", "wall-open", "lane move loop", 12, "e435299b0965de5e", "88b5c429de62c944", 44, "SUCCESS", "-", "0281179a451a7f6c", 6, 2, 6001, 4, 60, null, 100, 0, 0, 200, 2, true),
 )
 
 /**

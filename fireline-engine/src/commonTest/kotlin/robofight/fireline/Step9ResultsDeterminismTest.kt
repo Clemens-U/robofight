@@ -81,16 +81,43 @@ private val GOLDEN_TRACE =
         val text = w.canonicalState()
         val lines = text.split('\n')
         assertEquals(
-            listOf("engine", "tick", "rover", "terrain", "fire", "civilians", "packets", "objective", "rng"),
+            listOf("engine", "tick", "rover", "terrain", "verticalEdges", "horizontalEdges", "fire", "civilians", "packets", "objective", "rng"),
             lines.filter { it.isNotEmpty() }.map { it.substringBefore('=') },
-            "§13.2 fixes the components and their order",
+            "§13.2 fixes the components and their order; the reconcile merge (PLAN-RECONCILE-MAIN-01.md §8) adds main's two edge maps right after terrain",
         )
         assertEquals(400, lines[3].substringAfter('=').split(',').size, "terrain is row-major over 400 cells")
-        assertTrue(lines[4].split(',').size == 400, "fire array is row-major over 400 cells")
+        assertEquals(VERT_EDGE_SLOTS, lines[4].substringAfter('=').length, "verticalEdges is the row-major edge grid as 1/0 with no separators")
+        assertEquals(HORIZ_EDGE_SLOTS, lines[5].substringAfter('=').length, "horizontalEdges is the row-major edge grid as 1/0 with no separators")
+        assertTrue(lines[4].substringAfter('=').all { it == '0' || it == '1' } && lines[5].substringAfter('=').all { it == '0' || it == '1' }, "edge maps carry only 0/1 glyphs")
+        assertTrue(lines[6].split(',').size == 400, "fire array is row-major over 400 cells")
         assertTrue(text.contains("rng=") && text.contains(","), "both RNG states are in the fingerprint")
         assertTrue(text.contains("engine=${FIRELINE_ENGINE_VERSION}"))
         // No Java identity hash codes anywhere (nothing looks like `Class@1a2b3c4d`).
         assertTrue(!Regex("@[0-9a-fA-F]{6,}").containsMatchIn(text), text)
+    }
+
+    @Test
+    fun canonicalHashesStampTheEdgeMapsStablyAndSeparateLayoutsThatDifferByOneEdge() {
+        fun hashOf(vert: Set<Int>, horiz: Set<Int>): String {
+            val base = layoutOf(openTerrainRows(), noFireRows())
+            val layout = Layout(
+                base.terrain, base.fire, base.roverX, base.roverY, base.roverDir, base.civilians,
+                BooleanArray(VERT_EDGE_SLOTS) { it in vert },
+                BooleanArray(HORIZ_EDGE_SLOTS) { it in horiz },
+            )
+            val w = FirelineWorld(descriptorOf(layout = layout, seed = 5001))
+            repeat(7) { w.tickOnce() }
+            return w.finalStateHash()
+        }
+
+        // The same layout hashes identically in two independent runs.
+        assertEquals(hashOf(emptySet(), emptySet()), hashOf(emptySet(), emptySet()))
+        assertEquals(hashOf(setOf(5), setOf(2)), hashOf(setOf(5), setOf(2)))
+        // One extra thin edge — no cell of any layout differs — moves the fingerprint,
+        // because canonicalState stamps both edge maps (main's lines 549-550).
+        assertTrue(hashOf(emptySet(), emptySet()) != hashOf(setOf(5), emptySet()))
+        assertTrue(hashOf(emptySet(), emptySet()) != hashOf(emptySet(), setOf(2)))
+        assertTrue(hashOf(setOf(5), emptySet()) != hashOf(setOf(5), setOf(2)))
     }
 
     @Test

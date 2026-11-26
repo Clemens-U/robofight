@@ -646,40 +646,39 @@ class EdgeWallsTest {
     }
 
     /**
-     * Committed anchors, cited by their fixture labels:
-     * `docs/web/fixtures/snapshots.json` labels `02-ref-t12`, `02-ref-t46`,
-     * `02-ref-final`, `01-never-t30` and `01-never-final`, which are the same
-     * values `docs/web/fixtures/parity_matrix.tsv` records (`d3ea47119fe3b101`
-     * for mission 02 `CORRIDOR` at tick 102, `7cbfe49993c17318` for mission 01
-     * `never shoots` at tick 60 = timeLimit). These are the engine v2 anchors
-     * re-recorded by step E1b (`PLAN-EDGE-WALLS.md` section 11); they differ from
-     * the engine v1 anchors only because `canonicalState` stamps the engine
-     * version, not because a wall gate changed a wall-free mission.
+     * Anchors re-recorded from the merged engine (2026-11-26, headless kotlinc
+     * twin): the labels are the docs/web/fixtures probe ticks and finish ticks,
+     * and the TICKS are unchanged (`02-ref-final` at 102, `01-never-final` at 60
+     * = timeLimit); the fingerprints moved across the board, including for
+     * wall-free missions, because canonicalState now stamps both edge maps
+     * (PLAN-RECONCILE-MAIN-01.md §8: "canonical state hashes both edge maps
+     * row-major"). The docs/web/fixtures TSV/JSON columns are re-cut at the
+     * anchor re-baseline (engine v4); these assertions carry the same values.
      */
     @Test
-    fun missionAnchorsAreUnmovedByEdgeWalls() {
+    fun missionAnchorsMoveWithTheCanonicalEdgeMapsButTheirTicksDoNot() {
         val corridor = assertNotNull(Missions.byId(2), "mission 02 CORRIDOR must exist")
         val corridorDescriptor = corridor.descriptorForSource(corridor.referenceSource)
 
         val t12 = FirelineWorld(corridorDescriptor)
         repeat(12) { t12.tickOnce() }
         assertEquals(12, t12.tick, "anchor 02-ref-t12 tick")
-        assertEquals("d0f26fd5c0b02efa", t12.finalStateHash(), "docs/web/fixtures label 02-ref-t12")
+        assertEquals("894f4fbeb771c162", t12.finalStateHash(), "merged-engine re-record of label 02-ref-t12 (was d0f26fd5c0b02efa)")
 
         val t46 = FirelineWorld(corridorDescriptor)
         repeat(46) { t46.tickOnce() }
         assertEquals(46, t46.tick, "anchor 02-ref-t46 tick")
-        assertEquals("9b6e65741beac0ea", t46.finalStateHash(), "docs/web/fixtures label 02-ref-t46")
+        assertEquals("3c88e48d9e86ebf2", t46.finalStateHash(), "merged-engine re-record of label 02-ref-t46 (was 9b6e65741beac0ea)")
 
         val t30 = FirelineWorld(corridorDescriptor)
         repeat(30) { t30.tickOnce() }
         assertEquals(30, t30.tick, "mission 02 CORRIDOR tick 30")
-        assertEquals("0d7fa9328d0ad4c4", t30.finalStateHash(), "measured in this build from mission 02 referenceSource and recorded in PLAN-EDGE-WALLS.md section 11; docs/web/fixtures/snapshots.json has no mission 02 tick 30 row")
+        assertEquals("a4e289de3b43ffe4", t30.finalStateHash(), "measured in this build from mission 02 referenceSource (was 0d7fa9328d0ad4c4)")
 
         val finished = FirelineRun.runWithGuard(corridor, corridorDescriptor)
         assertEquals(102, finished.tick, "anchor 02-ref-final tick")
         assertEquals(RunStatus.SUCCESS, finished.status, "mission 02 reference firmware still succeeds")
-        assertEquals("d3ea47119fe3b101", finished.finalStateHash, "docs/web/fixtures label 02-ref-final and parity_matrix 2-reference final_hash (engine v2, tick 102)")
+        assertEquals("d604c2a00e2b5de5", finished.finalStateHash, "merged-engine re-record of label 02-ref-final and parity_matrix 2-reference final_hash (tick 102, was d3ea47119fe3b101)")
 
         val nozzle = assertNotNull(Missions.byId(1), "mission 01 NOZZLE CHECK must exist")
         val neverShoots = nozzle.failingSources.first { it.first == "never shoots" }
@@ -688,21 +687,27 @@ class EdgeWallsTest {
         val n30 = FirelineWorld(neverDescriptor)
         repeat(30) { n30.tickOnce() }
         assertEquals(30, n30.tick, "anchor 01-never-t30 tick")
-        assertEquals("b77a46e1e4308ad0", n30.finalStateHash(), "docs/web/fixtures label 01-never-t30")
+        assertEquals("7a8795328485c85c", n30.finalStateHash(), "merged-engine re-record of label 01-never-t30 (was b77a46e1e4308ad0)")
 
         val nFinal = FirelineRun.runWithGuard(nozzle, neverDescriptor)
         assertEquals(60, nFinal.tick, "anchor 01-never-final tick = timeLimit 60")
         assertEquals(FailureReason.TIME_EXPIRED, nFinal.failureReason, "mission 01 failing firmware fails for the documented reason")
-        assertEquals("7cbfe49993c17318", nFinal.finalStateHash, "docs/web/fixtures label 01-never-final and parity_matrix 1-failing final_hash (engine v2, tick 60 = timeLimit)")
+        assertEquals("c35cd239631ff200", nFinal.finalStateHash, "merged-engine re-record of label 01-never-final and parity_matrix 1-failing final_hash (tick 60 = timeLimit, was 7cbfe49993c17318)")
     }
 
     @Test
-    fun edgeWallsDoNotEnterTheCanonicalFinalStateTextOfAWalllessLayout() {
+    fun canonicalStateCarriesBothEdgeMapsAndSeparatesWalllessFromWalled() {
         val corridor = assertNotNull(Missions.byId(2), "mission 02 CORRIDOR must exist")
         val state = FirelineWorld(corridor.descriptorForSource(corridor.referenceSource)).canonicalState()
-        assertFalse(state.contains("wall"), "canonicalState has no wall line, so walls cannot move a fingerprint")
+        assertTrue(state.contains("\nverticalEdges=" + "0".repeat(VERT_EDGE_SLOTS) + "\n"), "a wall-free mission stamps 380 open vertical edges")
+        assertTrue(state.contains("\nhorizontalEdges=" + "0".repeat(HORIZ_EDGE_SLOTS) + "\n"), "a wall-free mission stamps 380 open horizontal edges")
         assertTrue(state.contains("terrain="), "canonicalState keeps its terrain line unchanged (PLAN-EDGE-WALLS.md section 4)")
         assertTrue(state.contains("fire="), "canonicalState keeps its fire line unchanged")
-        assertEquals(FIRELINE_ENGINE_VERSION, 2, "engine v2 is the shipped version: canonicalState stamps it and MissionDescriptor defaults to it (FirelineWorld.kt:564, Mission.kt:51/66-67)")
+        val thin = assertNotNull(Missions.byId(6), "mission 06 THIN WALL must exist")
+        val thinState = FirelineWorld(thin.descriptorForSource(thin.referenceSource)).canonicalState()
+        assertTrue(thinState.contains("\nverticalEdges="), "mission 06 stamps its vertical gate")
+        assertTrue(thinState.split("verticalEdges=")[1].take(VERT_EDGE_SLOTS).count { it == '1' } == 1, "mission 06 stamps exactly one vertical edge (the lane gate right of (5,2))")
+        assertTrue(thinState.split("horizontalEdges=")[1].take(HORIZ_EDGE_SLOTS).count { it == '1' } == 2, "mission 06 stamps exactly two horizontal edges (the spawn cell's north and south edges)")
+        assertEquals(FIRELINE_ENGINE_VERSION, 2, "engine v2 stays the shipped version through this increment: canonicalState stamps it and MissionDescriptor defaults to it; the bump to 4 follows at the anchor re-baseline (PLAN-RECONCILE-MAIN-01.md §8)")
     }
 }

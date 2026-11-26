@@ -195,14 +195,18 @@ class Layout(
     fun fireRowMajor(): IntArray = fire.copyOf()
 
     /**
-     * Row-major defensive copies of the two wall arrays for the renderers of
-     * PLAN-EDGE-WALLS.md steps E3/E4, the same pattern [terrainRowMajor] and
-     * [fireRowMajor] use. They are NOT canonical final-state hash inputs
-     * (PLAN-EDGE-WALLS.md §4: `terrainRowMajor()` and `fireRowMajor()` keep their
-     * current meaning), so a wall never moves a committed fingerprint.
+     * Row-major defensive copies of the two wall arrays. They serve the
+     * renderers of PLAN-EDGE-WALLS.md steps E3/E4 and, since the reconcile
+     * merge (PLAN-RECONCILE-MAIN-01.md §8), the canonical final-state hash
+     * too: [verticalEdgesRowMajor] and [horizontalEdgesRowMajor] are the
+     * inputs `FirelineWorld.canonicalState` stamps, in main's shape and
+     * naming. [wallVertRowMajor] / [wallHorizRowMajor] are the same arrays
+     * under this branch's names.
      */
     fun wallVertRowMajor(): BooleanArray = vertEdge.copyOf()
     fun wallHorizRowMajor(): BooleanArray = horizEdge.copyOf()
+    fun verticalEdgesRowMajor(): BooleanArray = vertEdge.copyOf()
+    fun horizontalEdgesRowMajor(): BooleanArray = horizEdge.copyOf()
 
     /**
      * Layout validation (§9 "Every authored mission requires ... validation"):

@@ -117,9 +117,9 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
     /**
      * Row-major defensive copies of the layout's thin edge walls for the
      * renderers of PLAN-EDGE-WALLS.md steps E3/E4, the same pattern
-     * [terrainRowMajor] and [fireRowMajor] use. Static layout state: walls are
-     * NOT part of [canonicalState], so they never move a committed fingerprint
-     * (PLAN-EDGE-WALLS.md §4).
+     * [terrainRowMajor] and [fireRowMajor] use. Static layout state: since
+     * the reconcile merge (PLAN-RECONCILE-MAIN-01.md §8) both edge maps ARE
+     * stamped by [canonicalState], so a wall moves the fingerprint.
      */
     fun wallVertRowMajor(): BooleanArray = layout.wallVertRowMajor()
     fun wallHorizRowMajor(): BooleanArray = layout.wallHorizRowMajor()
@@ -320,6 +320,10 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
             val nx = x + dirDx(chosen)
             val ny = y + dirDy(chosen)
             if (!inBounds(nx, ny)) continue
+            // Merged rule (PLAN-RECONCILE-MAIN-01.md §8): a thin edge wall blocks
+            // fire spread. The guard sits AFTER the two spread bytes are drawn,
+            // so geometry never shifts the RNG stream (main's guard shape).
+            if (layout.wallBetween(x, y, nx, ny)) continue
             val target = terrainAt(nx, ny)
             val threshold = spreadThresholdFor(target, chosen, descriptor.windDir, descriptor.windForce)
             if (threshold <= 0) continue                    // wall / refill / off-grid
@@ -570,6 +574,8 @@ class FirelineWorld(val descriptor: MissionDescriptor) {
             .append(',').append(rover.shieldsRaised).append(',').append(if (rover.destroyed) 1 else 0)
             .append('\n')
         append("terrain=").append(terrain.joinToString(",")).append('\n')
+        append("verticalEdges=").append(layout.verticalEdgesRowMajor().joinToString("") { if (it) "1" else "0" }).append('\n')
+        append("horizontalEdges=").append(layout.horizontalEdgesRowMajor().joinToString("") { if (it) "1" else "0" }).append('\n')
         append("fire=").append(fire.joinToString(",")).append('\n')
         append("civilians=")
         append(civiliansOrdered().joinToString(";") {
