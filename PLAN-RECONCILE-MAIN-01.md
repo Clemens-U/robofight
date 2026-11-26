@@ -66,7 +66,7 @@ Content conflicts (13):
 | `fireline-engine/src/commonMain/.../FirelineRules.kt` | engine version 3 plus `WATER_RANGE` against version 2 plus `PACKET_LIFE = 20` |
 | `fireline-engine/src/commonMain/.../FirelineWorld.kt` | main's spawn refusal plus spread blocking plus canonical wall lines, against this branch's DW1 spread-crossing and renderer-only wall copies |
 | `fireline-engine/src/commonMain/.../Rover.kt` | both block `MOVE` across an edge; different surrounding code |
-| `fireline-engine/src/commonMain/.../WaterPacket.kt` | main's `PACKET SPENT EDGE` absorption plus 5-cell range vs this branch's refusal at spawn plus 20-step life |
+| `fireline-engine/src/commonMain/.../WaterPacket.kt` | main's packet is consumed at an edge (`WaterPacket.process` line 42 checks `wallBetween` mid-flight; spawn refusal event `PACKET BLOCKED EDGE`) with 5-cell range, vs this branch's refusal with `PACKET REFUSED EDGE` plus 20-step life (`PACKET SPENT EDGE` is this branch's own string, not main's) |
 | `fireline-engine/src/commonMain/.../session/MissionSession.kt` | this branch's shared session layer (E-series, W3.1) against main's app-side session |
 
 Structural conflicts (2):
@@ -146,11 +146,11 @@ git worktree remove "C:/Users/Clemens/AppData/Local/hermes/cache/scratch/reconci
 
 | item | status | decision |
 |---|---|---|
-| 3. catalog and free tier | decided | three free missions |
+| 1. fire vs an edge wall | decided | main's semantics: an edge wall blocks rover `MOVE`, blocks fire spread, and stops a water packet (spawn refusal `PACKET BLOCKED EDGE`, mid-flight consumption in `WaterPacket.process`). `PLAN-EDGE-WALLS.md` §9.6 decision DW1 is superseded |
+| 2. packet range | decided | main's constants: `WATER_RANGE = 5` with `PACKET_LIFE = WATER_RANGE` |
+| 3. catalog and free tier | decided | shape (b): three missions free, the rest unlocked by progress in the same app, no billing |
 | 4. engine version | decided | bump to 4 after the merge and re-baseline every anchor and fixture with `PLAN-EDGE-WALLS.md` §10.7 |
 | 5. canonical state | decided | adopt main's approach: both edge maps stay in `canonicalState`, which closes §13.7 item 6 of `PLAN-EDGE-WALLS.md` |
-| 1. fire vs an edge wall | open | owner asked for measured mission impact before deciding |
-| 2. packet range | open | owner asked for measured mission impact before deciding |
 
 ### What item 3 means concretely
 
@@ -162,3 +162,39 @@ subscriptions, in-app purchases or accounts, and `fireline-app` has no product f
 (source sets `main` and `test` only). So three missions is the whole product today: missions 3, 5 and 06
 would be authored and unobtainable unless a paid path or a progress unlock is added. That follow-up
 choice is open, and it decides whether the reconciliation revives 03 and 05, retires them, or gates them.
+
+## 8. The resolved ruleset (2026-11-26, all five items decided)
+
+The merged engine takes main's mechanics on every contested point.
+
+| rule | resolved value | where it comes from |
+|---|---|---|
+| edge wall vs rover `MOVE` | blocked | both lines already agreed |
+| edge wall vs fire spread | blocked (`if (layout.wallBetween(x, y, nx, ny)) continue` in `runFireSpread`) | main |
+| edge wall vs water | blocked at spawn (`PACKET BLOCKED EDGE x,y -> nx,ny`) and consumed mid-flight (`WaterPacket.process` line 42) | main |
+| edge wall vs `AHEAD` | reports 1 through an edge wall | both lines already agreed (main `FirelineWorld` line 479, this branch line 503) |
+| edge wall vs heat | crosses, rover damage still requires adjacency | unchanged on both lines |
+| packet range | `WATER_RANGE = 5`, `PACKET_LIFE = WATER_RANGE` | main |
+| canonical state | both edge maps hashed, row-major | main |
+| engine version | 4 | owner decision |
+| free tier | three missions free, the rest unlocked by progress | owner decision |
+
+Consequences, in the order they have to be handled:
+
+1. DW1 is superseded, so mission 06 `THIN WALL` as authored is unwinnable: its fuel pocket is reachable
+   only through a wall crossing (`FIRE IGNITES 5,2 from 6,2`, tick 28). It must be redesigned under the
+   resolved rules or dropped. Measured confirmation of the lost ignitions is being produced now.
+2. `PACKET_LIFE` 20 to 5 changes every mission including the five with no walls, so the §10.7 re-baseline
+   is mandatory. The `limit_probe.tsv` rows `WATER_RANGE_BUDGET` and `PACKET_LIFE_SEMANTICS` must be
+   replaced from the merged engine, not adjusted by hand.
+3. Canonical state now includes both edge maps, so every stored best-run fingerprint changes even for
+   missions without walls. The store copy and the RESULT card wording do not change, only their numbers.
+4. `EdgeWallsTest` must be rewritten to the resolved rules and absorb main's `ThinWallsTest` coverage.
+   Running both suites against different rules is not an option.
+5. Because main's mechanics win, the merge resolution is mechanical: take main's side for every contested
+   rule block in `FirelineRules`, `FirelineWorld`, `WaterPacket`, `Rover` and `Layout`, take this branch's
+   side for structure (`commonMain`, the shared session layer, `:fireline-web`, `docs/`, fixtures) and for
+   the app surfaces only where they implement that shared session.
+6. What this branch contributes after the merge is the KMP engine with a wasm target, the shared session
+   layer, the browser console, the fixture and verification pipeline, the grid renderers, and one
+   redesigned wall mission.
