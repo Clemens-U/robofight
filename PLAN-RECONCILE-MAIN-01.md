@@ -141,3 +141,24 @@ git diff --name-only --diff-filter=U
 git merge --abort
 git worktree remove "C:/Users/Clemens/AppData/Local/hermes/cache/scratch/reconcile-wt"
 ```
+
+## 7. Owner decision log (2026-11-26)
+
+| item | status | decision |
+|---|---|---|
+| 3. catalog and free tier | decided | three free missions |
+| 4. engine version | decided | bump to 4 after the merge and re-baseline every anchor and fixture with `PLAN-EDGE-WALLS.md` §10.7 |
+| 5. canonical state | decided | adopt main's approach: both edge maps stay in `canonicalState`, which closes §13.7 item 6 of `PLAN-EDGE-WALLS.md` |
+| 1. fire vs an edge wall | open | owner asked for measured mission impact before deciding |
+| 2. packet range | open | owner asked for measured mission impact before deciding |
+
+### What item 3 means concretely
+
+main's shipped free set is mission ids 1, 2 and 4 (`NOZZLE CHECK`, `CORRIDOR`, `DOWNWIND`), asserted by
+`MissionPickerModelTest.freeCatalogContainsOnlyMissionsOneTwoAndFourWithStableIds`, where ids 3 and 5
+stay in the engine catalog but are not offered (`availableById(3)` and `availableById(5)` return null).
+`STORE-LISTINGS.md` §6 describes exactly those three missions and states that FIRELINE has no ads,
+subscriptions, in-app purchases or accounts, and `fireline-app` has no product flavors on either line
+(source sets `main` and `test` only). So three missions is the whole product today: missions 3, 5 and 06
+would be authored and unobtainable unless a paid path or a progress unlock is added. That follow-up
+choice is open, and it decides whether the reconciliation revives 03 and 05, retires them, or gates them.
