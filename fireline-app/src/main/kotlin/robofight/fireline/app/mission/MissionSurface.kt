@@ -18,8 +18,10 @@ import robofight.fireline.app.files.FirmwareRepository
 /**
  * MISSION surface, picker (milestones 4-5; DESIGN-FIRELINE.md 5.2).
  *
- * Empty state: the authored mission cards of `Missions.ALL` (engine briefing,
- * objective chips, tick limit, wind, water and read-only seed). Firmware is
+ * Empty state: the six authored mission cards of `Missions.ALL` (engine briefing,
+ * objective chips, tick limit, wind, water and read-only seed). Ids 01 to 03 are
+ * free; ids 04 to 06 show as locked cards until the previous mission has a
+ * recorded SUCCESS for the shipped engine version. Firmware is
  * selected in FILES; this surface only displays the active filename.
  *
  * Choosing mission + firmware hands the pair to MainActivity, which opens the
@@ -44,11 +46,12 @@ class MissionSurface(
             ?.let { "mission firmware: $it" }
             ?: "no mission firmware selected  //  select a file in FILES"
         column.addView(notice)
-        // This branch keeps the full authored catalog on the picker; main's
-        // three-mission free-edition list is the picker unlock rule, which is
-        // the next increment (PLAN-RECONCILE-MAIN-01.md step 6).
-        for (mission in Missions.ALL) {
-            column.addView(missionCard(mission, MissionPickerModel.cardFor(mission, bestStore.get(mission.id, FIRELINE_ENGINE_VERSION))))
+        column.addView(text(8, theme.textDim, MissionPickerModel.LINEUP_LABEL, theme.workFace))
+        // Progress-based lineup (PLAN-RECONCILE-MAIN-01.md 10 item 6): all six
+        // cards stay visible in catalog order; a gated card renders as a locked
+        // card whose OPEN MISSION action is replaced by the lock copy.
+        for (card in MissionPickerModel.cards { bestStore.get(it.id, FIRELINE_ENGINE_VERSION) }) {
+            column.addView(missionCard(Missions.byId(card.missionId)!!, card))
         }
         return ScrollView(activity).apply {
             isVerticalScrollBarEnabled = true
@@ -67,7 +70,7 @@ class MissionSurface(
             }
         }
         val head = row(matchParent, wrapContent)
-        head.addView(text(9, theme.textBright, "${card.idLabel}  ${card.name}", theme.displayFace))
+        head.addView(text(9, if (card.locked) theme.textDim else theme.textBright, "${card.idLabel}  ${card.name}", theme.displayFace))
         panel.addView(head)
 
         panel.addView(gapped(11, theme.text, card.briefing, theme.workFace))
@@ -81,6 +84,18 @@ class MissionSurface(
 
         val actions = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(4), 0, 0) }
         val notice = text(12, theme.textDim, face = theme.workFace).apply { visibility = View.GONE }
+        if (card.locked) {
+            actions.addView(text(8, theme.textDim, "LOCKED", theme.displayFace).apply {
+                background = theme.panelDrawable(fill = theme.secondaryFill, stroke = theme.border)
+                setPadding(theme.dp(8), theme.dp(6), theme.dp(8), theme.dp(6))
+                gravity = Gravity.CENTER
+                contentDescription = "mission ${card.idLabel} locked"
+                layoutParams = LinearLayout.LayoutParams(wrapContent, wrapContent)
+            })
+            panel.addView(actions)
+            panel.addView(gapped(11, theme.textDim, card.lockLabel ?: "mission locked", theme.workFace))
+            return panel
+        }
         actions.addView(button("OPEN MISSION", theme.runFill, theme.runText, {
             val firmware = selection.get()
             if (firmware == null || store.find(firmware) == null) {

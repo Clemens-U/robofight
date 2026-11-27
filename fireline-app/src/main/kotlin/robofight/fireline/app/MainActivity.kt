@@ -24,6 +24,7 @@ import robofight.fireline.app.files.StarterFirmware
 import robofight.fireline.app.editor.EditorModel
 import robofight.fireline.app.mission.BestBadgeStore
 import robofight.fireline.app.mission.FirmwareSelection
+import robofight.fireline.app.mission.MissionPickerModel
 import robofight.fireline.app.mission.MissionRunSurface
 import robofight.fireline.app.mission.MissionSelection
 import robofight.fireline.session.MissionSession
@@ -33,6 +34,7 @@ import robofight.fireline.app.mission.RunRecordStore
 import robofight.fireline.session.RunSummary
 import robofight.fireline.app.mission.SharedPreferencesValues
 import robofight.fireline.R
+import robofight.fireline.FIRELINE_ENGINE_VERSION
 import robofight.fireline.Mission
 import robofight.fireline.Missions
 
@@ -315,6 +317,14 @@ class MainActivity : Activity() {
      * refused with a notice instead of crashing the tab.
      */
     private fun showMissionRun(mission: Mission, firmwareName: String) {
+        // Progress-based lineup (PLAN-RECONCILE-MAIN-01.md 10 item 6): ids 01 to
+        // 03 are open, 04 to 06 need a recorded SUCCESS in the previous mission.
+        // A stored RESULT record naming a mission this install has not earned
+        // (an older lineup) is refused with the lock copy instead of running it.
+        if (!MissionPickerModel.isUnlocked(mission.id) { bestStore.get(it.id, FIRELINE_ENGINE_VERSION) }) {
+            showMission(MissionPickerModel.lockLabel(mission.id))
+            return
+        }
         val file = store.find(firmwareName) ?: return showMission("firmware '$firmwareName' is gone  //  pick another")
         val assembly = EditorModel.assembleSource(file.source)
         if (!assembly.ok) {

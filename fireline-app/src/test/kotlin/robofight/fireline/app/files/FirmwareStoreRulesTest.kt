@@ -5,6 +5,15 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import robofight.fireline.FIRELINE_ENGINE_VERSION
+import robofight.fireline.FailureReason
+import robofight.fireline.Mission
+import robofight.fireline.RunStatus
+import robofight.fireline.app.mission.BestBadgeStore
+import robofight.fireline.app.mission.KeyValues
+import robofight.fireline.app.mission.MissionPickerModel
+import robofight.fireline.app.mission.runSummarySample
+import robofight.fireline.session.RunSummary
 
 /**
  * Source validation and repository CRUD through the in-memory fake (the same
@@ -176,5 +185,44 @@ class FirmwareStoreRulesTest {
             robofight.fireline.WebInputLimits.sourceProblems("A".repeat(FirmwareSource.MAX_SOURCE_BYTES + 1))
                 .any { it.contains("bytes") },
         )
+    }
+
+    // ---- lineup seam (PLAN-RECONCILE-MAIN-01.md 10 item 6) ---------------------
+
+    private class FakeKeyValues : KeyValues {
+        val map = HashMap<String, String>()
+        override fun get(key: String): String? = map[key]
+        override fun put(key: String, value: String) {
+            map[key] = value
+        }
+
+        override fun remove(key: String) {
+            map.remove(key)
+        }
+    }
+
+    @Test
+    fun freshLibraryServesTheFreeTrioAndStoreWritesAreNotProgress() {
+        // A brand-new library gets exactly the starter file, which is the first
+        // mission of the free trio (ids 01 to 03). The firmware store is never a
+        // progress record: only BestBadgeStore can open the gated ids 04 to 06.
+        val repo = InMemoryFirmwareRepository()
+        val starter = StarterFirmware.seedIfEmpty(repo)
+        assertNotNull(starter)
+        assertEquals(StarterFirmware.NAME, repo.find("NOZZLE-CHECK.ASM")?.name)
+        assertEquals(1, repo.count())
+        assertTrue(StarterFirmware.SOURCE.startsWith("; START HERE: mission 01"))
+
+        val badges = BestBadgeStore(FakeKeyValues())
+        val lineup: (Mission) -> RunSummary? = { badges.get(it.id, FIRELINE_ENGINE_VERSION) }
+        assertEquals(listOf(1, 2, 3), MissionPickerModel.unlockedMissions(lineup).map { it.id })
+
+        repo.save("DOWNWIND-ATTEMPT", "MOV A,#1\nWAIT\n")
+        badges.update(runSummarySample(RunStatus.FAILURE, FailureReason.TIME_EXPIRED, missionId = 3, tick = 120))
+        assertEquals(listOf(1, 2, 3), MissionPickerModel.unlockedMissions(lineup).map { it.id })
+
+        badges.update(runSummarySample(RunStatus.SUCCESS, null, missionId = 3, tick = 77))
+        assertEquals(listOf(1, 2, 3, 4), MissionPickerModel.unlockedMissions(lineup).map { it.id })
+        assertEquals(2, repo.count())
     }
 }
