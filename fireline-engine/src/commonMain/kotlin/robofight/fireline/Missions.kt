@@ -15,7 +15,8 @@ package robofight.fireline
  * thin walls, so each one now carries thin edge walls — 2, 25, 11, 18 and 40
  * edges for missions 01 to 05 in order, measured with the engine's own
  * `Layout.edgeCount()` — instead of the thick wall rows the pre-merge layouts
- * used. Mission 06 carries the three edges of the pinned E2 lane fixture.
+ * used. Mission 06 carries the 13 edges of its single wall column (measured
+ * with the same `Layout.edgeCount`).
  *
  * Mission ID + name are immutable; changing a layout under an existing ID is a
  * content compatibility change (§9) and needs a new ID.
@@ -370,42 +371,53 @@ object Missions {
     )
 
     // ---- 9.6 ----
-    // GO AROUND, the R4 thin-wall capstone redesign (PLAN-RECONCILE-MAIN-01.md
-    // §10 step R4). One vertical thin wall: vertEdgeSegment(9, 0, 12), 13 edges
-    // on the border between (9,y) and (10,y) for rows 0..12. The rover starts
-    // west at (2,10) facing east: its straight MOVE stops at the walled edge,
-    // every straight SHOOT is refused there ("PACKET BLOCKED EDGE", the Arena
-    // never spawns a packet through a thin wall), and AHEAD answers 1 across
-    // it exactly like a wall cell would. Under the merged rules (§8) the same
-    // edge blocks fire spread, so the west side stays safe behind the wall.
-    // The only west->east crossings are the open rows 13..19 below the wall's
-    // lower end.
+    // GO AROUND, the thin-wall capstone (PLAN-RECONCILE-MAIN-01.md §10 step R4,
+    // fire half measured in step R5). One vertical thin wall:
+    // vertEdgeSegment(9, 0, 12), 13 edges on the border between (9,y) and (10,y)
+    // for rows 0..12. The rover starts west at (2,10) facing east: its straight
+    // MOVE stops at the walled edge, every straight SHOOT is refused there
+    // ("PACKET BLOCKED EDGE", the Arena never spawns a packet through a thin
+    // wall), and AHEAD answers 1 across it exactly like a wall cell would. The
+    // only west->east crossings are the open rows 13..19 below the wall's lower
+    // end.
     //
-    // The pocket east of the wall holds exactly ONE burning cell (10,13) at
-    // authored level 2 (50 intensity, in the 26..50 band) and no fuel cells.
-    // Terrain walls (10,12), (10,14) and (11,13) plus the west refill cell
-    // (9,13) on its fourth face seal it: walls and refill cells never ignite,
-    // so no spread attempt of the seed-6027 stream can ever ignite any pocket
-    // neighbour - the pocket cannot crawl anywhere, and the exit (17,13) on
-    // the far east side never ignites. The rover drowns it from the refill
-    // firing stand (9,13): the shot line crosses the wall line at row 13,
-    // south of the wall's lower end, where the wall does not sit (measured:
-    // four packets), then the rover walks the open rows to the exit.
+    // The pocket east of the wall holds exactly ONE burning cell (10,10) at
+    // authored level 2 (50 intensity, in the 26..50 band) and no fuel cells, and
+    // that cell sits ON a walled row: its western neighbour (9,10) is open
+    // passable floor behind the thin wall, so the wall is the only thing between
+    // this fire and the west half of the field. Its other three faces are the
+    // terrain walls (10,9) north and (11,10) east plus the refill cell (10,11)
+    // south (walls and refill cells never ignite); that refill cell is also the
+    // firing stand. The rover walks around the lower end of the wall along the
+    // open row 13, comes up column 10 to (10,11) and drowns the pocket cell from
+    // there (measured: four packets, arrival tick 29), then walks to the exit
+    // (12,10) on the pocket row east of the burning cell.
+    //
+    // Fire load bearing, measured with the scratch twin (MeasureR6, seed 6027):
+    // the spread stream aims W at (9,10) on tick 15 with chance 37, below the 64
+    // floor threshold, and the thin wall is what refuses it - cross-wall
+    // ignitions in the walled run: 0. In the edge-open counterfactual (same
+    // layout with the 13 wall segments removed, same seed, same reference
+    // firmware) that draw ignites (9,10) at tick 15, the fire crawls west to
+    // (8,12) above the refill lane and back east into the pocket at tick 55, the
+    // same firmware misses EXTINGUISH_ALL and ends TIME_EXPIRED at tick 90 with
+    // 8 cells burning instead of SUCCESS at tick 49, and the spray bot dies
+    // (ROVER_DESTROYED at tick 59, hp 0) on the cell the wall keeps safe.
     val GO_AROUND = Mission(
         id = 6,
         name = "GO AROUND",
-        briefing = "A thin wall stops your MOVE and your water, and the fire behind it cannot cross it either. Walk around the lower end of the wall, drown the burning cell from the refill lane, then reach the exit.",
+        briefing = "A thin wall on your starting row stops MOVE, water and fire. The burning cell right behind it cannot cross: walk around the lower end of the wall, drown it from the refill cell south of the pocket, then reach the exit east of the pocket.",
         layout = Layout.decode(
             terrainRows = field(
                 2, 10,
                 listOf(
-                    Triple(10, 12, GLYPH_WALL),                           // pocket shell, north of the fire
-                    Triple(10, 14, GLYPH_WALL),                          // pocket shell, south of the fire
-                    Triple(11, 13, GLYPH_WALL),                          // pocket shell, east of the fire
-                    Triple(17, 13, GLYPH_EXIT),                          // exit, far east on the pocket row
-                ) + (2..9).map { Triple(it, 13, GLYPH_REFILL) },        // west refill lane, ends in the firing stand (9,13)
+                    Triple(10, 9, GLYPH_WALL),                            // pocket shell, north of the fire
+                    Triple(11, 10, GLYPH_WALL),                          // pocket shell, east of the fire, seals the exit side
+                    Triple(10, 11, GLYPH_REFILL),                        // pocket shell, south of the fire: the refill firing stand
+                    Triple(12, 10, GLYPH_EXIT),                          // exit, east of the burning cell on the pocket row
+                ) + (2..9).map { Triple(it, 13, GLYPH_REFILL) },        // west refill lane on the open row below the wall
             ),
-            fireRows = fireAt(listOf(Triple(10, 13, '2'))),              // the single pocket cell, level 2 = 50
+            fireRows = fireAt(listOf(Triple(10, 10, '2'))),              // the single pocket cell ON the walled row 10, level 2 = 50
             roverDir = DIR_E,
             vertEdgeRows = vertEdgeRows(*vertEdgeSegment(9, 0, 12).toTypedArray()),
         ),
@@ -417,26 +429,26 @@ object Missions {
         windForce = 0,
         referenceSource =
             "       TURN   R\n" +                                       // E -> S: the thin wall ahead is not negotiable
-                "       MOVE\n       MOVE\n       MOVE\n" +             // (2,10) -> (2,13), onto the west refill lane
+                "       MOVE\n       MOVE\n       MOVE\n" +             // (2,10) -> (2,13), down past the wall's lower end
                 "       TURN   L\n" +                                   // S -> E
                 "       MOVE\n       MOVE\n       MOVE\n       MOVE\n" +
-                "       MOVE\n       MOVE\n       MOVE\n" +             // (2,13) -> (9,13), the refill firing stand
-                "       SHOOT\n       SHOOT\n       SHOOT\n       SHOOT\n" +   // 4 x 25 drown the grown pocket cell (measured)
-                "       TURN   R\n" +                                   // E -> S
-                "       MOVE\n       MOVE\n" +                          // (9,13) -> (9,15)
-                "       TURN   L\n" +                                   // S -> E
-                "       MOVE\n       MOVE\n       MOVE\n" +             // (10,15) -> (12,15), crossing the open rows
+                "       MOVE\n       MOVE\n       MOVE\n       MOVE\n" + // (2,13) -> (10,13), along the open row under the wall
                 "       TURN   L\n" +                                   // E -> N
-                "       MOVE\n       MOVE\n" +                          // (12,14) -> (12,13), north of the pocket shell
+                "       MOVE\n       MOVE\n" +                          // (10,13) -> (10,11), the refill firing stand (tick 29)
+                "       SHOOT\n       SHOOT\n       SHOOT\n       SHOOT\n" +   // 4 x 25 drown the grown pocket cell (measured)
                 "       TURN   R\n" +                                   // N -> E
-                "       MOVE\n       MOVE\n       MOVE\n       MOVE\n       MOVE\n" +   // (13,13) -> (17,13), the exit
+                "       MOVE\n       MOVE\n" +                          // (10,11) -> (12,11), south of the pocket shell
+                "       TURN   L\n" +                                   // E -> N
+                "       MOVE\n" +                                       // (12,11) -> (12,10), the exit on the pocket row
                 "       WAIT\n       JMP    fin\nfin:   WAIT\n       JMP    fin",
         failingSources = listOf(
             Triple("spray straight at the wall",
                 // The naive bot walks to the thin wall and sprays east. Every SHOOT is refused at
-                // the walled edge ("PACKET BLOCKED EDGE", PLAN-EDGE-WALLS.md §3.6); it never drowns
-                // (10,13) and never leaves the wall, so it runs out of time. Its AHEAD answers 1
-                // across the edge, exactly like a wall cell would.
+                // the walled edge ("PACKET BLOCKED EDGE", PLAN-EDGE-WALLS.md §3.6; measured: 9
+                // refusals from (9,10) toward 10,10); it never drowns (10,10) and never leaves the
+                // wall, so it runs out of time. Its AHEAD answers 1 across the edge, exactly like a
+                // wall cell would. Behind the wall it survives at hp 92 (TIME_EXPIRED at tick 90);
+                // in the edge-open counterfactual the same bot dies on (9,10) at tick 59.
                 "       MOVE\n       MOVE\n       MOVE\n       MOVE\n" +
                 "       MOVE\n       MOVE\n       MOVE\n" +             // (2,10) -> (9,10), stopped by the walled edge
                 "loop:  SHOOT\n       JMP    loop",

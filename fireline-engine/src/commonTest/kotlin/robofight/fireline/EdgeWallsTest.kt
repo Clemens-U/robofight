@@ -592,11 +592,15 @@ class EdgeWallsTest {
      * missions 01-05 are main's layouts, every authored mission carries thin
      * edges: main's measured 2, 25, 11, 18 and 40 edges for missions 01-05
      * (measured with the engine's own `Layout.edgeCount`) plus mission 06's
-     * 13 wall-column edges (the R4 capstone redesign, GO AROUND: one vertical
-     * run at x=9 rows 0..12, measured with the same `Layout.edgeCount`). The
-     * isolation half of the gate survives: mission 06 is still the authored
-     * mission named for its wall, and no mission validation depends on the
-     * old wall-free layouts.
+     * 13 wall-column edges (the GO AROUND capstone: one vertical run at x=9
+     * rows 0..12, measured with the same `Layout.edgeCount`). The isolation
+     * half of the gate survives: mission 06 is still the authored mission named
+     * for its wall, and no mission validation depends on the old wall-free
+     * layouts. The R5 fire measurement added the pocket's fire half: the single
+     * burning cell (10,10) now sits ON a walled row with open passable floor
+     * (9,10) immediately west of it, so the 13 edges are the only thing between
+     * this fire and the west half of the field (the wall-free counterfactual is
+     * asserted in `Step10AuthoredMissionsTest.thinWallGatesMovementWaterAndFire`).
      */
     @Test
     fun shippedMissionLayoutsAllCarryThinEdgesAndMission06StaysTheTeachingCapstone() {
@@ -628,7 +632,16 @@ class EdgeWallsTest {
         assertTrue(thin.layout.wallBetween(9, 10, 10, 10), "mission 06 gates row 10 between (9,10) and (10,10)")
         assertTrue(thin.layout.wallBetween(9, 12, 10, 12), "mission 06's wall reaches its lower end at row 12")
         assertFalse(thin.layout.wallBetween(9, 13, 10, 13), "mission 06 keeps row 13 open: the detour crosses below the wall's lower end")
-        assertEquals(emptyList<String>(), thin.validate(), "mission 06 validates with its edges (the flood fill reaches the pocket fire through the open rows)")
+        // The fire half of the capstone, measured in R5: the burning cell sits ON
+        // the walled row, and its western neighbour is open passable floor.
+        assertEquals(50, thin.layout.fireAt(10, 10), "mission 06's single burning cell (10,10) burns on the walled row 10")
+        assertTrue(thin.layout.wallBetween(9, 10, 10, 10), "the burning cell shares its west edge with a mission thin wall")
+        assertEquals(TERRAIN_FLOOR, thin.layout.terrainAt(9, 10), "the burning cell's western neighbour is open passable floor, not a wall or refill cell")
+        assertTrue(terrainPassable(thin.layout.terrainAt(9, 10)), "an edge wall never makes the cell behind it non-free (DW1)")
+        assertEquals(2, thin.layout.terrain.count { it == TERRAIN_WALL }, "mission 06's pocket shell is the wall cells (10,9) and (11,10) plus the refill stand (10,11)")
+        assertEquals(TERRAIN_REFILL, thin.layout.terrainAt(10, 11), "the pocket's south face is the refill firing stand")
+        assertEquals(TERRAIN_EXIT, thin.layout.terrainAt(12, 10), "the exit sits east of the burning cell, sealed from it by the (11,10) wall cell")
+        assertEquals(emptyList<String>(), thin.validate(), "mission 06 validates with its edges (the flood fill reaches the pocket fire through the open rows and the refill stand)")
         assertTrue(fixtureLayout().wallsPresent(), "the fixture is the layout that does carry walls")
         assertEquals(3, fixtureLayout().edgeCount(), "the fixture wall table declares 3 edges")
     }

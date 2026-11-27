@@ -41,7 +41,23 @@ package robofight.fireline
  * time by the same headless twin (MeasureR5, scratch tree, 2026-11-27) -
  * probe/trace/final hashes, finish ticks 62 and 90, firmware sizes and the
  * pinned trace lines above all carry the measured values; `FIRELINE_ENGINE_
- * VERSION` is still 2. The raw TSV/JSON under docs/web/fixtures and the
+ * VERSION` is still 2. THE MISSION-06 FIRE STEP (increment R5, same branch):
+ * mission 06 keeps id 6, seed 6027, the name, timeLimit 90, its 13 wall-column
+ * edges and both pinned trace lines, but the pocket moved ONTO a walled row:
+ * the burning cell is (10,10) with open floor (9,10) behind the thin wall, the
+ * shell is the wall cells (10,9)/(11,10) plus the refill firing stand (10,11),
+ * the exit is (12,10), and the reference firmware is the 29-instruction detour
+ * that drowns the cell from that stand. Rows 6-reference / 6-failing were
+ * re-recorded a fourth time by the same headless twin (MeasureR6, scratch tree,
+ * 2026-11-27): probe hashes 085d4da41e356ccf and 4d6cb428da5a3628, finish ticks
+ * 49 and 90, final hashes 1b8b91c5bd8ff47f and a01a2344948c78b5, firmware 87/29
+ * and 27/9 bytes/instructions; both `traceHash` values and every pinned trace
+ * line are unchanged, because the first 12 ticks are still MOVE-only. The
+ * edge-open counterfactual anchors of that step - the same layout with its 13
+ * wall segments removed runs TIME_EXPIRED at tick 90 with 8 cells burning
+ * (final ec033d1efa5fddff) and its spray bot dies ROVER_DESTROYED at tick 59
+ * (final f01e72b53ef2ed3c) - are asserted in `Step10AuthoredMissionsTest` and
+ * are not matrix rows. The raw TSV/JSON under docs/web/fixtures and the
  * version bump to 4 follow at the anchor re-baseline, where the generator
  * runs on this content.
  */
@@ -100,8 +116,8 @@ internal val PARITY_FIXTURE_ROWS: List<ParityFixtureRow> = listOf(
     ParityFixtureRow("4-failing", 4, "DOWNWIND", "failing", "ignores the burning line", 12, "938556959d81d6f6", "99752e4c059a058e", 500, "FAILURE", "TIME_EXPIRED", "37433953885c7afd", 9, 3, 4004, 7, 500, null, 100, 2, 2, 700, 18, true),
     ParityFixtureRow("5-reference", 5, "HOT ZONE", "reference", "reference", 12, "d38d358d81af4207", "317eca23f0149509", 45, "SUCCESS", "-", "06b2875eea21dd61", 111, 37, 5005, 22, 200, null, 60, 1, 0, 400, 40, true),
     ParityFixtureRow("5-failing", 5, "HOT ZONE", "failing", "no shield, straight through", 12, "3e9844bae190f491", "def56526d10c1cf2", 29, "FAILURE", "ROVER_DESTROYED", "9240019620f1ed8e", 6, 2, 5005, 22, 200, null, 60, 1, 0, 400, 40, true),
-    ParityFixtureRow("6-reference", 6, "GO AROUND", "reference", "reference", 12, "cac9e1513c7b1135", "46f9fc7672a993d9", 62, "SUCCESS", "-", "78ab6090ddbe444a", 108, 36, 6027, 5, 90, null, 100, 0, 0, 300, 13, true),
-    ParityFixtureRow("6-failing", 6, "GO AROUND", "failing", "spray straight at the wall", 12, "c3b9521cc4072152", "4720fbe644a1f4ca", 90, "FAILURE", "TIME_EXPIRED", "ba00d941d5cfce57", 27, 9, 6027, 5, 90, null, 100, 0, 0, 300, 13, true),
+    ParityFixtureRow("6-reference", 6, "GO AROUND", "reference", "reference", 12, "085d4da41e356ccf", "46f9fc7672a993d9", 49, "SUCCESS", "-", "1b8b91c5bd8ff47f", 87, 29, 6027, 5, 90, null, 100, 0, 0, 300, 13, true),
+    ParityFixtureRow("6-failing", 6, "GO AROUND", "failing", "spray straight at the wall", 12, "4d6cb428da5a3628", "4720fbe644a1f4ca", 90, "FAILURE", "TIME_EXPIRED", "a01a2344948c78b5", 27, 9, 6027, 5, 90, null, 100, 0, 0, 300, 13, true),
     ParityFixtureRow("wall-lane-move", 101, "WALL LANE", "wall", "lane move loop", 12, "ef26fe23202fe0b6", "88b5c429de62c944", 60, "FAILURE", "TIME_EXPIRED", "e53cc91a7afc2957", 6, 2, 6001, 4, 60, null, 100, 0, 0, 200, 3, true),
     ParityFixtureRow("wall-nozzle-seal", 102, "SEALED NOZZLE", "wall", "single shoot", 12, "515c98beac49d34d", "b87628c5ec530355", 60, "FAILURE", "TIME_EXPIRED", "d4b68c352bb30e0e", 9, 3, 6002, 4, 60, null, 100, 0, 0, 200, 1, true),
     ParityFixtureRow("wall-lane-suppress", 103, "WALL LANE SUPPRESS", "wall", "single shoot", 12, "cc2ed4624c1a1658", "e762879cfcc1a486", 60, "FAILURE", "TIME_EXPIRED", "22fc9570c4018b34", 9, 3, 6003, 4, 60, null, 100, 0, 0, 200, 3, true),

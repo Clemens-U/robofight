@@ -170,17 +170,21 @@ class Step10AuthoredMissionsTest {
 
     /**
      * Mission 06 (FIRELINE-DESIGN.md §9.6, PLAN-EDGE-WALLS.md §13, resolved by
-     * PLAN-RECONCILE-MAIN-01.md §8): the facts a thin wall teaches. (1) It is not
-     * a cell: the cell behind it stays free terrain and a straight MOVE across
-     * the walled edge simply does not happen. (2) Under the merged rules it gates
-     * water AND fire: every packet the documented failing variant fires at the
-     * wall column is refused at the edge, and the pocket fire never crosses it —
-     * so the spray-only bot survives behind the wall and simply runs out of
-     * time (TIME_EXPIRED at the 90-tick limit). The reference variant walks the
-     * open rows below the wall's lower end and drowns the pocket cell from the
-     * refill firing stand (R4 capstone redesign, GO AROUND; measured anchors
-     * from the scratch twin MeasureR5: reference SUCCESS at tick 62, failing
-     * TIME_EXPIRED at tick 90).
+     * PLAN-RECONCILE-MAIN-01.md §8): the facts a thin wall teaches, on this
+     * level's own geometry. (1) It is not a cell: the cell behind it stays free
+     * terrain and a straight MOVE across the walled edge simply does not happen.
+     * (2) It gates water: every packet the documented failing variant fires at
+     * the wall column is refused at the edge (measured: 9 refusals). (3) It gates
+     * fire, and that half is a measured comparison instead of a seal nothing can
+     * challenge: the burning pocket cell (10,10) sits ON a walled row with open
+     * passable floor (9,10) directly west of it, the seed-6027 stream aims W at
+     * (9,10) on tick 15 with chance 37 (below the 64 floor threshold), the walled
+     * run records 0 cross-wall ignitions, and the same layout with its 13 wall
+     * segments removed ignites (9,10) on tick 15, crosses back into the pocket on
+     * tick 55 and burns 8 cells - which turns the reference firmware from SUCCESS
+     * at tick 49 into TIME_EXPIRED at tick 90 and the spray bot from hp 92 into
+     * hp 0 (ROVER_DESTROYED at tick 59). Anchors measured with the scratch twin
+     * MeasureR6 (GO AROUND capstone, R4 layout + R5 fire measurement).
      */
     @Test
     fun thinWallGatesMovementWaterAndFire() {
@@ -189,14 +193,26 @@ class Step10AuthoredMissionsTest {
         assertEquals(Objectives.EXTINGUISH_ALL or Objectives.REACH_EXIT, m.objectives)
         assertEquals(90, m.timeLimit, "headroom for the detour, tight enough that the spray-only bot runs out of time")
         assertEquals(0, m.windForce, "the crossing here is the wall's, not the wind's")
-        assertEquals(3, m.layout.terrain.count { it == TERRAIN_WALL }, "three terrain wall cells seal the pocket shell")
+        assertEquals(2, m.layout.terrain.count { it == TERRAIN_WALL }, "two terrain wall cells seal the pocket shell north and east of the fire")
         assertEquals(13, m.layout.edgeCount(), "one vertical wall run at x=9, rows 0..12")
         assertTrue(m.layout.wallBetween(9, 10, 10, 10), "the wall gates row 10 between (9,10) and (10,10)")
         assertFalse(m.layout.wallBetween(9, 13, 10, 13), "the bypass south of the wall's lower end is open")
         assertEquals(TERRAIN_FLOOR, m.layout.terrainAt(10, 10), "the cell behind the thin wall stays free terrain")
         assertTrue(terrainPassable(m.layout.terrainAt(10, 10)), "a thin wall never makes a cell non-free (DW1/§3)")
         assertEquals(1, m.layout.fire.count { it > 0 }, "one burning pocket cell beyond the wall")
-        assertEquals(50, m.layout.fireAt(10, 13), "the pocket cell is authored in the 26..50 band so 2..4 packets drown it")
+        assertEquals(50, m.layout.fireAt(10, 10), "the pocket cell is authored in the 26..50 band so 3..4 packets drown it")
+        // The fire half is load bearing only because the burning cell sits ON a
+        // walled row: its western neighbour is open passable floor across this
+        // mission's own thin wall, and the other three faces never ignite.
+        assertTrue(m.layout.wallBetween(9, 10, 10, 10), "the burning cell (10,10) shares its west edge with a thin wall")
+        assertEquals(TERRAIN_FLOOR, m.layout.terrainAt(9, 10), "the burning cell's western neighbour (9,10) is open passable floor")
+        assertTrue(terrainPassable(m.layout.terrainAt(9, 10)), "fire could walk into the west half of the field if the thin wall were not there")
+        assertEquals(TERRAIN_WALL, m.layout.terrainAt(10, 9), "the pocket is sealed north by a terrain wall cell")
+        assertEquals(TERRAIN_WALL, m.layout.terrainAt(11, 10), "the pocket is sealed east by a terrain wall cell between the fire and the exit")
+        assertEquals(TERRAIN_REFILL, m.layout.terrainAt(10, 11), "the pocket's south face is the refill firing stand: refill cells never ignite")
+        assertEquals(TERRAIN_EXIT, m.layout.terrainAt(12, 10), "the exit glyph stays east of the burning cell inside the pocket")
+        assertEquals(8, (2..9).count { m.layout.terrainAt(it, 13) == TERRAIN_REFILL }, "the west refill lane is the 8 cells (2..9,13) on the open row 13 below the wall")
+        assertEquals(9, m.layout.terrain.count { it == TERRAIN_REFILL }, "measured: 9 refill cells in total, the lane plus the firing stand (10,11)")
 
         val naive = FirelineWorld(
             m.descriptorForSource("       MOVE\n       MOVE\n       MOVE\n       MOVE\n       MOVE\n       MOVE\n       MOVE\n       MOVE\n       WAIT\n       JMP    fin\nfin:   WAIT\n       JMP    fin"),
@@ -209,10 +225,14 @@ class Step10AuthoredMissionsTest {
         val failing = FirelineWorld(m.descriptorForSource(m.failingSources[0].second))
         var blockedShots = 0
         var crossedEdge = false
+        val blockedLines = ArrayList<String>()
         val ignitePattern = Regex("IGNITES (\\d+),(\\d+).*from (\\d+),(\\d+)")
         failing.onTick = { w ->
             for (e in w.lastEvents) {
-                if (e.startsWith("PACKET BLOCKED EDGE")) blockedShots++
+                if (e.startsWith("PACKET BLOCKED EDGE")) {
+                    blockedShots++
+                    blockedLines.add("t${w.tick} $e")
+                }
                 val ign = ignitePattern.find(e)
                 if (ign != null) {
                     val (tx, ty, fx, fy) = ign.destructured
@@ -222,29 +242,45 @@ class Step10AuthoredMissionsTest {
         }
         failing.runUntilFinished(m.maxTicks)
         assertTrue(blockedShots >= 3, "packets fired straight at a thin wall are refused at the edge (measured: $blockedShots)")
-        assertFalse(crossedEdge, "the merged rule (PLAN-RECONCILE-MAIN-01.md §8) blocks fire spread across a walled edge: the pocket fire never crosses x=9")
+        assertEquals(9, blockedShots, "measured control anchor: 9 PACKET BLOCKED EDGE refusals from (9,10) toward 10,10")
+        assertEquals(
+            listOf("t17 PACKET BLOCKED EDGE 10,10", "t21 PACKET BLOCKED EDGE 10,10"),
+            blockedLines.take(2),
+            "two exact control event lines, measured at ticks 17 and 21",
+        )
+        assertFalse(crossedEdge, "the merged rule (PLAN-RECONCILE-MAIN-01.md §8) blocks fire spread across a walled edge: the pocket fire never crosses x=9 in this run")
         assertEquals(FailureReason.TIME_EXPIRED, failing.failureReason,
-            "the fire stays sealed in the pocket, the rover survives behind the wall, and the spray-only bot simply runs out of time (measured: hp ${failing.rover.hp} at tick ${failing.tick})")
-        assertTrue(failing.rover.hp > 0, "the wall that stops the fire also keeps the rover alive")
+            "the fire stays behind the wall, the rover survives behind it, and the spray-only bot simply runs out of time (measured: hp ${failing.rover.hp} at tick ${failing.tick})")
+        assertTrue(failing.rover.hp > 0, "the wall that stops the fire also keeps the rover alive (measured hp 92; without the wall the same bot dies at tick 59)")
         assertEquals(90, failing.tick, "control anchor 6-failing-t90 tick")
-        assertEquals("ba00d941d5cfce57", failing.finalStateHash(), "measured control anchor (MeasureR5): 6-failing final hash at tick 90")
+        assertEquals("a01a2344948c78b5", failing.finalStateHash(), "measured control anchor (MeasureR6): 6-failing final hash at tick 90")
 
         val reference = referenceOf(m)
         assertEquals(RunStatus.SUCCESS, reference.status, reference.render())
         assertEquals(0, reference.burningCells, "the pocket cell beyond the wall is drowned from the refill firing stand")
         assertEquals(0, reference.fireIntensitySum)
-        assertEquals(62, reference.tick, "reference anchor 6-reference-final tick (MeasureR5), inside the 90-tick limit")
-        assertEquals("78ab6090ddbe444a", reference.finalStateHash, "reference anchor 6-reference final hash (MeasureR5)")
+        assertEquals(49, reference.tick, "reference anchor 6-reference-final tick (MeasureR6), inside the 90-tick limit")
+        assertEquals("1b8b91c5bd8ff47f", reference.finalStateHash, "reference anchor 6-reference final hash (MeasureR6)")
         assertTrue(reference.tick <= m.timeLimit!!, "reference ${reference.tick} ticks inside the limit ${m.timeLimit}")
+        assertTrue(m.timeLimit!! - reference.tick >= 20, "measured headroom: ${m.timeLimit!! - reference.tick} ticks between the reference finish and the limit")
         assertTrue(reference.firmwareBytes in 75..111, "firmware size in the range of missions 01-05: ${reference.firmwareBytes}")
         assertTrue(reference.firmwareInstructions in 25..37, "instruction count in the range of missions 01-05: ${reference.firmwareInstructions}")
+        val refProbe = FirelineWorld(m.descriptorForSource(m.referenceSource))
+        repeat(12) { refProbe.tickOnce() }
+        assertEquals("085d4da41e356ccf", refProbe.finalStateHash(), "reference anchor 6-reference probe hash at tick 12 (MeasureR6)")
 
         val refWorld = FirelineWorld(m.descriptorForSource(m.referenceSource))
         var refIgnites = 0
         var refCrossedEdge = 0
         var refExitIgnites = 0
+        var refPackets = 0
+        var refArrivalTick = -1
+        var refMaxHeat = 0
         refWorld.onTick = { w ->
+            if (refArrivalTick < 0 && w.rover.x == 10 && w.rover.y == 11) refArrivalTick = w.tick
+            if (w.rover.heat > refMaxHeat) refMaxHeat = w.rover.heat
             for (e in w.lastEvents) {
+                if (e.startsWith("FIRE -")) refPackets++
                 val ign = ignitePattern.find(e)
                 if (ign != null) {
                     refIgnites++
@@ -255,9 +291,84 @@ class Step10AuthoredMissionsTest {
             }
         }
         refWorld.runUntilFinished(m.maxTicks)
-        assertEquals(0, refIgnites, "the reference run sees no ignition at all: the sealed pocket cannot crawl anywhere")
-        assertEquals(0, refCrossedEdge, "no ignition ever lands on a cell whose shared edge with a burning cell is a mission thin wall (measured: 0)")
+        assertEquals(29, refArrivalTick, "measured: the rover reaches its firing stand (10,11) on tick 29, after walking around the wall's lower end")
+        assertEquals(4, refPackets, "measured: 4 FIRE packets drown the pocket cell (limit 5)")
+        assertTrue(refPackets <= 5, "the reference solution stays within the 5-packet budget (measured: $refPackets)")
+        assertTrue(refWorld.rover.hp > 0, "measured: the reference rover finishes at hp ${refWorld.rover.hp}")
+        assertTrue(refMaxHeat + HEAT_SHOOT <= HEAT_MAX, "no SHOOT of the reference run is heat-locked (measured heat peak $refMaxHeat)")
+        assertEquals(0, refIgnites, "the walled reference run sees no ignition at all: the pocket's only open face is the walled one")
+        assertEquals(0, refCrossedEdge, "cross-wall ignition count in the walled run: no ignition ever lands on a cell whose shared edge with a burning cell is a mission thin wall")
         assertEquals(0, refExitIgnites, "the exit cell never ignites during the reference run")
+
+        /**
+         * The edge-open counterfactual: the same layout (same terrain, same fire,
+         * same seed, same reference firmware) with this mission's 13 thin wall
+         * segments removed. This is what makes the fire half load bearing - the
+         * zero above is challenged on the level's own geometry instead of being
+         * guaranteed by a pocket that shares no walled edge with anything.
+         */
+        val openMission = Mission(
+            id = m.id, name = m.name, briefing = m.briefing,
+            layout = Layout(
+                m.layout.terrain.copyOf(), m.layout.fire.copyOf(),
+                m.layout.roverX, m.layout.roverY, m.layout.roverDir, m.layout.civilians,
+            ),
+            seed = m.seed, objectives = m.objectives, timeLimit = m.timeLimit,
+            startingWater = m.startingWater, windDir = m.windDir, windForce = m.windForce,
+            referenceSource = m.referenceSource, failingSources = m.failingSources, maxTicks = m.maxTicks,
+        )
+        assertEquals(0, openMission.layout.edgeCount(), "the counterfactual is the same layout with all 13 thin wall segments removed")
+        assertEquals(emptyList<String>(), openMission.validate(), "the wall-free layout still validates: the wall, not geometry, is what separates the fire from the west half")
+        val openWorld = FirelineWorld(openMission.descriptorForSource(openMission.referenceSource))
+        val openIgnites = ArrayList<String>()
+        val openCrossColumn = ArrayList<String>()
+        val openWestIgnites = ArrayList<String>()
+        var openExitIgnites = 0
+        openWorld.onTick = { w ->
+            for (e in w.lastEvents) {
+                val ign = ignitePattern.find(e)
+                if (ign != null) {
+                    val (tx, ty, fx, fy) = ign.destructured
+                    val line = "t${w.tick} $e"
+                    openIgnites.add(line)
+                    // West/east crossing of the former wall column x = 9 (the
+                    // border between (9,y) and (10,y) in the mission layout).
+                    if ((fx.toInt() >= 10 && tx.toInt() <= 9) || (fx.toInt() <= 9 && tx.toInt() >= 10)) openCrossColumn.add(line)
+                    if (tx.toInt() <= 8) openWestIgnites.add(line)
+                    if (w.layout.terrainAt(tx.toInt(), ty.toInt()) == TERRAIN_EXIT) openExitIgnites++
+                }
+            }
+        }
+        openWorld.runUntilFinished(m.maxTicks)
+        assertTrue(openCrossColumn.isNotEmpty(), "without the wall the spread stream crosses the former wall column (measured: ${openCrossColumn.size} crossings)")
+        assertEquals(
+            listOf(
+                "t15 FIRE IGNITES 9,10 floor from 10,10 dir=W chance=37<64",
+                "t55 FIRE IGNITES 10,10 floor from 9,10 dir=E chance=31<64",
+            ),
+            openCrossColumn,
+            "exact cross-column IGNITES lines of the wall-free run: the tick-15 west draw the thin wall refuses, and the tick-55 re-entry into the pocket",
+        )
+        assertEquals(listOf(
+            "t40 FIRE IGNITES 8,10 floor from 9,10 dir=W chance=15<64",
+            "t65 FIRE IGNITES 8,9 floor from 8,10 dir=N chance=27<64",
+            "t80 FIRE IGNITES 8,11 floor from 8,10 dir=S chance=18<64",
+            "t85 FIRE IGNITES 8,12 floor from 8,11 dir=S chance=37<64",
+        ), openWestIgnites, "measured ignites west of the wall column: the fire walks into the rover's west half down to (8,12), directly north of the refill lane cell (8,13)")
+        assertEquals(8, openIgnites.size, "measured: 8 ignites in the wall-free run against 0 in the walled run")
+        assertEquals(0, openExitIgnites, "the exit cell never ignites in either run")
+        assertEquals(FailureReason.TIME_EXPIRED, openWorld.failureReason, "the same reference firmware misses EXTINGUISH_ALL once the fire crosses the wall line")
+        assertEquals(90, openWorld.tick, "measured wall-free reference finish: tick 90 against tick 49 behind the wall")
+        assertEquals(8, openWorld.snapshot().burningCells, "measured: 8 cells still burn against 0 behind the wall")
+        assertEquals(40, openWorld.snapshot().waterUsed, "the wall-free run spends the same 40 water on 4 packets and still cannot drown everything")
+        assertEquals("ec033d1efa5fddff", openWorld.finalStateHash(), "measured wall-free counterfactual final hash (MeasureR6)")
+
+        val openNaive = FirelineWorld(openMission.descriptorForSource(openMission.failingSources[0].second))
+        openNaive.runUntilFinished(m.maxTicks)
+        assertEquals(FailureReason.ROVER_DESTROYED, openNaive.failureReason, "the spray bot stands on (9,10): the thin wall is the only reason it survives")
+        assertEquals(59, openNaive.tick, "measured wall-free spray-bot finish: ROVER_DESTROYED at tick 59")
+        assertEquals(0, openNaive.rover.hp, "measured: hp 0 without the wall against hp 92 behind it")
+        assertEquals("f01e72b53ef2ed3c", openNaive.finalStateHash(), "measured wall-free spray-bot final hash (MeasureR6)")
     }
 
     // ---- §13.2 point 5 for authored content ----

@@ -43,13 +43,15 @@ class EdgeWallGeometryTest {
     @Test
     fun mission06ThinWallsComeOnlyFromTheEdgeArrays() {
         val layout = Missions.byId(6)!!.layout
-        // The R4 layout carries exactly the three pocket-shell wall cells.
-        assertEquals(3, layout.terrainRowMajor().count { it == TERRAIN_WALL })
-        assertEquals(TERRAIN_WALL, layout.terrainAt(10, 12))
-        assertEquals(TERRAIN_WALL, layout.terrainAt(10, 14))
-        assertEquals(TERRAIN_WALL, layout.terrainAt(11, 13))
+        // The pocket shell is two wall cells north and east of the burning cell;
+        // its south face is the refill firing stand (10,11), not a wall cell.
+        assertEquals(2, layout.terrainRowMajor().count { it == TERRAIN_WALL })
+        assertEquals(TERRAIN_WALL, layout.terrainAt(10, 9))
+        assertEquals(TERRAIN_WALL, layout.terrainAt(11, 10))
         assertTrue(layout.wallsPresent())
-        // The gate cells on both sides of the thin wall are ordinary floor cells.
+        // The gate cells on both sides of the thin wall are ordinary floor cells:
+        // the burning cell (10,10) sits on the walled row and (9,10) is the open
+        // floor the thin wall keeps safe for the rover's west half.
         assertEquals(TERRAIN_FLOOR, layout.terrainAt(9, 10))
         assertEquals(TERRAIN_FLOOR, layout.terrainAt(10, 10))
         assertTrue(EdgeWallGeometry.segmentsOf(layout.wallVertRowMajor(), layout.wallHorizRowMajor()).isNotEmpty())
