@@ -26,12 +26,10 @@ for parts in rows:
         # then horiz 19x20, comma-separated on one TSV line.
         rows = parts[2].split(",")
         assert len(rows) == 39, (label, len(rows))
-        if label.startswith("06"):
-            s = n[label]
-            assert rows[:20] == s["wall_vert"], (label, "wall_vert")
-            assert rows[20:] == s["wall_horiz"], (label, "wall_horiz")
-        else:
-            assert all(row.count("#") == 0 for row in rows), (label, "wall-free mission carries a wall glyph")
+        s = n[label]
+        assert rows[:20] == s["wall_vert"], (label, "wall_vert")
+        assert rows[20:] == s["wall_horiz"], (label, "wall_horiz")
+        assert sum(r.count("#") for r in rows) == s["wall_count"], (label, "wall_count")
         print(f"WALL  {label:14} cross-checked 39 wall rows: OK")
         continue
     s = n[label]

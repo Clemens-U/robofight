@@ -21,7 +21,7 @@ import robofight.isa.decPad
  * (docs/FIRELINE-WEB.md §13, frozen layout §15). Two things live here:
  *
  * 1. [MissionRow] picker rows for `Missions.ALL` - the `FL:> SELECT A CALL`
- *    cards of §15.2 item 7, plus the engine-v2 best-run label the cards carry;
+ *    cards of §15.2 item 7, plus the engine-v4 best-run label the cards carry;
  * 2. [ConsoleRun], a thin driver over the shared `MissionSession`
  *    (`:fireline-engine` commonMain) that names the state the run surface, the
  *    RF-8 STATE band and the TELEMETRY band render.
@@ -120,7 +120,7 @@ class ConsoleModel(val missions: List<Mission> = Missions.ALL) {
     )
 
     /**
-     * Engine-v2 best run of the authored reference firmware: the headless
+     * Engine-v4 best run of the authored reference firmware: the headless
      * authority path (`FirelineRun.runWithGuard`), formatted from its own result -
      * the same values pinned in `docs/web/fixtures/parity_matrix.tsv` /
      * `parity_matrix.json`.
@@ -195,7 +195,7 @@ data class BestRunLabel(
     val firmwareBytes: Int,
     val firmwareInstructions: Int,
 ) {
-    /** Card line, e.g. `engine v2  SUCCESS tick 102/120  $d3ea4711  75 B / 25 instructions`. */
+    /** Card line, e.g. `engine v4  SUCCESS tick 102/120  $5cd373d7  75 B / 25 instructions`. */
     val label: String
         get() = "engine v$engineVersion  ${status.name} tick $tick/${timeLimit?.toString() ?: "MAX"}  " +
             "$fingerprintHex  $firmwareBytes B / $firmwareInstructions instructions"

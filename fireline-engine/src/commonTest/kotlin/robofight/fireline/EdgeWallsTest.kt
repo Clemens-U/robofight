@@ -686,22 +686,22 @@ class EdgeWallsTest {
         val t12 = FirelineWorld(corridorDescriptor)
         repeat(12) { t12.tickOnce() }
         assertEquals(12, t12.tick, "anchor 02-ref-t12 tick")
-        assertEquals("579cf583444d2790", t12.finalStateHash(), "main-layout re-record of label 02-ref-t12 (was 894f4fbeb771c162 on the pre-adoption layout)")
+        assertEquals("698f7ba3f6e52462", t12.finalStateHash(), "engine v4 re-record of label 02-ref-t12 (was 894f4fbeb771c162 pre-adoption, 579cf583444d2790 under engine v2)")
 
         val t46 = FirelineWorld(corridorDescriptor)
         repeat(46) { t46.tickOnce() }
         assertEquals(46, t46.tick, "anchor 02-ref-t46 tick")
-        assertEquals("f188fe6c320394bc", t46.finalStateHash(), "main-layout re-record of label 02-ref-t46 (was 3c88e48d9e86ebf2 on the pre-adoption layout)")
+        assertEquals("5409bb0e6a3f057a", t46.finalStateHash(), "engine v4 re-record of label 02-ref-t46 (was 3c88e48d9e86ebf2 pre-adoption, f188fe6c320394bc under engine v2)")
 
         val t30 = FirelineWorld(corridorDescriptor)
         repeat(30) { t30.tickOnce() }
         assertEquals(30, t30.tick, "mission 02 CORRIDOR tick 30")
-        assertEquals("aae3c24e24551f92", t30.finalStateHash(), "measured in this build from mission 02 referenceSource (was a4e289de3b43ffe4 on the pre-adoption layout)")
+        assertEquals("7776f745bdafc6dc", t30.finalStateHash(), "engine v4 re-record of mission 02 tick 30 (was a4e289de3b43ffe4 pre-adoption, aae3c24e24551f92 under engine v2; scratch twin MeasureR8)")
 
         val finished = FirelineRun.runWithGuard(corridor, corridorDescriptor)
         assertEquals(102, finished.tick, "anchor 02-ref-final tick")
         assertEquals(RunStatus.SUCCESS, finished.status, "mission 02 reference firmware still succeeds at main's tick 102")
-        assertEquals("2b8f20db8081bf73", finished.finalStateHash, "main-layout re-record of label 02-ref-final and parity_matrix 2-reference final_hash (tick 102, was d604c2a00e2b5de5 on the pre-adoption layout)")
+        assertEquals("5cd373d7f4a15c81", finished.finalStateHash, "engine v4 re-record of label 02-ref-final and parity_matrix 2-reference final_hash (tick 102, was d604c2a00e2b5de5 pre-adoption, 2b8f20db8081bf73 under engine v2)")
 
         val nozzle = assertNotNull(Missions.byId(1), "mission 01 NOZZLE CHECK must exist")
         val neverShoots = nozzle.failingSources.first { it.first == "never shoots" }
@@ -710,12 +710,12 @@ class EdgeWallsTest {
         val n30 = FirelineWorld(neverDescriptor)
         repeat(30) { n30.tickOnce() }
         assertEquals(30, n30.tick, "anchor 01-never-t30 tick")
-        assertEquals("128031754936e24c", n30.finalStateHash(), "main-layout re-record of label 01-never-t30 (was 7a8795328485c85c on the pre-adoption layout)")
+        assertEquals("b35796f9ce76dae6", n30.finalStateHash(), "engine v4 re-record of label 01-never-t30 (was 7a8795328485c85c pre-adoption, 128031754936e24c under engine v2)")
 
         val nFinal = FirelineRun.runWithGuard(nozzle, neverDescriptor)
         assertEquals(60, nFinal.tick, "anchor 01-never-final tick = timeLimit 60")
         assertEquals(FailureReason.TIME_EXPIRED, nFinal.failureReason, "mission 01 failing firmware fails for the documented reason")
-        assertEquals("51fd5cb69657d680", nFinal.finalStateHash, "main-layout re-record of label 01-never-final and parity_matrix 1-failing final_hash (tick 60 = timeLimit, was c35cd239631ff200 on the pre-adoption layout)")
+        assertEquals("82a952554d427d7a", nFinal.finalStateHash, "engine v4 re-record of label 01-never-final and parity_matrix 1-failing final_hash (tick 60 = timeLimit, was c35cd239631ff200 pre-adoption, 51fd5cb69657d680 under engine v2)")
     }
 
     @Test
@@ -736,6 +736,6 @@ class EdgeWallsTest {
         assertTrue(thinState.contains("\nverticalEdges="), "mission 06 stamps its vertical wall column")
         assertTrue(thinState.split("verticalEdges=")[1].take(VERT_EDGE_SLOTS).count { it == '1' } == 13, "mission 06 stamps exactly its 13 vertical edges (the single column x=9, rows 0..12)")
         assertTrue(thinState.split("horizontalEdges=")[1].take(HORIZ_EDGE_SLOTS).count { it == '1' } == 0, "mission 06 stamps no horizontal edge (its wall is one vertical run)")
-        assertEquals(FIRELINE_ENGINE_VERSION, 2, "engine v2 stays the shipped version through this increment: canonicalState stamps it and MissionDescriptor defaults to it; the bump to 4 follows at the anchor re-baseline (PLAN-RECONCILE-MAIN-01.md §8)")
+        assertEquals(FIRELINE_ENGINE_VERSION, 4, "engine v4 is the shipped version after the reconciliation bump: canonicalState stamps it and MissionDescriptor defaults to it (PLAN-RECONCILE-MAIN-01.md §7 decision 4, re-baseline per PLAN-EDGE-WALLS.md §10.7)")
     }
 }

@@ -253,21 +253,21 @@ class Step10AuthoredMissionsTest {
             "the fire stays behind the wall, the rover survives behind it, and the spray-only bot simply runs out of time (measured: hp ${failing.rover.hp} at tick ${failing.tick})")
         assertTrue(failing.rover.hp > 0, "the wall that stops the fire also keeps the rover alive (measured hp 92; without the wall the same bot dies at tick 59)")
         assertEquals(90, failing.tick, "control anchor 6-failing-t90 tick")
-        assertEquals("a01a2344948c78b5", failing.finalStateHash(), "measured control anchor (MeasureR6): 6-failing final hash at tick 90")
+        assertEquals("55d1dabb5ff672d3", failing.finalStateHash(), "engine v4 re-record of the control anchor 6-failing final hash at tick 90 (was a01a2344948c78b5 under engine v2; parity_matrix 6-failing)")
 
         val reference = referenceOf(m)
         assertEquals(RunStatus.SUCCESS, reference.status, reference.render())
         assertEquals(0, reference.burningCells, "the pocket cell beyond the wall is drowned from the refill firing stand")
         assertEquals(0, reference.fireIntensitySum)
         assertEquals(49, reference.tick, "reference anchor 6-reference-final tick (MeasureR6), inside the 90-tick limit")
-        assertEquals("1b8b91c5bd8ff47f", reference.finalStateHash, "reference anchor 6-reference final hash (MeasureR6)")
+        assertEquals("3a958e3503fe0741", reference.finalStateHash, "engine v4 re-record of the reference anchor 6-reference final hash (was 1b8b91c5bd8ff47f under engine v2; parity_matrix 6-reference)")
         assertTrue(reference.tick <= m.timeLimit!!, "reference ${reference.tick} ticks inside the limit ${m.timeLimit}")
         assertTrue(m.timeLimit!! - reference.tick >= 20, "measured headroom: ${m.timeLimit!! - reference.tick} ticks between the reference finish and the limit")
         assertTrue(reference.firmwareBytes in 75..111, "firmware size in the range of missions 01-05: ${reference.firmwareBytes}")
         assertTrue(reference.firmwareInstructions in 25..37, "instruction count in the range of missions 01-05: ${reference.firmwareInstructions}")
         val refProbe = FirelineWorld(m.descriptorForSource(m.referenceSource))
         repeat(12) { refProbe.tickOnce() }
-        assertEquals("085d4da41e356ccf", refProbe.finalStateHash(), "reference anchor 6-reference probe hash at tick 12 (MeasureR6)")
+        assertEquals("108606110907a1bd", refProbe.finalStateHash(), "engine v4 re-record of the reference anchor 6-reference probe hash at tick 12 (was 085d4da41e356ccf under engine v2; parity_matrix 6-reference probe)")
 
         val refWorld = FirelineWorld(m.descriptorForSource(m.referenceSource))
         var refIgnites = 0
@@ -361,14 +361,14 @@ class Step10AuthoredMissionsTest {
         assertEquals(90, openWorld.tick, "measured wall-free reference finish: tick 90 against tick 49 behind the wall")
         assertEquals(8, openWorld.snapshot().burningCells, "measured: 8 cells still burn against 0 behind the wall")
         assertEquals(40, openWorld.snapshot().waterUsed, "the wall-free run spends the same 40 water on 4 packets and still cannot drown everything")
-        assertEquals("ec033d1efa5fddff", openWorld.finalStateHash(), "measured wall-free counterfactual final hash (MeasureR6)")
+        assertEquals("1f60ddf4db958199", openWorld.finalStateHash(), "engine v4 re-record of the wall-free counterfactual final hash (was ec033d1efa5fddff under engine v2; scratch twin MeasureR8)")
 
         val openNaive = FirelineWorld(openMission.descriptorForSource(openMission.failingSources[0].second))
         openNaive.runUntilFinished(m.maxTicks)
         assertEquals(FailureReason.ROVER_DESTROYED, openNaive.failureReason, "the spray bot stands on (9,10): the thin wall is the only reason it survives")
         assertEquals(59, openNaive.tick, "measured wall-free spray-bot finish: ROVER_DESTROYED at tick 59")
         assertEquals(0, openNaive.rover.hp, "measured: hp 0 without the wall against hp 92 behind it")
-        assertEquals("f01e72b53ef2ed3c", openNaive.finalStateHash(), "measured wall-free spray-bot final hash (MeasureR6)")
+        assertEquals("2e7446f859fd1abe", openNaive.finalStateHash(), "engine v4 re-record of the wall-free spray-bot final hash (was f01e72b53ef2ed3c under engine v2; scratch twin MeasureR8)")
     }
 
     // ---- §13.2 point 5 for authored content ----

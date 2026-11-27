@@ -429,8 +429,9 @@ status block in the plan.
   `MissionSession`, all five authored missions run in the browser, the tick 12/30/46
   bands and the mission 02 finish at tick 102 match the committed fixtures field for
   field in both containers, and `.ASM` bytes round-trip app -> browser -> app with one
-  shared fingerprint. Under engine v2 the fingerprint anchor is `$d3ea4711`
-  (`parity_matrix.json` `2-reference`); the `$47e28d84` above was the engine v1 value.**
+  shared fingerprint. Under engine v4 the fingerprint anchor is `$5cd373d7`
+  (`docs/web/fixtures/parity_matrix.tsv` `2-reference` final_hash `5cd373d7f4a15c81`, final tick 102);
+  `$d3ea4711` was the engine v2 value and `$47e28d84` the engine v1 value.**
 - **W4, landing page integration** (`codex/web-w4-integration`).
   `#play` panel, nav entry, hero command rewiring, `/play/` deploy task,
   share permalinks, web privacy page. Gate: landing page static rendering
@@ -598,12 +599,16 @@ mockup 2 and mockup 5, so the pairing cannot drift between mockups.
 
 ### 14.1 How the mockups were verified
 
-Record status 2026-11-21: the fingerprints in this section, and the `$47e28d84` values cited
-in §2, §4 gate G4 and §9 W3, were measured under engine v1. `FIRELINE_ENGINE_VERSION` is 2
-(`FirelineRules.kt:21`) since the edge-wall step E1b (`PLAN-EDGE-WALLS.md` section 11), which
-moved every state fingerprint. The measurements below are kept as recorded; the current values
-are in `docs/web/fixtures/parity_matrix.tsv` and `docs/web/fixtures/snapshots.json`. §13 to §15
-are the frozen layout spec and were not touched.
+Record status 2026-11-21 (current state restated 2026-11-27): the fingerprints in this section,
+and the `$47e28d84` values cited in §2, §4 gate G4 and §9 W3, were measured under engine v1.
+`FIRELINE_ENGINE_VERSION` is 4 (`FirelineRules.kt:21`): the edge-wall step E1b
+(`PLAN-EDGE-WALLS.md` section 11) raised it to 2, and the main-layout reconciliation
+(`PLAN-RECONCILE-MAIN-01.md` §10 step 7) raised it to 4 with the §10.7 re-baseline recipe, which
+moved every state fingerprint. The measurements below are kept as recorded; they belong to the
+pre-reconciliation catalog (the recorded 26-wall mission 02 grid is now 1 terrain wall cell plus 25
+thin edges, and mission 06 is `GO AROUND` with 13 thin edges). The current values are in
+`docs/web/fixtures/parity_matrix.tsv` and `docs/web/fixtures/snapshots.json`. §13 to §15 are the
+frozen layout spec and were not touched.
 
 - Snapshot harness: `docs/web/fixtures/SnapshotFixtures.kt` (plus
   `CrossCheck.kt`, `verify_snapshots.py`, `verify_crosscheck.py`, `README.md`

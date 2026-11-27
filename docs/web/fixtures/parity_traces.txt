@@ -128,32 +128,32 @@
 010 MOVE (1/2) | ROVER FIRE DAMAGE -4 (fire 100)
 011 MOVE (2/2) | ROVER FIRE DAMAGE -4 (fire 100)
 012 JMP 256 | ROVER FIRE DAMAGE -4 (fire 100)
-# 6-reference reference probe=12 trace_hash=5f7fd7153968d3c2
+# 6-reference reference probe=12 trace_hash=46f9fc7672a993d9
+001 TURN R | 
+002 MOVE (1/2) | 
+003 MOVE (2/2) | 
+004 MOVE (1/2) | 
+005 MOVE (2/2) | 
+006 MOVE (1/2) | 
+007 MOVE (2/2) | 
+008 TURN L | 
+009 MOVE (1/2) | 
+010 MOVE (2/2) | 
+011 MOVE (1/2) | 
+012 MOVE (2/2) | 
+# 6-failing spray straight at the wall probe=12 trace_hash=4720fbe644a1f4ca
 001 MOVE (1/2) | 
 002 MOVE (2/2) | 
 003 MOVE (1/2) | 
 004 MOVE (2/2) | 
 005 MOVE (1/2) | 
 006 MOVE (2/2) | 
-007 IN port11 | 
-008 JZ (skip) | 
-009 TURN R | 
-010 MOVE (1/2) | 
-011 MOVE (2/2) | 
-012 TURN L | 
-# 6-failing spray through the thin wall probe=12 trace_hash=aae04624e85d38cf
-001 MOVE (1/2) | 
-002 MOVE (2/2) | 
-003 MOVE (1/2) | 
-004 MOVE (2/2) | 
-005 MOVE (1/2) | 
-006 MOVE (2/2) | 
-007 SHOOT (1/3) | 
-008 SHOOT (2/3) | 
-009 SHOOT (3/3) | PACKET BLOCKED EDGE 6,2
-010 JMP 265 | 
-011 SHOOT (1/3) | 
-012 SHOOT (2/3) | 
+007 MOVE (1/2) | 
+008 MOVE (2/2) | 
+009 MOVE (1/2) | 
+010 MOVE (2/2) | 
+011 MOVE (1/2) | 
+012 MOVE (2/2) | 
 # wall-lane-move lane move loop probe=12 trace_hash=88b5c429de62c944
 001 MOVE (1/2) | 
 002 MOVE (2/2) | 

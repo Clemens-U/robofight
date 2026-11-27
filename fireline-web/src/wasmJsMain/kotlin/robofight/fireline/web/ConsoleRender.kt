@@ -519,7 +519,7 @@ object ConsoleRender {
 
     /** One card. `h3`, the briefing paragraph and the `meta2` fact line are the
      *  master's shape (`choose_calls_html()`); the second `meta2` line is the
-     *  engine-v2 best-run label the console cards carry (`BestRunLabel.label`). */
+     *  engine-v4 best-run label the console cards carry (`BestRunLabel.label`). */
     private fun missionCard(row: MissionRow): String =
         "<article class=\"mcard\" id=\"" + cardId(row.id) + "\">" +
             "<h3>" + escapeHtml(row.missionLabel) + "</h3><p>" + escapeHtml(row.briefing) + "</p>" +

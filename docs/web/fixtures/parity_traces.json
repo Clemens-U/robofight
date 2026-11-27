@@ -1,6 +1,6 @@
 {
-  "engineVersion": 2,
-  "sourceCommit": "afec3755273df5d278d7349e2438979cd3d09bcb",
+  "engineVersion": 4,
+  "sourceCommit": "0e2f95764f5c00ed7fa236e5569e08593726f7e6",
   "traces": {
     "1-reference": {
       "probeTick": 12,
@@ -184,25 +184,25 @@
     },
     "6-reference": {
       "probeTick": 12,
-      "traceHash": "5f7fd7153968d3c2",
+      "traceHash": "46f9fc7672a993d9",
       "lines": [
-        "001 MOVE (1/2) | ",
-        "002 MOVE (2/2) | ",
-        "003 MOVE (1/2) | ",
-        "004 MOVE (2/2) | ",
-        "005 MOVE (1/2) | ",
-        "006 MOVE (2/2) | ",
-        "007 IN port11 | ",
-        "008 JZ (skip) | ",
-        "009 TURN R | ",
-        "010 MOVE (1/2) | ",
-        "011 MOVE (2/2) | ",
-        "012 TURN L | "
+        "001 TURN R | ",
+        "002 MOVE (1/2) | ",
+        "003 MOVE (2/2) | ",
+        "004 MOVE (1/2) | ",
+        "005 MOVE (2/2) | ",
+        "006 MOVE (1/2) | ",
+        "007 MOVE (2/2) | ",
+        "008 TURN L | ",
+        "009 MOVE (1/2) | ",
+        "010 MOVE (2/2) | ",
+        "011 MOVE (1/2) | ",
+        "012 MOVE (2/2) | "
       ]
     },
     "6-failing": {
       "probeTick": 12,
-      "traceHash": "aae04624e85d38cf",
+      "traceHash": "4720fbe644a1f4ca",
       "lines": [
         "001 MOVE (1/2) | ",
         "002 MOVE (2/2) | ",
@@ -210,12 +210,12 @@
         "004 MOVE (2/2) | ",
         "005 MOVE (1/2) | ",
         "006 MOVE (2/2) | ",
-        "007 SHOOT (1/3) | ",
-        "008 SHOOT (2/3) | ",
-        "009 SHOOT (3/3) | PACKET BLOCKED EDGE 6,2",
-        "010 JMP 265 | ",
-        "011 SHOOT (1/3) | ",
-        "012 SHOOT (2/3) | "
+        "007 MOVE (1/2) | ",
+        "008 MOVE (2/2) | ",
+        "009 MOVE (1/2) | ",
+        "010 MOVE (2/2) | ",
+        "011 MOVE (1/2) | ",
+        "012 MOVE (2/2) | "
       ]
     },
     "wall-lane-move": {

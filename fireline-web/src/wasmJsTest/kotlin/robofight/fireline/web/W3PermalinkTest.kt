@@ -21,8 +21,8 @@ import robofight.fireline.Missions
  *  2. `Permalink.decode` recovers mission id, seed override, firmware name and
  *     the exact authored source text from those same links;
  *  3. a decoded mission-02 link reproduces the committed engine run (tick 102,
- *     fingerprint `d3ea47119fe3b101` from `parity_matrix.tsv` row `2-reference`,
- *     engine 2; the plan's G4 text still cites the engine-v1 value `$47e28d84`):
+ *     fingerprint `5cd373d7f4a15c81` from `parity_matrix.tsv` row `2-reference`,
+ *     engine 4; the plan's G4 text still cites the engine-v1 value `$47e28d84`):
  *     the link really is a reproduction recipe (§8), not a label;
  *  4. hostile or foreign links are refused with reasons, including sources that
  *     would breach the `WebInputLimits` ceilings (§13 "limits enforced before
@@ -101,16 +101,17 @@ class W3PermalinkTest {
 
     @Test
     fun aDecodedMission02LinkReproducesTheCommittedEngineRun() {
-        // parity_matrix.tsv row 2-reference (engine v2): SUCCESS at tick 102,
-        // final hash d3ea47119fe3b101. The plan's §2 / G4 citations still print
+        // parity_matrix.tsv row 2-reference (engine v4): SUCCESS at tick 102,
+        // final hash 5cd373d7f4a15c81. The plan's §2 / G4 citations still print
         // the engine-v1 value `$47e28d84`; PLAN-EDGE-WALLS.md section 11.1
-        // records v1 -> v2 as the re-baseline (docs/web/fixtures/README.md).
+        // records v1 -> v2 and PLAN-RECONCILE-MAIN-01.md §7 decision 4 records
+        // the v2 -> v4 bump (docs/web/fixtures/README.md).
         val decoded = Permalink.decode(pinned("2-reference").link, authoredIds)
         assertIs<Permalink.Decoded.Ok>(decoded)
         val mission = Missions.ALL.first { it.id == decoded.missionId }
         val result = FirelineRun.runWithGuard(mission, mission.descriptorForSource(decoded.firmwareSource))
         assertEquals(102, result.tick)
-        assertEquals("d3ea47119fe3b101", result.finalStateHash)
+        assertEquals("5cd373d7f4a15c81", result.finalStateHash)
     }
 
     @Test

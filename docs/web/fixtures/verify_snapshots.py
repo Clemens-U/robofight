@@ -33,9 +33,12 @@ for s in snaps:
         assert not bad, (s["label"], key, bad)
     tg = set("".join(s["terrain"]))
     assert tg <= set(".#FWEPRC"), (s["label"], tg)
-    # E4 (PLAN-EDGE-WALLS.md §13.7 item 4): the thin-wall rows. WALL_VERT is 20
-    # rows x 19 glyphs (the edge RIGHT of each cell), WALL_HORIZ 19 x 20 (the
-    # edge BELOW each cell); a blocked edge is '#', an open one '.'.
+    # E4 (PLAN-EDGE-WALLS.md §13.7 item 4), re-baselined by PLAN-RECONCILE-MAIN-01.md
+    # §10: mission 06 is GO AROUND (13 vertical segments at column 9, rows 0..12)
+    # and every authored mission now carries thin edge walls (2, 25, 11, 18, 40,
+    # 13 for ids 1..6). WALL_VERT is 20 rows x 19 glyphs (the edge RIGHT of each
+    # cell, row = y, column = x), WALL_HORIZ 19 x 20 (the edge BELOW each cell);
+    # a blocked edge is '#', an open one '.'.
     wv = s["wall_vert"]
     assert len(wv) == 20, (s["label"], "wall_vert", len(wv))
     bad = [(i, len(r)) for i, r in enumerate(wv) if len(r) != 19]
@@ -77,24 +80,23 @@ assert n["01-ref-final"]["status"] == "SUCCESS" and n["01-ref-final"]["fire_inte
 assert n["02-ref-final"]["status"] == "SUCCESS" and n["02-ref-final"]["fire_intensity_total"] == 0
 assert "ON_EXIT" in n["02-ref-final"]["mission_bits"]["readable"]
 assert n["01-ref-t0"]["tick"] == 0 and n["01-ref-t0"]["events"] == []
-# E4: the thin-wall mission rows. Static layout state: every mission-06 snapshot
-# carries the same three edge walls, the same 20x19 / 19x20 row glyphs, and the
-# wall rows are all-open on the five wall-free missions. Mission 06 walls as
-# authored in Missions.kt (PLAN-EDGE-WALLS.md §13.1): the lane gate on the edge
-# right of (5,2) plus the spawn cell's north and south edges.
+# E4 (PLAN-EDGE-WALLS.md §13.7 item 4), re-baselined by PLAN-RECONCILE-MAIN-01.md
+# §10: every authored mission carries thin edge walls; mission 06 is GO AROUND.
+# Static layout state: every snapshot of one mission carries the same wall rows
+# across ticks and firmwares. Measured counts (engine v4): mission ids 1..6 carry
+# 2, 25, 11, 18, 40 and 13 thin edge segments.
+EXPECTED_WALL_COUNTS = {1: 2, 2: 25, 3: 11, 4: 18, 5: 40, 6: 13}
 for s in snaps:
-    if str(s["mission_id"]) == "6":
-        assert s["wall_count"] == 3, (s["label"], s["wall_count"])
-    else:
-        assert s["wall_count"] == 0, (s["label"], s["wall_count"])
+    assert s["wall_count"] == EXPECTED_WALL_COUNTS[int(s["mission_id"])], (s["label"], s["wall_count"])
 w6 = {k: n[k] for k in ("06-ref-t0", "06-ref-t12", "06-ref-t24", "06-ref-final", "06-fail-final")}
 assert all(v["wall_vert"] == w6["06-ref-t0"]["wall_vert"] and v["wall_horiz"] == w6["06-ref-t0"]["wall_horiz"] for v in w6.values()), \
     "wall rows are layout state: identical across ticks and firmwares"
-assert w6["06-ref-t0"]["wall_vert"][2][5] == "#", "lane gate on the edge right of (5,2)"
-assert w6["06-ref-t0"]["wall_horiz"][1][2] == "#", "spawn cell's north edge"
-assert w6["06-ref-t0"]["wall_horiz"][2][2] == "#", "spawn cell's south edge"
+w6vert = [(y, x) for y, row in enumerate(w6["06-ref-t0"]["wall_vert"]) for x, c in enumerate(row) if c == "#"]
+assert w6vert == [(y, 9) for y in range(13)], w6vert
+assert all(c == "." for row in w6["06-ref-t0"]["wall_horiz"] for c in row), "GO AROUND has no horizontal segments"
 w6count = sum(row.count("#") for row in w6["06-ref-t0"]["wall_vert"] + w6["06-ref-t0"]["wall_horiz"])
-assert w6count == 3, w6count
-assert n["06-ref-final"]["status"] == "SUCCESS" and n["06-ref-final"]["tick"] == 59
-assert n["06-fail-final"]["status"] == "FAILURE" and n["06-fail-final"]["failure_reason"] == "ROVER_DESTROYED"
+assert w6count == 13, w6count
+assert n["06-ref-final"]["status"] == "SUCCESS" and n["06-ref-final"]["tick"] == 49
+assert n["06-ref-final"]["time_limit"] == 90 and n["06-fail-final"]["tick"] == 90
+assert n["06-fail-final"]["status"] == "FAILURE" and n["06-fail-final"]["failure_reason"] == "TIME_EXPIRED"
 print("ALL CHECKS PASSED")

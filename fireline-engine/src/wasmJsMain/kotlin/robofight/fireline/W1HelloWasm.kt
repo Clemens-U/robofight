@@ -18,9 +18,9 @@ import robofight.disasm.Disasm
  */
 
 private const val ANCHOR_TICK = 12
-private const val EXPECTED_TICK12_HASH = "d0f26fd5c0b02efa"
-private const val EXPECTED_FINAL_HASH = "d3ea47119fe3b101"
-private const val EXPECTED_NEVER_HASH = "7cbfe49993c17318"
+private const val EXPECTED_TICK12_HASH = "698f7ba3f6e52462"
+private const val EXPECTED_FINAL_HASH = "5cd373d7f4a15c81"
+private const val EXPECTED_NEVER_HASH = "82a952554d427d7a"
 
 private val results = ArrayList<String>()
 

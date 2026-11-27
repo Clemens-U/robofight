@@ -36,10 +36,16 @@ PROBE_TICK = 12
 EXPECTED_MISSION_ROWS = 12  # 6 authored missions x (reference + failing)
 EXPECTED_WALL_ROWS = 4  # PLAN-EDGE-WALLS.md §12: three walled layouts plus the wall removed
 EXPECTED_ROWS = EXPECTED_MISSION_ROWS + EXPECTED_WALL_ROWS
-# Step E5 (PLAN-EDGE-WALLS.md §13): mission 06 "THIN WALL" is the one authored
-# mission that carries edge walls. Every other authored row must still record
-# wall_count 0; that is the isolation gate for the missions shipped before E5.
-WALL_CARRYING_MISSION_SCENARIOS = {"6-reference", "6-failing"}
+# Step E5 (PLAN-EDGE-WALLS.md §13) was superseded by PLAN-RECONCILE-MAIN-01.md
+# §10 (content decision): every authored mission in Missions.kt now carries thin
+# edge walls (2, 25, 11, 18, 40 and 13 segments for missions 01..06, measured in
+# parity_matrix.tsv). The isolation gate stays, inverted: every authored mission
+# row must record wall_count >= 1, so no authored row can silently lose its wall
+# state.
+WALL_CARRYING_MISSION_SCENARIOS = {
+    "1-reference", "1-failing", "2-reference", "2-failing", "3-reference", "3-failing",
+    "4-reference", "4-failing", "5-reference", "5-failing", "6-reference", "6-failing",
+}
 WALL_SCENARIOS = ["wall-lane-move", "wall-nozzle-seal", "wall-lane-suppress", "wall-open-lane"]
 WALL_KINDS = ("wall", "wall-open")
 REQUIRED_COLUMNS = [

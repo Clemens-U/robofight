@@ -368,11 +368,12 @@ fun main(args: Array<String>) {
     snapshots += scenario(nozzle, never.second, listOf(30 to "01-never-t30", -1 to "01-never-final")).map { it.second }
     snapshots += scenario(corridor, corridor.referenceSource, listOf(12 to "02-ref-t12", 46 to "02-ref-t46", -1 to "02-ref-final")).map { it.second }
 
-    // E4 (PLAN-EDGE-WALLS.md §13.7 item 4): mission 06 THIN WALL, the first
+    // E4 (PLAN-EDGE-WALLS.md §13.7 item 4): mission 06 GO AROUND (the capstone
+    // renamed from THIN WALL in PLAN-RECONCILE-MAIN-01.md §10 step R4), the first
     // authored mission whose snapshots must carry the wall rows. Reference
     // firmware at the matrix probe tick 12 plus a mid-run and final state; the
     // documented failing firmware (spray through the thin wall) at its final.
-    val thinWall = Missions.THIN_WALL
+    val thinWall = Missions.GO_AROUND
     val thinWallFail = thinWall.failingSources[0].second
     snapshots += scenario(thinWall, thinWall.referenceSource,
         listOf(0 to "06-ref-t0", 12 to "06-ref-t12", 24 to "06-ref-t24", -1 to "06-ref-final")).map { it.second }

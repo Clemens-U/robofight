@@ -266,7 +266,7 @@ class W3RenderTest {
         assertEquals(1, countOf(html, " selected>"), "the single select carries exactly one selected option")
         assertTrue(html.contains("<option value=\"2\" selected>02 CORRIDOR</option>"), html)
         val withSix = ConsoleUiState.DEFAULT.copy(firmwareMissionId = 6)
-        assertTrue(render(withSix).contains("<option value=\"6\" selected>06 THIN WALL</option>"), "target 06 not selected")
+        assertTrue(render(withSix).contains("<option value=\"6\" selected>06 GO AROUND</option>"), "target 06 not selected")
     }
 
     /** W3 record 18: the LOAD and SAVE CURRENT labels name the mission they act on, so the target

@@ -28,8 +28,8 @@ import robofight.fireline.session.StepOutcome
  *
  * So each assertion below compares the wasm container against data that came from
  * the Android container, and the fingerprint it must reach is the committed matrix
- * anchor (`parity_matrix.json` row `2-reference`, engine 2): tick 102,
- * `d3ea47119fe3b101`.
+ * anchor (`parity_matrix.json` row `2-reference`, engine 4): tick 102,
+ * `5cd373d7f4a15c81`.
  */
 class W3InteropTest {
 
@@ -47,12 +47,12 @@ class W3InteropTest {
         /** `fireline.db` row 1: the exact store name the Android app uses. */
         private const val ANDROID_STORE_NAME: String = "CORRIDOR-REF.ASM"
 
-        /** `parity_matrix.json` row `2-reference` (engine 2): the final anchor. */
-        private const val MATRIX_FINAL_HASH: String = "d3ea47119fe3b101"
+        /** `parity_matrix.json` row `2-reference` (engine 4): the final anchor. */
+        private const val MATRIX_FINAL_HASH: String = "5cd373d7f4a15c81"
 
         /** `snapshots.json` `02-ref-t30` equivalent: the mid-run fingerprint the
          *  browser readout showed at tick 30 (`ConsoleModelTest` pins the same). */
-        private const val TICK30_HASH: String = "0d7fa932"
+        private const val TICK30_HASH: String = "7776f745"
     }
 
     private fun decode64(text: String): String {

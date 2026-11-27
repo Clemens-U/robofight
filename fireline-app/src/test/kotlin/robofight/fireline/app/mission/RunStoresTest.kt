@@ -79,7 +79,7 @@ class RunStoresTest {
         store.update(runSummarySample(engineVersion = 1, missionId = 4))
         assertNotNull(store.get(4, 1))
         // The shipped engine version reads its own lineage only, so a stored
-        // engine v1 badge is not shown for engine v2 (RunStores.kt:94).
+        // engine v1 badge is not shown for `FIRELINE_ENGINE_VERSION` (RunStores.kt:94).
         assertNull(store.get(4, FIRELINE_ENGINE_VERSION))
         assertNull(store.get(2, 1))
         // A different engine version starts its own badge lineage.

@@ -71,7 +71,7 @@ fun main() {
     val nozzle = Missions.NOZZLE_CHECK
     val corridor = Missions.CORRIDOR
     val never = nozzle.failingSources[0].second
-    val thinWall = Missions.THIN_WALL
+    val thinWall = Missions.GO_AROUND
     val thinWallFail = thinWall.failingSources[0].second
 
     val mid = listOf(

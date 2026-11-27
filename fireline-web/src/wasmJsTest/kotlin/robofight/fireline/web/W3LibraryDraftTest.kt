@@ -94,14 +94,14 @@ class W3LibraryDraftTest {
         // would (source copied from the `1-failing-never-shoots` row of
         // `docs/web/fixtures/permalink_sources.tsv`, i.e. live engine text);
         // parity_matrix.tsv row 1-failing pins TIME_EXPIRED at tick 60 with
-        // final hash 7cbfe49993c17318 (engine v2).
+        // final hash 82a952554d427d7a (engine v4).
         val source = "loop:  WAIT\n       JMP    loop"
         val draft = model.draftFirmware(1, "NEVER.ASM", source)
         assertIs<ConsoleModel.DraftResult.Accepted>(draft)
         val outcome = draft.run.run()
         assertEquals(robofight.fireline.session.StepOutcome.FINISHED, outcome)
         assertEquals(FailureReason.TIME_EXPIRED, draft.run.failureReason())
-        assertEquals("7cbfe49993c17318", draft.run.fingerprint())
+        assertEquals("82a952554d427d7a", draft.run.fingerprint())
         assertEquals(60, draft.run.tick)
     }
 }

@@ -13,12 +13,12 @@ import robofight.fireline.RunStatus
  * against real engine output - no DOM, no browser, no npm.
  *
  * Fixture provenance (the same committed sources as `ConsoleModelTest`):
- *  - `docs/web/fixtures/parity_matrix.json` / `.tsv`: the five `N-reference`
- *    best-run anchors (`$245faa6d`, `$d3ea4711`, `$01663660`, `$acf46562`,
- *    `$ba8e443d`) and the `1-failing` `never shoots` anchor
- *    (tick 60, TIME_EXPIRED, `7cbfe49993c17318`).
+ *  - `docs/web/fixtures/parity_matrix.json` / `.tsv`: the six `N-reference`
+ *    best-run anchors (`$aa3d630d`, `$5cd373d7`, `$a62d2c59`, `$40990811`,
+ *    `$e6b157b1`, `$3a958e35`) and the `1-failing` `never shoots` anchor
+ *    (tick 60, TIME_EXPIRED, `82a952554d427d7a`).
  *  - `docs/web/fixtures/snapshots.json`: `02-ref-final` (tick 102, `MOVE (2/2)`,
- *    `d3ea47119fe3b101`), `02-ref-t46` (tick 46, `JMP 286`, `A 4`, PC `$11E`).
+ *    `5cd373d7f4a15c81`), `02-ref-t46` (tick 46, `JMP 286`, `A 4`, PC `$11E`).
  *  - `docs/WEB-W1-RECORD.md` §9 `STEP x 30` row: `TICK 30 / 120`, `A 6`,
  *    `PC $12D`, `last: MOVE (1/2)`, `FIRE_DIST 6`, `FIRE_LEVEL 55`. Tick 30 is
  *    pinned by that committed device row, not by `snapshots.json`
@@ -87,8 +87,8 @@ class ConsoleRenderTest {
             assertTrue(text.contains("OPEN IN CONSOLE"), "card action label (golden master choose_calls_html)")
         }
 
-        // The six committed engine-v2 anchors, spelled out rather than derived.
-        val anchors = listOf("\$245faa6d", "\$d3ea4711", "\$01663660", "\$acf46562", "\$ba8e443d", "\$61fe3d4c")
+        // The six committed engine-v4 anchors, spelled out rather than derived.
+        val anchors = listOf("\$aa3d630d", "\$5cd373d7", "\$a62d2c59", "\$40990811", "\$e6b157b1", "\$3a958e35")
         anchors.forEach { anchor ->
             assertTrue(text.contains(anchor), "picker carries $anchor (parity_matrix 1..6-reference)")
         }
@@ -164,7 +164,7 @@ class ConsoleRenderTest {
 
     /**
      * Fixture: `snapshots.json 02-ref-final` / `parity_matrix 2-reference`:
-     * tick 102, SUCCESS, `MOVE (2/2)`, `$d3ea4711`, log tail
+     * tick 102, SUCCESS, `MOVE (2/2)`, `$5cd373d7`, log tail
      * `102 MOVE (2/2) | MISSION SUCCESS`.
      */
     @Test
@@ -178,8 +178,8 @@ class ConsoleRenderTest {
         assertTrue(text.contains("MISSION 02 / CORRIDOR // TICK 102"), "prompt line at the finish")
         assertEquals("102 MOVE (2/2) | MISSION SUCCESS", run.logTail(1).first(),
             "finish log line kept in the model (snapshots 02-ref-final recent_events); the shell no longer prints a log")
-        assertTrue(html.contains("fingerprint \$d3ea4711"),
-            "status line fingerprint (snapshots 02-ref-final d3ea47119fe3b101)")
+        assertTrue(html.contains("fingerprint \$5cd373d7"),
+            "status line fingerprint (snapshots 02-ref-final 5cd373d7f4a15c81)")
         assertTrue(html.contains("<span class=\"ok\">EXTINGUISH_ALL done</span>"), "objective chip done (ResultModel.objectiveChips)")
         assertTrue(html.contains("<span class=\"ok\">REACH_EXIT done</span>"), "objective chip done (snapshots 02-ref-final objectives)")
         assertTrue(text.contains("tick 102/120"), "objline tick chip (snapshots 02-ref-t12 time_limit 120)")
@@ -190,7 +190,7 @@ class ConsoleRenderTest {
 
     /**
      * Fixture: `snapshots.json 01-never-final` / `parity_matrix 1-failing`
-     * (`never shoots`): tick 60, TIME_EXPIRED, `JMP 256`, `$7cbfe499`.
+     * (`never shoots`): tick 60, TIME_EXPIRED, `JMP 256`, `$82a95255`.
      */
     @Test
     fun mission01NeverShootsRenderCarriesTimeExpiredAndItsAnchor() {
@@ -206,7 +206,7 @@ class ConsoleRenderTest {
         assertEquals("060 JMP 256 | MISSION FAILURE TIME_EXPIRED", run.logTail(1).first(),
             "failure log line kept in the model (snapshots 01-never-final recent_events)")
         assertTrue(html.contains("<div class=\"fcell\"><span>LAST OP</span><b>JMP 256</b></div>"), "LAST OP cell (snapshots 01-never-final vm.last_op)")
-        assertTrue(html.contains("fingerprint \$7cbfe499"), "status line fingerprint (snapshots 01-never-final 7cbfe49993c17318)")
+        assertTrue(html.contains("fingerprint \$82a95255"), "status line fingerprint (snapshots 01-never-final 82a952554d427d7a)")
         assertTrue(html.contains("<span class=\"bad\">EXTINGUISH_ALL failed</span>"), "objective chip failed on FAILURE (objectives_html shape)")
         assertTrue(text.contains("tick 60/60"), "objline tick chip at the time limit (snapshots 01-never-* time_limit 60)")
         assertEquals(-1, html.indexOf("MISSION 01://NOZZLE CHECK"),

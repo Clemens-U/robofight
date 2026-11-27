@@ -185,6 +185,59 @@ way in `:fireline-web:wasmJsTest`: `Permalink.encode` must produce exactly these
 `3-failing-turn-only`, `4-reference`, `4-failing-run-south`, `5-reference`, `5-failing-no-shoot`,
 `6-reference`, `6-failing-spray-through-thin-wall`, `2-reference-custom-seed`).
 
+## Re-baseline (2026-11-27, engine v4, commit `0e2f957`)
+
+Engine v4 is the main-layout reconciliation (`PLAN-RECONCILE-MAIN-01.md` §10 step 7), carried out
+with the `PLAN-EDGE-WALLS.md` §10.7 re-baseline recipe: `FIRELINE_ENGINE_VERSION` 4
+(`FirelineRules.kt:21`), stamped into `canonicalState()` (`FirelineWorld.kt:568`) and into every
+stored best-run key. `canonicalState()` writes the version, so every state fingerprint moved —
+wall-free missions included. Every value below was re-recorded from live engine state at commit
+`0e2f95764f5c00ed7fa236e5569e08593726f7e6`; the `parity_matrix.tsv`, `parity_arith.tsv`,
+`limit_probe.tsv` and `crosscheck.tsv` headers carry that commit and `# engine v4`.
+
+`parity_arith.tsv` (29 vectors) and `limit_probe.tsv` (5 rows) are unchanged row for row from the
+engine v2 record: `diff` against the committed files shows only the two header comment lines
+(`# commit`, `# engine v`) moved, because probe arithmetic and the input limits do not feed a state
+fingerprint. `crosscheck.tsv` was rewritten in full.
+
+The twelve authored rows after the merge (main's layouts, mission 06 redesigned as `GO AROUND`):
+
+| scenario | final tick | status / reason | final fingerprint | probe hash @12 | golden trace hash | firmware | wall edges | round trip |
+|---|---|---|---|---|---|---|---|---|
+| `1-reference` NOZZLE CHECK | 17 | SUCCESS / - | `aa3d630d5d30d9ce` | `38ee6d4751d1b6ad` | `4f4118286b349619` | 102 B / 34 insn | 2 | yes |
+| `1-failing` never shoots | 60 = timeLimit | FAILURE / TIME_EXPIRED | `82a952554d427d7a` | `d80d9d76ffa7ec06` | `9f496c19b6af9b46` | 6 B / 2 insn | 2 | yes |
+| `2-reference` CORRIDOR | 102 | SUCCESS / - | `5cd373d7f4a15c81` | `698f7ba3f6e52462` | `ceddf1a2fa7d7b10` | 75 B / 25 insn | 25 | yes |
+| `2-failing` | 120 = timeLimit | FAILURE / TIME_EXPIRED | `139a2344d3843462` | `425b78a9b0225e26` | `88b5c429de62c944` | 6 B / 2 insn | 25 | yes |
+| `3-reference` FIRST RESPONSE | 38 | SUCCESS / - | `a62d2c5976fa1887` | `2ba4e4c4a67f6609` | `28016f5459a44c4d` | 72 B / 24 insn | 11 | yes |
+| `3-failing` | 120 = timeLimit | FAILURE / TIME_EXPIRED | `74b189adc1525cf1` | `28850fd4c6af65c3` | `d31f60893006df8f` | 45 B / 15 insn | 11 | yes |
+| `4-reference` DOWNWIND | 147 | SUCCESS / - | `40990811d10e1466` | `571843835add4635` | `9bafb261b891c1c0` | 105 B / 35 insn | 18 | yes |
+| `4-failing` | 500 = guard | FAILURE / TIME_EXPIRED | `69525e5a96cbda83` | `4100f998e7bba5e8` | `99752e4c059a058e` | 9 B / 3 insn | 18 | yes |
+| `5-reference` HOT ZONE | 45 | SUCCESS / - | `e6b157b12efba137` | `c2390c0dd6737da1` | `317eca23f0149509` | 111 B / 37 insn | 40 | yes |
+| `5-failing` | 29 | FAILURE / ROVER_DESTROYED | `0c4aa7a4161dbb34` | `6478656bb70ec65f` | `def56526d10c1cf2` | 6 B / 2 insn | 40 | yes |
+| `6-reference` GO AROUND | 49 | SUCCESS / - | `3a958e3503fe0741` | `108606110907a1bd` | `46f9fc7672a993d9` | 87 B / 29 insn | 13 | yes |
+| `6-failing` spray at the wall | 90 = timeLimit | FAILURE / TIME_EXPIRED | `55d1dabb5ff672d3` | `230a69b24265e722` | `4720fbe644a1f4ca` | 27 B / 9 insn | 13 | yes |
+
+The four `PLAN-EDGE-WALLS.md` §7 step E2 wall scenarios keep their layout text in the TSV:
+`wall-lane-move` 60 FAILURE `b7229fe2bf1af671` (3 edges), `wall-nozzle-seal` 60 FAILURE
+`e240c51bb7459cbc` (1), `wall-lane-suppress` 60 FAILURE `692bdf48709d5c2a` (3), `wall-open-lane`
+44 SUCCESS `43d7b2ebb1e937c6` (2). The thin-edge catalog sums to 109 authored segments over the six
+missions (2 + 25 + 11 + 18 + 40 + 13, from the `wall_count` column — the engine's own
+`Layout.edgeCount` per mission; the twelve authored matrix rows double-count it as 227).
+
+`snapshots.json` now carries 13 snapshots: the eight for missions 01 and 02 plus five for mission 06
+— `06-ref-t0` `a0a873689ad09e72`, `06-ref-t12` `108606110907a1bd`, `06-ref-t24` `83fdc912760a579f`,
+`06-ref-final` tick 49 `3a958e3503fe0741` (SUCCESS), `06-fail-final` tick 90 `55d1dabb5ff672d3`
+(FAILURE / TIME_EXPIRED) — closing `PLAN-EDGE-WALLS.md` §7 step E4 (§13.7 item 4). The schema grew
+the two wall rows the old snapshot was blind to: `wallVertRowMajor` and `wallHorizRowMajor`
+(201 entries each, row-major like `WorldGrid.edgeWalls`), plus `terrainWallCount` and
+`terrainWallCoords`; mission 06 measures 13 vertical edges at column 9 for rows 0..12 and 2 terrain
+wall cells. `verify_snapshots.py` reports `ALL CHECKS PASSED` over 13 snapshots and
+`verify_crosscheck.py` reports `CROSSCHECK PASSED` (mission 06 rows cross-checked 39 wall rows
+each). Regenerated outputs at this step (md5): `parity_matrix.tsv` `c88d9d914a325f7dea184d438dd00e41`
+(16 rows), `parity_traces.txt` `ddc696cce973242f363abfdcc6b9865d` (208 lines), `parity_arith.tsv`
+`00c49473db6b3cabf6be988579d90509`, `limit_probe.tsv` `97415d93dcc8ffec9e13244cdcdf7930`,
+`crosscheck.tsv` `73c79e5eebc773537c916974eb72a92f`, `snapshots.json` `ef00de58c04bd2d52ef71856e37ba37b`.
+
 ## Field notes / legends
 
 - `terrain`: 20x20 authoring glyphs - `.` floor, `#` wall, `F` fuel, `W` refill, `E` exit,
