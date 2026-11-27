@@ -10,6 +10,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -26,7 +27,7 @@ import robofight.fireline.R
 /**
  * Editor surface (DESIGN-FIRELINE.md 5.1/6): a full-screen surface of FILES,
  * not a fourth tab. 4-digit zero-padded gutter in text-dim, JetBrains Mono body
- * at 13sp with 1.5 line height, the four mnemonic/port/number/comment color
+ * at 13sp with compact terminal line height, the four mnemonic/port/number/comment color
  * classes, and an assemble readout whose error rows jump to the reported line.
  *
  * The PC highlight from 6 belongs to the run surfaces (milestone 5) and is not
@@ -54,14 +55,13 @@ class EditorSurface(
     private val scroller = ScrollView(activity)
     private val gutter = TextView(activity)
     private val editor = EditText(activity)
-    private val titleLine = text(9, theme.textBright, theme.displayFace)
-    private val statusLine = text(8, theme.textDim, theme.workFace)
+    private val titleLine = text(13, theme.textBright, theme.workFace)
+    private val statusLine = text(12, theme.textDim, theme.workFace)
     private val errorPanel = column(matchParent, wrapContent)
 
     init {
         val head = column(matchParent, wrapContent).apply { setPadding(0, theme.dp(4), 0, theme.dp(4)) }
         head.addView(titleLine)
-        head.addView(statusLine)
         head.addView(editorActions())
         head.addView(errorPanel)
 
@@ -71,23 +71,27 @@ class EditorSurface(
             setTextSize(TypedValue.COMPLEX_UNIT_SP, GUTTER_SP)
             includeFontPadding = false
             gravity = Gravity.TOP or Gravity.END
+            setBackgroundColor(theme.field)
+            setLineSpacing(0f, LINE_SPACING)
             setPadding(0, theme.dp(6), theme.dp(6), 0)
         }
         editor.apply {
             setTextColor(theme.text)
-            setBackgroundColor(theme.panel2)
+            setBackgroundColor(theme.field)
             typeface = theme.workFace
             setTextSize(TypedValue.COMPLEX_UNIT_SP, BODY_SP)
             includeFontPadding = false
             setLineSpacing(0f, LINE_SPACING)
-            // Lines must not wrap: a wrapped line would desync gutter numbers.
-            setHorizontallyScrolling(true)
             setSingleLine(false)
             maxLines = Int.MAX_VALUE
             minLines = 12
             inputType = InputType.TYPE_CLASS_TEXT or
                 InputType.TYPE_TEXT_FLAG_MULTI_LINE or
                 InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            // inputType resets TextView's scrolling and gravity defaults. Set
+            // these afterwards so physical source lines stay intact and top aligned.
+            setHorizontallyScrolling(true)
+            gravity = Gravity.TOP or Gravity.START
             setPadding(theme.dp(6), theme.dp(6), theme.dp(6), theme.dp(6))
             setHint(activity.getString(R.string.editor_hint))
             setHintTextColor(theme.textDim)
@@ -110,10 +114,26 @@ class EditorSurface(
         }
         codeRow.addView(gutter, LinearLayout.LayoutParams(wrapContent, wrapContent))
         codeRow.addView(editor, LinearLayout.LayoutParams(0, wrapContent, 1f))
-        scroller.addView(codeRow)
+        scroller.apply {
+            isFillViewport = true
+            setBackgroundColor(theme.field)
+            addView(codeRow)
+        }
 
         bodyColumn.addView(head)
-        bodyColumn.addView(scroller, LinearLayout.LayoutParams(matchParent, 0, 1f))
+        // The frame belongs to the viewport, not the scrolling source row.
+        // Inset children so their opaque backgrounds cannot cover the stroke.
+        val editorFrame = column(matchParent, wrapContent).apply {
+            background = theme.panelDrawable(fill = theme.field, stroke = theme.border, radiusDp = 0)
+            val borderInset = theme.dp(1).coerceAtLeast(1)
+            setPadding(borderInset, borderInset, borderInset, borderInset)
+            addView(scroller, LinearLayout.LayoutParams(matchParent, matchParent))
+        }
+        bodyColumn.addView(editorFrame, LinearLayout.LayoutParams(matchParent, 0, 1f))
+        bodyColumn.addView(statusLine.apply {
+            setBackgroundColor(theme.panel2)
+            setPadding(theme.dp(6), theme.dp(6), theme.dp(6), theme.dp(6))
+        })
         syncLineMetrics()
         setDisplayName()
         refreshChrome()
@@ -134,7 +154,7 @@ class EditorSurface(
         FirmwareFileNames.sanitize(editing?.name ?: displayName) ?: UNTITLED
 
     private fun setDisplayName() {
-        titleLine.text = "EDIT  " + canonicalName()
+        titleLine.text = "RF-8 EDITOR  |  " + canonicalName()
     }
 
     private fun editorActions(): View {
@@ -144,7 +164,10 @@ class EditorSurface(
         row.addView(button("INSERT PORTS", { insertPorts() }))
         row.addView(button("EXPORT .asm", { onExport(currentName(), source()) }))
         row.addView(button("RENAME", { editing?.let(onRename) }))
-        return row
+        return HorizontalScrollView(activity).apply {
+            isHorizontalScrollBarEnabled = true
+            addView(row)
+        }
     }
 
     // ---- chrome -----------------------------------------------------------------
@@ -207,7 +230,7 @@ class EditorSurface(
         highlighting = false
     }
 
-    /** Gutter rows are padded so each 11sp number sits level with its 13sp line. */
+    /** Keep gutter baselines aligned with the source editor. */
     private fun syncLineMetrics() {
         editor.post {
             val bodyLine = editor.lineHeight
@@ -294,13 +317,13 @@ class EditorSurface(
     }
 
     companion object {
-        /** DESIGN-FIRELINE 3: editor body 13sp minimum, line height 1.5, gutter 11sp dim. */
+        /** Terminal body and gutter share metrics to keep source rows aligned. */
         const val BODY_SP = 13f
 
         /** Fallback save name when a draft name has nothing legal in it. */
         const val UNTITLED = "UNTITLED.ASM"
-        const val GUTTER_SP = 11f
-        const val LINE_SPACING = 1.5f
+        const val GUTTER_SP = BODY_SP
+        const val LINE_SPACING = 1f
 
         private val matchParent = ViewGroup.LayoutParams.MATCH_PARENT
         private val wrapContent = ViewGroup.LayoutParams.WRAP_CONTENT

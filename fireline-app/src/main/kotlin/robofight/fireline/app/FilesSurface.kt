@@ -119,9 +119,6 @@ class FilesSurface(
         }
         meta.addView(text(7, theme.textDim, "edited " + formatFileTime(file.updatedMillis), theme.workFace))
         meta.addView(spacer())
-        if (file.name.equals(selectedName, ignoreCase = true)) {
-            meta.addView(text(7, theme.caret, "MISSION FIRMWARE", theme.displayFace))
-        }
         card.addView(meta)
 
         val actions = row(matchParent, wrapContent).apply {
@@ -130,7 +127,14 @@ class FilesSurface(
             }
         }
         actions.addView(button("EDIT", theme.secondaryFill, theme.secondaryText, { onEdit(file) }))
-        actions.addView(button("[>]", theme.runFill, theme.runText, { onSelectFirmware(file) }))
+        val selected = file.name.equals(selectedName, ignoreCase = true)
+        actions.addView(button("SELECT", theme.runFill, theme.runText, { onSelectFirmware(file) }).apply {
+            isSelected = selected
+            if (!selected) {
+                background = theme.panelDrawable(fill = theme.panel, stroke = theme.border)
+                setTextColor(theme.text)
+            }
+        })
         actions.addView(button("COPY", theme.secondaryFill, theme.secondaryText, { onDuplicate(file) }))
         actions.addView(button("DEL", theme.secondaryFill, theme.secondaryText, { onDelete(file) }))
         card.addView(actions)

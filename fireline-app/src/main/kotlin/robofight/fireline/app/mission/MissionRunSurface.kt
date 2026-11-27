@@ -18,6 +18,7 @@ import robofight.fireline.app.view.HeatBarView
 import robofight.fireline.session.MissionSession
 import robofight.fireline.session.RunSummary
 import robofight.fireline.session.StepOutcome
+import robofight.fireline.session.TelemetrySnapshot
 
 /**
  * MISSION run surface (milestone 5; DESIGN-FIRELINE.md 5.2, PLAN 9.2/9.5):
@@ -42,6 +43,7 @@ class MissionRunSurface(
     private val theme: FirelineTheme,
     private val session: MissionSession,
     private val onRunFinished: (RunSummary) -> Unit,
+    private val onMissionList: () -> Unit,
 ) {
     private val mission = session.mission
 
@@ -53,17 +55,20 @@ class MissionRunSurface(
     }
     private val heatBar = HeatBarView(activity, theme)
 
-    private val tickLine = text(7, theme.text)
-    private val statusLine = text(8, theme.textDim)
-    private val vmRegisters = text(7, theme.text, "", theme.workFace)
-    private val vmFlags = text(7, theme.textDim, "", theme.workFace)
-    private val vmLastOp = text(7, theme.text, "", theme.workFace)
-    private val vmInstruction = text(7, theme.textBright, "", theme.workFace)
-    private val contextLabels = List(CONTEXT_SLOTS) { text(7, theme.textDim, "", theme.workFace) }
+    private val tickLine = text(14, theme.text, face = theme.workFace)
+    private val statusLine = text(14, theme.textDim, face = theme.workFace)
+    private val vmRegisters = text(11, theme.text, "", theme.workFace)
+    private val vmFlags = text(11, theme.textDim, "", theme.workFace)
+    private val vmLastOp = text(11, theme.text, "", theme.workFace)
+    private val vmInstruction = text(11, theme.textBright, "", theme.workFace)
+    private val contextLabels = List(CONTEXT_SLOTS) { text(11, theme.textDim, "", theme.workFace) }
     private val telemetryLabels = LinkedHashMap<String, TextView>()
-    private val eventLabels = List(EVENT_SLOTS) { text(7, theme.text, "", theme.workFace) }
+    private val eventLabels = List(EVENT_SLOTS) { text(12, theme.text, "", theme.workFace) }
     private val logColumn = column(matchParent, wrapContent)
     private val logOverlay = ScrollView(activity)
+
+    /** Rolling newest-first event tail; see `tailCurrentTick`. */
+    private val recentEvents = ArrayDeque<String>()
 
     val root: View
 
@@ -77,57 +82,94 @@ class MissionRunSurface(
             setPadding(theme.dp(8), theme.dp(8), theme.dp(8), theme.dp(8))
         }
         card.addView(text(
-            9, theme.textBright,
+            10, theme.textBright,
             "MISSION %02d / %s".format(mission.id, mission.name),
             theme.displayFace,
         ))
-        card.addView(text(7, theme.text, "firmware: ${session.firmwareName}  //  ${MissionPickerModel.seedLabel(mission)}", theme.workFace))
-        card.addView(text(
-            7, theme.textDim,
-            "WIND ${MissionPickerModel.windLabel(mission)}  //  WATER ${mission.startingWater}  //  ${MissionPickerModel.timeLimitLabel(mission)}",
+        val firmwareRow = row(matchParent, wrapContent)
+        firmwareRow.addView(text(12, theme.text, session.firmwareName, theme.workFace),
+            LinearLayout.LayoutParams(0, wrapContent, 1f))
+        val details = column(matchParent, wrapContent).apply {
+            setPadding(theme.dp(12), theme.dp(8), theme.dp(12), theme.dp(8))
+        }
+        details.addView(text(
+            12, theme.text,
+            "${MissionPickerModel.seedLabel(mission)}\nWIND ${MissionPickerModel.windLabel(mission)}  |  WATER ${mission.startingWater}  |  ${MissionPickerModel.timeLimitLabel(mission)}",
             theme.workFace,
         ))
-        card.addView(text(7, theme.text, mission.briefing, theme.workFace))
+        details.addView(text(12, theme.text,
+            "NOZZLE RANGE ${robofight.fireline.WATER_RANGE} CELLS", theme.workFace))
+        details.addView(text(14, theme.textBright, mission.briefing, theme.workFace).apply {
+            layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
+                topMargin = theme.dp(8)
+                bottomMargin = theme.dp(8)
+            }
+        })
+        firmwareRow.addView(text(12, theme.exit, "BRIEFING +", theme.workFace).apply {
+            setPadding(theme.dp(8), theme.dp(4), 0, theme.dp(4))
+            contentDescription = "Show mission briefing and objectives"
+            setOnClickListener {
+                (details.parent as? ViewGroup)?.removeView(details)
+                android.app.AlertDialog.Builder(activity)
+                    .setTitle("MISSION %02d / %s".format(mission.id, mission.name))
+                    .setView(ScrollView(activity).apply { addView(details) })
+                    .setPositiveButton("CLOSE", null)
+                    .show()
+            }
+        })
+        firmwareRow.addView(text(12, theme.exit, "LIST", theme.workFace).apply {
+            setPadding(theme.dp(8), theme.dp(4), 0, theme.dp(4))
+            contentDescription = "Choose another mission"
+            setOnClickListener { onMissionList() }
+        })
+        card.addView(firmwareRow)
         card.addView(chipRow(MissionPickerModel.objectiveChips(mission)))
-        // The tick / status rows were flush under the chips (milestone 8):
-        // each status line gets its own chrome gap.
-        tickLine.layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
-            topMargin = theme.chromeBlockGapPx()
-        }
-        card.addView(tickLine)
-        statusLine.layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
-            topMargin = theme.dp(4)
-        }
-        card.addView(statusLine)
         main.addView(card)
+        val runStatus = row(matchParent, wrapContent).apply {
+            setBackgroundColor(theme.panel)
+            setPadding(theme.dp(8), theme.dp(4), theme.dp(8), theme.dp(4))
+            layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
+                topMargin = theme.dp(6)
+            }
+        }
+        runStatus.addView(tickLine, LinearLayout.LayoutParams(0, wrapContent, 1f))
+        runStatus.addView(statusLine)
 
         val scroller = ScrollView(activity).apply {
-            layoutParams = LinearLayout.LayoutParams(matchParent, 0, 1f)
+            layoutParams = LinearLayout.LayoutParams(matchParent, 0, 2f)
         }
         val content = column(matchParent, wrapContent)
+        // Mission identity and goals remain pinned above the scrolling instruments.
 
         val gridPanel = column(matchParent, wrapContent).apply {
             background = theme.panelDrawable()
             setPadding(theme.dp(4), theme.dp(4), theme.dp(4), theme.dp(4))
-            layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
+            layoutParams = LinearLayout.LayoutParams(matchParent, 0, 3f).apply {
                 topMargin = theme.chromeBlockGapPx()
             }
         }
-        gridView.layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent)
-        gridPanel.addView(gridView)
+        // The complete square grid is pinned, outside the instrument scroller.
+        // Its cell size adapts to the available height as well as width.
+        val gridFrame = android.widget.FrameLayout(activity)
+        gridFrame.addView(gridView, android.widget.FrameLayout.LayoutParams(
+            matchParent, matchParent, Gravity.CENTER,
+        ))
+        gridPanel.addView(gridFrame, LinearLayout.LayoutParams(matchParent, 0, 1f))
         gridPanel.addView(text(LEGEND_SP, theme.textDim, GridLegend.GLYPHS, theme.workFace))
         // Thin-wall entry (amendment A-6): shown on every mission so the reader
         // learns the concept once per container (PLAN-EDGE-WALLS.md 5), the same
         // wording the web legend gets in step E4.
         gridPanel.addView(thinWallLegendRow())
-        content.addView(gridPanel)
+        main.addView(gridPanel)
 
         content.addView(instrumentRow())
-        content.addView(eventPanel())
         scroller.addView(content)
         main.addView(scroller)
+        // Reserve the rolling event tail independently of instrument scrolling.
+        main.addView(eventPanel())
 
         main.addView(controlBar())
+        main.addView(runStatus)
 
         buildLogOverlay()
         container.addView(logOverlay)
@@ -140,6 +182,7 @@ class MissionRunSurface(
     fun stopRun() {
         running = false
         handler.removeCallbacks(ticker)
+        refresh()
     }
 
     // ---- run control -------------------------------------------------------------
@@ -154,7 +197,12 @@ class MissionRunSurface(
 
     private fun stepOnce() {
         when (session.step()) {
+            StepOutcome.ADVANCED -> {
+                tailCurrentTick()
+                refresh()
+            }
             StepOutcome.FINISHED -> {
+                tailCurrentTick()
                 running = false
                 handler.removeCallbacks(ticker)
                 refresh()
@@ -166,7 +214,21 @@ class MissionRunSurface(
                 statusLine.text = "TICK GUARD ${mission.maxTicks} REACHED  //  RESET or EDIT FIRMWARE"
                 refresh()
             }
-            else -> refresh()
+            StepOutcome.ALREADY_FINISHED -> refresh()
+        }
+    }
+
+    /**
+     * Append the events of the tick that just ran to the rolling tail (newest
+     * first). Released-line rule: a quiet tick keeps the previous events on the
+     * panel. The engine session exposes only the current tick's events, so this
+     * window is the view's own presentation state, fed once per advanced tick.
+     */
+    private fun tailCurrentTick() {
+        val w = session.currentWorld
+        for (event in w.lastEvents) {
+            recentEvents.addFirst("%03d %s".format(w.tick, event))
+            while (recentEvents.size > EVENT_SLOTS) recentEvents.removeLast()
         }
     }
 
@@ -181,13 +243,21 @@ class MissionRunSurface(
             running = true
             ticker.run()
         })
+        bar.addView(View(activity), LinearLayout.LayoutParams(theme.dp(6), 1))
         bar.addView(controlButton("STEP", theme.secondaryFill, theme.secondaryText) {
-            if (running || session.finished) return@controlButton
-            stepOnce()
+            if (session.finished) return@controlButton
+            if (running) {
+                // First press interrupts RUN at the current tick; subsequent
+                // presses advance one tick, including pending multi-tick ops.
+                stopRun()
+                refresh()
+            } else stepOnce()
         })
+        bar.addView(View(activity), LinearLayout.LayoutParams(theme.dp(6), 1))
         bar.addView(controlButton("RESET", theme.secondaryFill, theme.secondaryText) {
             stopRun()
             session.reset()
+            recentEvents.clear()
             refresh()
         })
         return bar
@@ -228,7 +298,7 @@ class MissionRunSurface(
             setPadding(theme.dp(8), theme.dp(8), theme.dp(7), theme.dp(8))
             layoutParams = LinearLayout.LayoutParams(0, matchParent, 1f)
         }
-        vm.addView(text(7, theme.textBright, "RF-8", theme.displayFace))
+        vm.addView(text(12, theme.textBright, "RF-8  /  tap to inspect", theme.workFace))
         vm.addView(vmRegisters)
         vm.addView(vmFlags)
         vm.addView(vmLastOp)
@@ -244,9 +314,9 @@ class MissionRunSurface(
             setPadding(theme.dp(7), theme.dp(8), theme.dp(8), theme.dp(8))
             layoutParams = LinearLayout.LayoutParams(0, matchParent, 1f)
         }
-        tele.addView(text(7, theme.textBright, "TELEMETRY", theme.displayFace))
+        tele.addView(text(12, theme.textBright, "TELEMETRY", theme.workFace))
         for (name in TELEMETRY_ORDER) {
-            val label = text(7, theme.text, "$name --", theme.workFace)
+            val label = text(11, theme.text, "$name --", theme.workFace)
             telemetryLabels[name] = label
             tele.addView(label)
         }
@@ -259,7 +329,32 @@ class MissionRunSurface(
         row.addView(vm)
         row.addView(separator)
         row.addView(tele)
+        val inspect = { showInstrumentDetails() }
+        panel.setOnClickListener { inspect() }
+        vm.setOnClickListener { inspect() }
+        tele.setOnClickListener { inspect() }
         return panel
+    }
+
+    /** A readable paused snapshot; closing never silently resumes execution. */
+    private fun showInstrumentDetails() {
+        stopRun()
+        refresh()
+        val body = column(matchParent, wrapContent).apply {
+            setPadding(theme.dp(12), theme.dp(8), theme.dp(12), theme.dp(8))
+        }
+        val lines = listOf("RF-8", vmRegisters.text, vmFlags.text, vmLastOp.text, vmInstruction.text) +
+            contextLabels.map { it.text } + listOf("", "TELEMETRY") + telemetryLabels.values.map { it.text }
+        lines.forEach { line ->
+            body.addView(text(14, theme.text, line.toString(), theme.workFace).apply {
+                layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent)
+            })
+        }
+        android.app.AlertDialog.Builder(activity)
+            .setTitle("INSPECT  /  TICK ${session.tick}  /  PAUSED")
+            .setView(ScrollView(activity).apply { addView(body) })
+            .setPositiveButton("CLOSE", null)
+            .show()
     }
 
     private fun eventPanel(): View {
@@ -271,10 +366,15 @@ class MissionRunSurface(
             }
             contentDescription = "EVENTS  //  tap for full log"
         }
-        panel.addView(text(7, theme.textBright, "EVENTS  //  tap for full log", theme.displayFace))
+        panel.addView(text(12, theme.textBright, "EVENTS  /  tap for full log", theme.workFace))
         // Event rows are separate TextViews: give each one its own gap so the
         // log tail stops reading as one dense block (milestone 8).
         eventLabels.forEach { label ->
+            // Always reserve four readable rows, even before the first event.
+            // Long messages are available without truncation in the full log.
+            label.minLines = 1
+            label.maxLines = 1
+            label.ellipsize = android.text.TextUtils.TruncateAt.END
             label.layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
                 topMargin = theme.dp(4)
             }
@@ -296,7 +396,8 @@ class MissionRunSurface(
             setPadding(theme.dp(10), theme.dp(10), theme.dp(10), theme.dp(10))
         }
         val head = row(matchParent, wrapContent)
-        head.addView(text(8, theme.textBright, "FULL EVENT LOG  //  newest first", theme.displayFace))
+        head.addView(text(14, theme.textBright, "EVENT LOG / newest first", theme.workFace),
+            LinearLayout.LayoutParams(0, wrapContent, 1f))
         head.addView(spacer())
         head.addView(button("CLOSE", theme.secondaryFill, theme.secondaryText) {
             logOverlay.visibility = View.GONE
@@ -308,17 +409,20 @@ class MissionRunSurface(
     }
 
     private fun showLogOverlay() {
+        stopRun()
+        refresh()
         logColumn.removeAllViews()
         val lines = session.fullLogNewestFirst()
-        if (lines.isEmpty()) logColumn.addView(text(7, theme.textDim, "no events yet", theme.workFace))
+        if (lines.isEmpty()) logColumn.addView(text(14, theme.textDim, "no events yet", theme.workFace))
         for (line in lines) {
-            logColumn.addView(text(7, theme.text, line, theme.workFace).apply {
+            logColumn.addView(text(14, theme.text, line, theme.workFace).apply {
                 layoutParams = LinearLayout.LayoutParams(matchParent, wrapContent).apply {
                     topMargin = theme.dp(4)
                 }
             })
         }
         logOverlay.visibility = View.VISIBLE
+        logOverlay.scrollTo(0, 0)
     }
 
     // ---- refresh ------------------------------------------------------------------
@@ -338,26 +442,20 @@ class MissionRunSurface(
         gridView.world = session.currentWorld
         // Accessibility: the canvas grid carries a concise per-refresh state
         // line so the run surface is usable with touch explored off (9.5 gate).
-        gridView.contentDescription =
-            "MISSION GRID " + (if (session.finished) "finished" else "running") +
-                " mission " + "%02d".format(mission.id) +
-                " tick " + t.tick + " of " + t.timeLimit +
-                " rover at x " + t.roverX + " y " + t.roverY + " facing " + t.roverFacing +
-                " hp " + t.hp + " heat " + t.heat + " water " + t.water +
-                " fire distance " + t.fireDist + " civilians " + t.civCount +
-                " thin walls " + thinWallCount()
+        gridView.contentDescription = gridContentDescription(
+            missionId = mission.id,
+            finished = session.finished,
+            telemetry = t,
+            thinWalls = thinWallCount(),
+        )
         tickLine.text = "TICK ${t.tick} / ${t.timeLimit}"
         tickLine.contentDescription = tickLine.text
-        statusLine.text = when {
-            session.status == robofight.fireline.RunStatus.SUCCESS ->
-                "MISSION SUCCESS  TICK ${t.tick}"
-            session.failureReason != null ->
-                "MISSION FAILURE ${session.failureReason?.name}  TICK ${t.tick}"
-            session.status == robofight.fireline.RunStatus.FAILURE ->
-                "MISSION FAILURE  TICK ${t.tick}"
-            session.guardReached -> "TICK GUARD REACHED"
-            else -> if (running) "RUNNING  //  ${MissionSession.RUN_TICK_MS} ms per tick" else "PAUSED  //  STEP or RUN"
-        }
+        statusLine.text = statusText(
+            status = session.status,
+            failureReason = session.failureReason,
+            guardReached = session.guardReached,
+            running = running,
+        )
         statusLine.contentDescription = statusLine.text
         statusLine.setTextColor(
             if (session.status != null) theme.textBright else theme.textDim,
@@ -388,10 +486,10 @@ class MissionRunSurface(
         heatBar.max = MissionSession.HEAT_LIMIT
         heatBar.threshold = MissionSession.HEAT_THRESHOLD
 
-        val events = session.currentEvents(EVENT_SLOTS)
         for (i in eventLabels.indices) {
-            eventLabels[i].text = events.getOrNull(i) ?: ""
-            eventLabels[i].setTextColor(if (i == 0 && events.isNotEmpty()) theme.textBright else theme.text)
+            val line = recentEvents.elementAtOrNull(i)
+            eventLabels[i].text = line ?: ""
+            eventLabels[i].setTextColor(if (i == 0 && recentEvents.isNotEmpty()) theme.textBright else theme.text)
         }
     }
 
@@ -414,7 +512,7 @@ class MissionRunSurface(
      * amendment A-6): a short thick segment in the wall token followed by the
      * wording, so the legend carries the same visual the grid draws - a line on
      * the border between two cells - and not a glyph. Always present; the entry
-     * teaches the concept whether or not the current mission uses it.
+     * teaches the concept whether or not the current mission uses it (step E3).
      */
     private fun thinWallLegendRow(): View {
         val row = row(matchParent, wrapContent).apply {
@@ -438,7 +536,7 @@ class MissionRunSurface(
     private fun chipRow(chips: List<String>): View {
         val row = row(matchParent, wrapContent).apply { setPadding(0, theme.dp(4), 0, theme.dp(4)) }
         for (chip in chips) {
-            row.addView(text(6, theme.text, chip, theme.displayFace).apply {
+            row.addView(text(12, theme.text, chip.replace('_', ' '), theme.workFace).apply {
                 background = theme.panelDrawable(fill = theme.panel2, stroke = theme.border)
                 setPadding(theme.dp(4), theme.dp(2), theme.dp(4), theme.dp(2))
                 contentDescription = chip
@@ -454,9 +552,8 @@ class MissionRunSurface(
             typeface = face
             setTextSize(TypedValue.COMPLEX_UNIT_SP, sizeSp.toFloat())
             includeFontPadding = false
-            // Stacked telemetry / status lines need explicit leading (font
-            // padding is off); wrapped lines only - single rows are unaffected.
-            setLineSpacing(theme.chromeLineSpacingPx().toFloat(), 1f)
+            // Natural monospace leading keeps larger text compact.
+            setLineSpacing(0f, 1f)
             layoutParams = LinearLayout.LayoutParams(wrapContent, wrapContent)
         }
 
@@ -479,9 +576,48 @@ class MissionRunSurface(
         private const val HEAT_BAR_DP = 10
         private const val EVENT_SLOTS = 4
         private const val CONTEXT_SLOTS = 5
-        private const val LEGEND_SP = 6
+        private const val LEGEND_SP = 10
         // Legend wording lives in GridLegend (step E3): the glyph line plus the
         // thin-wall entry, both assertable without an Activity.
+
+        /**
+         * The MISSION GRID accessibility line, composed only from the session's
+         * `TelemetrySnapshot`: the rover is `roverX` / `roverY` / `roverFacing`,
+         * never the VM `x` / `y` registers (they only hold the rover coordinates
+         * while a VM op runs, which is the defect commit 5edf5e3 found on
+         * device), and the wall count is the number of segments
+         * `EdgeWallGeometry` strokes for the same world (step E3). Pure, so a
+         * unit test can pin it at a real tick rather than at tick 0.
+         */
+        fun gridContentDescription(
+            missionId: Int,
+            finished: Boolean,
+            telemetry: TelemetrySnapshot,
+            thinWalls: Int,
+        ): String =
+            "MISSION GRID " + (if (finished) "finished" else "running") +
+                " mission " + "%02d".format(missionId) +
+                " tick " + telemetry.tick + " of " + telemetry.timeLimit +
+                " rover at x " + telemetry.roverX + " y " + telemetry.roverY +
+                " facing " + telemetry.roverFacing +
+                " hp " + telemetry.hp + " heat " + telemetry.heat + " water " + telemetry.water +
+                " fire distance " + telemetry.fireDist + " civilians " + telemetry.civCount +
+                " thin walls " + thinWalls
+
+        /** Status band under the control bar (released line): the tick is the sibling row's job. */
+        fun statusText(
+            status: robofight.fireline.RunStatus?,
+            failureReason: robofight.fireline.FailureReason?,
+            guardReached: Boolean,
+            running: Boolean,
+        ): String = when {
+            status == robofight.fireline.RunStatus.SUCCESS -> "SUCCESS"
+            failureReason != null -> "FAILURE"
+            status == robofight.fireline.RunStatus.FAILURE -> "FAILURE"
+            guardReached -> "TICK GUARD REACHED"
+            else -> if (running) "RUNNING" else "PAUSED"
+        }
+
         private val TELEMETRY_ORDER =
             listOf("FIRE_DIST", "FIRE_LEVEL", "CIV_COUNT", "WATER", "HP", "HEAT", "SHIELD", "WIND", "MISSION")
         private val matchParent = ViewGroup.LayoutParams.MATCH_PARENT

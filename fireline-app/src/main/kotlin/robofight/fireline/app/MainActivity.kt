@@ -20,6 +20,7 @@ import robofight.fireline.app.files.FirmwareFile
 import robofight.fireline.app.files.FirmwareFileNames
 import robofight.fireline.app.files.FirmwareRepository
 import robofight.fireline.app.files.SaveOutcome
+import robofight.fireline.app.files.StarterFirmware
 import robofight.fireline.app.editor.EditorModel
 import robofight.fireline.app.mission.BestBadgeStore
 import robofight.fireline.app.mission.FirmwareSelection
@@ -80,6 +81,7 @@ class MainActivity : Activity() {
         missionSelection = MissionSelection(SharedPreferencesValues(prefs))
         bestStore = BestBadgeStore(SharedPreferencesValues(prefs))
         runStore = RunRecordStore(SharedPreferencesValues(prefs))
+        seedStarterFirmwareOnce()
         selectedFirmwareName = firmwareSelection.get()
         buildFilesSurface()
         setContentView(buildShell())
@@ -87,6 +89,17 @@ class MainActivity : Activity() {
         // (some windows deliver the first dispatch only on request).
         redispatchInsets()
         showFiles()
+    }
+
+    /**
+     * Give a fresh install a selected, runnable first program. The preference
+     * prevents a player who intentionally deletes every file from having the
+     * starter recreated on the next launch.
+     */
+    private fun seedStarterFirmwareOnce() {
+        if (prefs.getBoolean(PREF_STARTER_SEEDED, false)) return
+        StarterFirmware.seedIfEmpty(store)?.let { firmwareSelection.set(it.name) }
+        prefs.edit().putBoolean(PREF_STARTER_SEEDED, true).apply()
     }
 
     override fun onResume() {
@@ -166,6 +179,13 @@ class MainActivity : Activity() {
         val strip = row(matchParent, wrapContent)
         strip.addView(label("OPCODE FIRELINE", 12, theme.textBright, theme.displayFace))
         strip.addView(spacer())
+        strip.addView(label(getString(R.string.privacy), 8, theme.water, theme.displayFace).apply {
+            setPadding(theme.dp(8), theme.dp(4), theme.dp(8), theme.dp(4))
+            contentDescription = "Open FIRELINE privacy policy"
+            setOnClickListener {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.privacy_policy_url))))
+            }
+        })
         strip.addView(label("RF-8", 10, theme.textDim, theme.displayFace))
         val block = column(matchParent, wrapContent)
         block.addView(strip)
@@ -208,7 +228,13 @@ class MainActivity : Activity() {
     private fun onTab(name: String) {
         when (name) {
             "FILES" -> showFiles()
-            "MISSION" -> showMission()
+            "MISSION" -> {
+                val run = currentRunSurface
+                if (run == null) showMission() else {
+                    selectTab("MISSION")
+                    showContent(run.root)
+                }
+            }
             "RESULT" -> showResult()
         }
     }
@@ -276,7 +302,6 @@ class MainActivity : Activity() {
             selection = firmwareSelection,
             bestStore = bestStore,
             onOpenRun = { mission, firmwareName -> showMissionRun(mission, firmwareName) },
-            onSelectFirmware = { file -> selectFirmware(file) },
         )
         missionSurface = surface
         showContent(surface.picker(attention))
@@ -305,9 +330,10 @@ class MainActivity : Activity() {
             onRunFinished = { summary ->
                 bestStore.update(summary)
                 runStore.put(summary)
-                currentRunSurface = null
-                showResult()
+                // Leave the finished world visible. RESULT is an explicit tab
+                // choice; returning to MISSION restores this same final grid.
             },
+            onMissionList = { showMission() },
         )
         currentRunSurface = surface
         selectTab("MISSION")
@@ -323,7 +349,7 @@ class MainActivity : Activity() {
     /** RESULT renders only from the stored RunSummary (12.1: plain data). */
     private fun showResult() {
         editorSurface = null
-        stopActiveRun()
+        currentRunSurface?.stopRun()
         selectTab("RESULT")
         val summary = runStore.get()
         if (summary == null) {
@@ -603,6 +629,7 @@ class MainActivity : Activity() {
 
     companion object {
         private const val PREFS = "fireline_ui"
+        private const val PREF_STARTER_SEEDED = "starter_firmware_seeded"
         private const val REQ_IMPORT = 41
         private const val REQ_EXPORT = 42
     }
