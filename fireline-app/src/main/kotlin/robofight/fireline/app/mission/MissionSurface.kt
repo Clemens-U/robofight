@@ -71,6 +71,17 @@ class MissionSurface(
         }
         val head = row(matchParent, wrapContent)
         head.addView(text(9, if (card.locked) theme.textDim else theme.textBright, "${card.idLabel}  ${card.name}", theme.displayFace))
+        // Best badge for the shipped engine version (FIRELINE-DESIGN 12.1, DW3): the
+        // card renders `MissionPickerModel.badgeLabel` on its header line, right
+        // aligned, the same line `docs/EDGE-E3-RECORD.md` 4 recorded. A card with no
+        // recorded run keeps the empty-state line below instead.
+        card.badgeLabel?.let { label ->
+            head.addView(text(9, theme.textBright, label, theme.workFace).apply {
+                gravity = Gravity.END
+                contentDescription = label
+                layoutParams = LinearLayout.LayoutParams(0, wrapContent, 1f)
+            })
+        }
         panel.addView(head)
 
         panel.addView(gapped(11, theme.text, card.briefing, theme.workFace))
