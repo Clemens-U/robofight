@@ -20,7 +20,7 @@ class Step10AuthoredMissionsTest {
     fun allSixMissionsExistWithImmutableIdsAndBriefings() {
         assertEquals(listOf(1, 2, 3, 4, 5, 6), Missions.ALL.map { it.id })
         assertEquals(
-            listOf("NOZZLE CHECK", "CORRIDOR", "FIRST RESPONSE", "DOWNWIND", "HOT ZONE", "THIN WALL"),
+            listOf("NOZZLE CHECK", "CORRIDOR", "FIRST RESPONSE", "DOWNWIND", "HOT ZONE", "GO AROUND"),
             Missions.ALL.map { it.name },
         )
         for (m in Missions.ALL) {
@@ -174,59 +174,90 @@ class Step10AuthoredMissionsTest {
      * a cell: the cell behind it stays free terrain and a straight MOVE across
      * the walled edge simply does not happen. (2) Under the merged rules it gates
      * water AND fire: every packet the documented failing variant fires at the
-     * lane is absorbed at the edge, and the fire beyond the gate never crosses
-     * it — so the spray-only bot survives behind the wall and simply runs out of
-     * time (TIME_EXPIRED at the 120-tick limit). The reference variant crosses
-     * the gate through the open bypass instead. Mission 06's content redesign
-     * (making the drown shots teach the bypass rather than shoot vacantly at
-     * (5,2)) is the next increment, not this one.
+     * wall column is refused at the edge, and the pocket fire never crosses it —
+     * so the spray-only bot survives behind the wall and simply runs out of
+     * time (TIME_EXPIRED at the 90-tick limit). The reference variant walks the
+     * open rows below the wall's lower end and drowns the pocket cell from the
+     * refill firing stand (R4 capstone redesign, GO AROUND; measured anchors
+     * from the scratch twin MeasureR5: reference SUCCESS at tick 62, failing
+     * TIME_EXPIRED at tick 90).
      */
     @Test
     fun thinWallGatesMovementWaterAndFire() {
-        val m = Missions.THIN_WALL
+        val m = Missions.GO_AROUND
         assertEquals(6, m.id)
         assertEquals(Objectives.EXTINGUISH_ALL or Objectives.REACH_EXIT, m.objectives)
-        assertEquals(120, m.timeLimit, "same limit as mission 02: the route is a short walk")
+        assertEquals(90, m.timeLimit, "headroom for the detour, tight enough that the spray-only bot runs out of time")
         assertEquals(0, m.windForce, "the crossing here is the wall's, not the wind's")
-        assertEquals(0, m.layout.terrain.count { it == TERRAIN_WALL }, "the mission carries no wall cells at all")
-        assertEquals(3, m.layout.edgeCount(), "the three edges the E2 lane fixtures carry (parity_matrix.tsv wall-lane-move)")
-        assertTrue(m.layout.wallBetween(5, 2, 6, 2), "the lane gate is the edge between (5,2) and (6,2)")
-        assertFalse(m.layout.wallBetween(5, 2, 5, 3), "the bypass south of the lane is open")
-        assertEquals(TERRAIN_FLOOR, m.layout.terrainAt(6, 2), "the cell behind the thin wall stays free terrain")
-        assertTrue(terrainPassable(m.layout.terrainAt(6, 2)), "a thin wall never makes a cell non-free (DW1/§3)")
-        assertEquals(1, m.layout.fire.count { it > 0 }, "one burning lane cell beyond the gate")
+        assertEquals(3, m.layout.terrain.count { it == TERRAIN_WALL }, "three terrain wall cells seal the pocket shell")
+        assertEquals(13, m.layout.edgeCount(), "one vertical wall run at x=9, rows 0..12")
+        assertTrue(m.layout.wallBetween(9, 10, 10, 10), "the wall gates row 10 between (9,10) and (10,10)")
+        assertFalse(m.layout.wallBetween(9, 13, 10, 13), "the bypass south of the wall's lower end is open")
+        assertEquals(TERRAIN_FLOOR, m.layout.terrainAt(10, 10), "the cell behind the thin wall stays free terrain")
+        assertTrue(terrainPassable(m.layout.terrainAt(10, 10)), "a thin wall never makes a cell non-free (DW1/§3)")
+        assertEquals(1, m.layout.fire.count { it > 0 }, "one burning pocket cell beyond the wall")
+        assertEquals(50, m.layout.fireAt(10, 13), "the pocket cell is authored in the 26..50 band so 2..4 packets drown it")
 
         val naive = FirelineWorld(
-            m.descriptorForSource("       MOVE\n       MOVE\n       MOVE\n       MOVE\n       WAIT\n       JMP    fin\nfin:   WAIT\n       JMP    fin"),
+            m.descriptorForSource("       MOVE\n       MOVE\n       MOVE\n       MOVE\n       MOVE\n       MOVE\n       MOVE\n       MOVE\n       WAIT\n       JMP    fin\nfin:   WAIT\n       JMP    fin"),
         )
         naive.runUntilFinished(m.maxTicks)
-        assertEquals(5, naive.rover.x, "the always-forward bot stops on the west side of the gate")
-        assertEquals(2, naive.rover.y)
-        assertEquals(3, naive.rover.distanceMoved, "the blocked MOVE pays its ticks without stepping")
+        assertEquals(9, naive.rover.x, "the always-forward bot stops on the west side of the wall")
+        assertEquals(10, naive.rover.y)
+        assertEquals(7, naive.rover.distanceMoved, "the blocked MOVE pays its ticks without stepping")
 
         val failing = FirelineWorld(m.descriptorForSource(m.failingSources[0].second))
         var blockedShots = 0
         var crossedEdge = false
+        val ignitePattern = Regex("IGNITES (\\d+),(\\d+).*from (\\d+),(\\d+)")
         failing.onTick = { w ->
             for (e in w.lastEvents) {
                 if (e.startsWith("PACKET BLOCKED EDGE")) blockedShots++
-                if (e.contains("IGNITES 5,2") && e.contains("from 6,2")) crossedEdge = true
+                val ign = ignitePattern.find(e)
+                if (ign != null) {
+                    val (tx, ty, fx, fy) = ign.destructured
+                    if (m.layout.wallBetween(fx.toInt(), fy.toInt(), tx.toInt(), ty.toInt())) crossedEdge = true
+                }
             }
         }
         failing.runUntilFinished(m.maxTicks)
-        assertTrue(blockedShots >= 3, "packets fired straight at a thin wall are absorbed at the edge (measured: $blockedShots)")
-        assertFalse(crossedEdge, "the merged rule (PLAN-RECONCILE-MAIN-01.md §8) blocks fire spread across a walled edge: (6,2) never ignites (5,2)")
+        assertTrue(blockedShots >= 3, "packets fired straight at a thin wall are refused at the edge (measured: $blockedShots)")
+        assertFalse(crossedEdge, "the merged rule (PLAN-RECONCILE-MAIN-01.md §8) blocks fire spread across a walled edge: the pocket fire never crosses x=9")
         assertEquals(FailureReason.TIME_EXPIRED, failing.failureReason,
-            "the fire can no longer cross, the rover survives behind the gate, and the spray-only bot simply runs out of time (measured: hp ${failing.rover.hp} at tick ${failing.tick})")
+            "the fire stays sealed in the pocket, the rover survives behind the wall, and the spray-only bot simply runs out of time (measured: hp ${failing.rover.hp} at tick ${failing.tick})")
         assertTrue(failing.rover.hp > 0, "the wall that stops the fire also keeps the rover alive")
+        assertEquals(90, failing.tick, "control anchor 6-failing-t90 tick")
+        assertEquals("ba00d941d5cfce57", failing.finalStateHash(), "measured control anchor (MeasureR5): 6-failing final hash at tick 90")
 
         val reference = referenceOf(m)
         assertEquals(RunStatus.SUCCESS, reference.status, reference.render())
-        assertEquals(0, reference.burningCells, "the lane cell beyond the gate is drowned from the bypass side (its spawn-cell shots)")
+        assertEquals(0, reference.burningCells, "the pocket cell beyond the wall is drowned from the refill firing stand")
         assertEquals(0, reference.fireIntensitySum)
+        assertEquals(62, reference.tick, "reference anchor 6-reference-final tick (MeasureR5), inside the 90-tick limit")
+        assertEquals("78ab6090ddbe444a", reference.finalStateHash, "reference anchor 6-reference final hash (MeasureR5)")
         assertTrue(reference.tick <= m.timeLimit!!, "reference ${reference.tick} ticks inside the limit ${m.timeLimit}")
         assertTrue(reference.firmwareBytes in 75..111, "firmware size in the range of missions 01-05: ${reference.firmwareBytes}")
         assertTrue(reference.firmwareInstructions in 25..37, "instruction count in the range of missions 01-05: ${reference.firmwareInstructions}")
+
+        val refWorld = FirelineWorld(m.descriptorForSource(m.referenceSource))
+        var refIgnites = 0
+        var refCrossedEdge = 0
+        var refExitIgnites = 0
+        refWorld.onTick = { w ->
+            for (e in w.lastEvents) {
+                val ign = ignitePattern.find(e)
+                if (ign != null) {
+                    refIgnites++
+                    val (tx, ty, fx, fy) = ign.destructured
+                    if (m.layout.wallBetween(fx.toInt(), fy.toInt(), tx.toInt(), ty.toInt())) refCrossedEdge++
+                    if (m.layout.terrainAt(tx.toInt(), ty.toInt()) == TERRAIN_EXIT) refExitIgnites++
+                }
+            }
+        }
+        refWorld.runUntilFinished(m.maxTicks)
+        assertEquals(0, refIgnites, "the reference run sees no ignition at all: the sealed pocket cannot crawl anywhere")
+        assertEquals(0, refCrossedEdge, "no ignition ever lands on a cell whose shared edge with a burning cell is a mission thin wall (measured: 0)")
+        assertEquals(0, refExitIgnites, "the exit cell never ignites during the reference run")
     }
 
     // ---- §13.2 point 5 for authored content ----

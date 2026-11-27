@@ -16,8 +16,8 @@ import robofight.fireline.VERT_EDGE_SLOTS
 /**
  * The Android thin-wall renderer mapping (PLAN-EDGE-WALLS.md step E3,
  * DESIGN-FIRELINE.md amendment A-6). These tests pin the exact arithmetic the
- * grid strokes with, on the mission that is named after its wall (06 THIN WALL,
- * `fireline-engine/src/commonMain/kotlin/robofight/fireline/Missions.kt:363`).
+ * grid strokes with, on the mission that is named after its wall (06 GO AROUND,
+ * `fireline-engine/src/commonMain/kotlin/robofight/fireline/Missions.kt`).
  *
  * The acceptance claim they exist to prove: a thin wall reaches the canvas as
  * line segments that come only from the engine's edge arrays, never as a filled
@@ -28,30 +28,30 @@ class EdgeWallGeometryTest {
     private val cell = 20f
 
     @Test
-    fun mission06MapsToExactlyTheThreeEdgeSlotsTheEngineCarries() {
+    fun mission06MapsToExactlyTheThirteenEdgeSlotsTheEngineCarries() {
         val layout = Missions.byId(6)!!.layout
-        assertEquals(3, layout.edgeCount())
+        assertEquals(13, layout.edgeCount())
         val segments = EdgeWallGeometry.segmentsOf(layout.wallVertRowMajor(), layout.wallHorizRowMajor())
         assertEquals(
-            listOf(
-                // WALL_VERT row 2 char 5: the lane gate, the edge right of (5,2).
-                WallEdgeSegment(WallEdgeOrientation.VERTICAL, 5, 2),
-                // WALL_HORIZ rows 1 and 2 char 2: the spawn cell's north and south edges.
-                WallEdgeSegment(WallEdgeOrientation.HORIZONTAL, 2, 1),
-                WallEdgeSegment(WallEdgeOrientation.HORIZONTAL, 2, 2),
-            ),
+            // The wall column: WALL_VERT column 9 for rows 0..12, the edges right
+            // of (9,0)..(9,12). One vertical run, no horizontal edges.
+            (0..12).map { WallEdgeSegment(WallEdgeOrientation.VERTICAL, 9, it) },
             segments,
         )
     }
 
     @Test
-    fun mission06HasNoWallCellSoItsWallsCanOnlyComeFromTheEdgeArrays() {
+    fun mission06ThinWallsComeOnlyFromTheEdgeArrays() {
         val layout = Missions.byId(6)!!.layout
-        assertEquals(0, layout.terrainRowMajor().count { it == TERRAIN_WALL })
+        // The R4 layout carries exactly the three pocket-shell wall cells.
+        assertEquals(3, layout.terrainRowMajor().count { it == TERRAIN_WALL })
+        assertEquals(TERRAIN_WALL, layout.terrainAt(10, 12))
+        assertEquals(TERRAIN_WALL, layout.terrainAt(10, 14))
+        assertEquals(TERRAIN_WALL, layout.terrainAt(11, 13))
         assertTrue(layout.wallsPresent())
         // The gate cells on both sides of the thin wall are ordinary floor cells.
-        assertEquals(TERRAIN_FLOOR, layout.terrainAt(5, 2))
-        assertEquals(TERRAIN_FLOOR, layout.terrainAt(6, 2))
+        assertEquals(TERRAIN_FLOOR, layout.terrainAt(9, 10))
+        assertEquals(TERRAIN_FLOOR, layout.terrainAt(10, 10))
         assertTrue(EdgeWallGeometry.segmentsOf(layout.wallVertRowMajor(), layout.wallHorizRowMajor()).isNotEmpty())
     }
 
@@ -82,13 +82,13 @@ class EdgeWallGeometryTest {
                 }
             }
         }
-        // Concrete gate wall: x = 6 * 20 = 120, y from 2 * 20 to 3 * 20, i.e. the
-        // right border of cell (5,2) and the left border of cell (6,2).
-        val gate = EdgeWallGeometry.lineOf(WallEdgeSegment(WallEdgeOrientation.VERTICAL, 5, 2), cell)
-        assertEquals(120f, gate.x1)
-        assertEquals(120f, gate.x2)
-        assertEquals(40f, gate.y1)
-        assertEquals(60f, gate.y2)
+        // Concrete gate wall: x = (9 + 1) * 20 = 200, y from 10 * 20 to 11 * 20,
+        // i.e. the right border of cell (9,10) and the left border of cell (10,10).
+        val gate = EdgeWallGeometry.lineOf(WallEdgeSegment(WallEdgeOrientation.VERTICAL, 9, 10), cell)
+        assertEquals(200f, gate.x1)
+        assertEquals(200f, gate.x2)
+        assertEquals(200f, gate.y1)
+        assertEquals(220f, gate.y2)
     }
 
     @Test
@@ -116,14 +116,15 @@ class EdgeWallGeometryTest {
     /**
      * Since the mission-content adoption (PLAN-RECONCILE-MAIN-01.md §10 step 5)
      * every authored mission carries thin edges: main's 2, 25, 11, 18 and 40
-     * for missions 01-05 plus mission 06's 3. The renderer must show each of
-     * them as edge segments straight from the engine arrays - and the half that
-     * proves the renderer never invents walls still holds: the segment sets are
-     * exactly the engine edge sets, cell for cell.
+     * for missions 01-05 plus mission 06's 13 (the R4 GO AROUND wall column).
+     * The renderer must show each of them as edge segments straight from the
+     * engine arrays - and the half that proves the renderer never invents walls
+     * still holds: the segment sets are exactly the engine edge sets, cell for
+     * cell.
      */
     @Test
     fun adoptedMissionsDrawExactlyTheirEngineEdgeSegments() {
-        val adoptedEdges = mapOf(1 to 2, 2 to 25, 3 to 11, 4 to 18, 5 to 40, 6 to 3)
+        val adoptedEdges = mapOf(1 to 2, 2 to 25, 3 to 11, 4 to 18, 5 to 40, 6 to 13)
         for (mission in Missions.ALL) {
             val segments = EdgeWallGeometry.segmentsOf(
                 mission.layout.wallVertRowMajor(),
@@ -186,7 +187,7 @@ class EdgeWallGeometryTest {
             assertEquals(mission.layout.edgeCount(), count, "mission ${mission.id}")
             total += count
         }
-        // 2 + 25 + 11 + 18 + 40 for main's adopted missions 01-05, plus mission 06's 3.
-        assertEquals(99, total)
+        // 2 + 25 + 11 + 18 + 40 for main's adopted missions 01-05, plus mission 06's 13.
+        assertEquals(109, total)
     }
 }

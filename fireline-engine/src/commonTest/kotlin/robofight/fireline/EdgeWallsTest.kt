@@ -592,9 +592,11 @@ class EdgeWallsTest {
      * missions 01-05 are main's layouts, every authored mission carries thin
      * edges: main's measured 2, 25, 11, 18 and 40 edges for missions 01-05
      * (measured with the engine's own `Layout.edgeCount`) plus mission 06's
-     * three E2 lane edges. The isolation half of the gate survives: mission 06
-     * still carries exactly the three edges the pinned E2 lane fixture carries,
-     * and no mission validation depends on the old wall-free layouts.
+     * 13 wall-column edges (the R4 capstone redesign, GO AROUND: one vertical
+     * run at x=9 rows 0..12, measured with the same `Layout.edgeCount`). The
+     * isolation half of the gate survives: mission 06 is still the authored
+     * mission named for its wall, and no mission validation depends on the
+     * old wall-free layouts.
      */
     @Test
     fun shippedMissionLayoutsAllCarryThinEdgesAndMission06StaysTheTeachingCapstone() {
@@ -618,13 +620,15 @@ class EdgeWallsTest {
         assertTrue(Missions.byId(3)!!.layout.wallBetween(7, 5, 8, 5), "mission 03's vertical edge column at x=7 gates row 5")
         assertTrue(Missions.byId(4)!!.layout.wallBetween(8, 1, 8, 2) && Missions.byId(4)!!.layout.wallBetween(8, 2, 8, 3), "mission 04 seals the fuel lane north and south")
         assertTrue(Missions.byId(5)!!.layout.wallBetween(0, 2, 0, 3) && Missions.byId(5)!!.layout.wallBetween(19, 1, 19, 2), "mission 05 seals the burning corridor end to end")
-        val thin = assertNotNull(Missions.byId(6), "mission 06 THIN WALL must exist")
+        val thin = assertNotNull(Missions.byId(6), "mission 06 GO AROUND must exist")
         assertTrue(thin.layout.wallsPresent(), "mission 06 is the authored teaching mission that carries edge walls")
-        assertEquals(3, thin.layout.edgeCount(), "mission 06 carries the same three edges as the E2 lane fixture (parity_matrix.tsv wall-lane-move)")
-        assertEquals(1, thin.layout.vertEdge.count { it }, "mission 06 WALL_VERT: the lane gate right of (5,2)")
-        assertEquals(2, thin.layout.horizEdge.count { it }, "mission 06 WALL_HORIZ: the spawn cell's north and south edges")
-        assertTrue(thin.layout.wallBetween(5, 2, 6, 2), "mission 06 gates the lane between (5,2) and (6,2)")
-        assertEquals(emptyList<String>(), thin.validate(), "mission 06 validates with its edges (the flood fill reaches the starting fire around the gate)")
+        assertEquals(13, thin.layout.edgeCount(), "mission 06 carries its 13-edge wall column (R4 capstone redesign, measured with Layout.edgeCount)")
+        assertEquals(13, thin.layout.vertEdge.count { it }, "mission 06 WALL_VERT: the single column x=9, rows 0..12")
+        assertEquals(0, thin.layout.horizEdge.count { it }, "mission 06 WALL_HORIZ: the wall is one vertical segment run")
+        assertTrue(thin.layout.wallBetween(9, 10, 10, 10), "mission 06 gates row 10 between (9,10) and (10,10)")
+        assertTrue(thin.layout.wallBetween(9, 12, 10, 12), "mission 06's wall reaches its lower end at row 12")
+        assertFalse(thin.layout.wallBetween(9, 13, 10, 13), "mission 06 keeps row 13 open: the detour crosses below the wall's lower end")
+        assertEquals(emptyList<String>(), thin.validate(), "mission 06 validates with its edges (the flood fill reaches the pocket fire through the open rows)")
         assertTrue(fixtureLayout().wallsPresent(), "the fixture is the layout that does carry walls")
         assertEquals(3, fixtureLayout().edgeCount(), "the fixture wall table declares 3 edges")
     }
@@ -647,7 +651,7 @@ class EdgeWallsTest {
             assertSameLayoutArrays(m.layout, reparsed, "mission ${m.id} '${m.name}' canonical text")
             assertEquals(text, reparsed.toCanonicalText(), "mission ${m.id} '${m.name}' text is byte-identical after a round trip")
             assertTrue(reparsed.wallsPresent(), "mission ${m.id} reparses with its edges")
-            assertEquals((adopted[id] ?: 3), reparsed.edgeCount(), "mission ${m.id} reparses with the same edge count")
+            assertEquals((adopted[id] ?: 13), reparsed.edgeCount(), "mission ${m.id} reparses with the same edge count")
         }
     }
 
@@ -714,11 +718,11 @@ class EdgeWallsTest {
         val hotState = FirelineWorld(m5.descriptorForSource(m5.referenceSource)).canonicalState()
         assertTrue(hotState.split("verticalEdges=")[1].take(VERT_EDGE_SLOTS).count { it == '1' } == 0, "mission 05 stamps no vertical edge (its walls are all horizontal)")
         assertTrue(hotState.split("horizontalEdges=")[1].take(HORIZ_EDGE_SLOTS).count { it == '1' } == 40, "mission 05 stamps exactly its 40 horizontal edges (the corridor seal, rows 1 and 2)")
-        val thin = assertNotNull(Missions.byId(6), "mission 06 THIN WALL must exist")
+        val thin = assertNotNull(Missions.byId(6), "mission 06 GO AROUND must exist")
         val thinState = FirelineWorld(thin.descriptorForSource(thin.referenceSource)).canonicalState()
-        assertTrue(thinState.contains("\nverticalEdges="), "mission 06 stamps its vertical gate")
-        assertTrue(thinState.split("verticalEdges=")[1].take(VERT_EDGE_SLOTS).count { it == '1' } == 1, "mission 06 stamps exactly one vertical edge (the lane gate right of (5,2))")
-        assertTrue(thinState.split("horizontalEdges=")[1].take(HORIZ_EDGE_SLOTS).count { it == '1' } == 2, "mission 06 stamps exactly two horizontal edges (the spawn cell's north and south edges)")
+        assertTrue(thinState.contains("\nverticalEdges="), "mission 06 stamps its vertical wall column")
+        assertTrue(thinState.split("verticalEdges=")[1].take(VERT_EDGE_SLOTS).count { it == '1' } == 13, "mission 06 stamps exactly its 13 vertical edges (the single column x=9, rows 0..12)")
+        assertTrue(thinState.split("horizontalEdges=")[1].take(HORIZ_EDGE_SLOTS).count { it == '1' } == 0, "mission 06 stamps no horizontal edge (its wall is one vertical run)")
         assertEquals(FIRELINE_ENGINE_VERSION, 2, "engine v2 stays the shipped version through this increment: canonicalState stamps it and MissionDescriptor defaults to it; the bump to 4 follows at the anchor re-baseline (PLAN-RECONCILE-MAIN-01.md §8)")
     }
 }

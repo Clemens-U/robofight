@@ -34,8 +34,16 @@ package robofight.fireline
  * tree): finish ticks stay main's shipped 17, 102, 38, 147, 45, every
  * traceHash and every trace line is unchanged, and only the probe/final
  * fingerprints and the `wall_count` column moved; mission 06 rows are
- * untouched. The raw TSV/JSON under docs/web/fixtures and the version bump to
- * 4 follow at the anchor re-baseline, where the generator runs on this content.
+ * untouched. THE MISSION-06 STEP (increment R4, same branch): mission 06 is
+ * now the GO AROUND capstone (id 6 kept, content redesign per
+ * PLAN-RECONCILE-MAIN-01.md §10 step R4): 13 vertical edges in one column,
+ * timeLimit 90, and rows 6-reference / 6-failing were re-recorded a third
+ * time by the same headless twin (MeasureR5, scratch tree, 2026-11-27) -
+ * probe/trace/final hashes, finish ticks 62 and 90, firmware sizes and the
+ * pinned trace lines above all carry the measured values; `FIRELINE_ENGINE_
+ * VERSION` is still 2. The raw TSV/JSON under docs/web/fixtures and the
+ * version bump to 4 follow at the anchor re-baseline, where the generator
+ * runs on this content.
  */
 
 internal const val PARITY_GENERATOR: String = "docs/web/fixtures/ParityMatrix.kt"
@@ -92,8 +100,8 @@ internal val PARITY_FIXTURE_ROWS: List<ParityFixtureRow> = listOf(
     ParityFixtureRow("4-failing", 4, "DOWNWIND", "failing", "ignores the burning line", 12, "938556959d81d6f6", "99752e4c059a058e", 500, "FAILURE", "TIME_EXPIRED", "37433953885c7afd", 9, 3, 4004, 7, 500, null, 100, 2, 2, 700, 18, true),
     ParityFixtureRow("5-reference", 5, "HOT ZONE", "reference", "reference", 12, "d38d358d81af4207", "317eca23f0149509", 45, "SUCCESS", "-", "06b2875eea21dd61", 111, 37, 5005, 22, 200, null, 60, 1, 0, 400, 40, true),
     ParityFixtureRow("5-failing", 5, "HOT ZONE", "failing", "no shield, straight through", 12, "3e9844bae190f491", "def56526d10c1cf2", 29, "FAILURE", "ROVER_DESTROYED", "9240019620f1ed8e", 6, 2, 5005, 22, 200, null, 60, 1, 0, 400, 40, true),
-    ParityFixtureRow("6-reference", 6, "THIN WALL", "reference", "reference", 12, "535194c657ec67bc", "5f7fd7153968d3c2", 59, "SUCCESS", "-", "f18720e337c5d9fc", 108, 36, 6027, 5, 120, null, 100, 0, 0, 300, 3, true),
-    ParityFixtureRow("6-failing", 6, "THIN WALL", "failing", "spray through the thin wall", 12, "af58dd4b469871ae", "aae04624e85d38cf", 120, "FAILURE", "TIME_EXPIRED", "eb1f32cf5f83ed0f", 15, 5, 6027, 5, 120, null, 100, 0, 0, 300, 3, true),
+    ParityFixtureRow("6-reference", 6, "GO AROUND", "reference", "reference", 12, "cac9e1513c7b1135", "46f9fc7672a993d9", 62, "SUCCESS", "-", "78ab6090ddbe444a", 108, 36, 6027, 5, 90, null, 100, 0, 0, 300, 13, true),
+    ParityFixtureRow("6-failing", 6, "GO AROUND", "failing", "spray straight at the wall", 12, "c3b9521cc4072152", "4720fbe644a1f4ca", 90, "FAILURE", "TIME_EXPIRED", "ba00d941d5cfce57", 27, 9, 6027, 5, 90, null, 100, 0, 0, 300, 13, true),
     ParityFixtureRow("wall-lane-move", 101, "WALL LANE", "wall", "lane move loop", 12, "ef26fe23202fe0b6", "88b5c429de62c944", 60, "FAILURE", "TIME_EXPIRED", "e53cc91a7afc2957", 6, 2, 6001, 4, 60, null, 100, 0, 0, 200, 3, true),
     ParityFixtureRow("wall-nozzle-seal", 102, "SEALED NOZZLE", "wall", "single shoot", 12, "515c98beac49d34d", "b87628c5ec530355", 60, "FAILURE", "TIME_EXPIRED", "d4b68c352bb30e0e", 9, 3, 6002, 4, 60, null, 100, 0, 0, 200, 1, true),
     ParityFixtureRow("wall-lane-suppress", 103, "WALL LANE SUPPRESS", "wall", "single shoot", 12, "cc2ed4624c1a1658", "e762879cfcc1a486", 60, "FAILURE", "TIME_EXPIRED", "22fc9570c4018b34", 9, 3, 6003, 4, 60, null, 100, 0, 0, 200, 3, true),
@@ -263,18 +271,18 @@ internal val PARITY_GOLDEN_TRACES: Map<String, List<String>> = mapOf(
         "012 JMP 256 | ROVER FIRE DAMAGE -4 (fire 100)",
     ),
     "6-reference" to listOf(
-        "001 MOVE (1/2) | ",
-        "002 MOVE (2/2) | ",
-        "003 MOVE (1/2) | ",
-        "004 MOVE (2/2) | ",
-        "005 MOVE (1/2) | ",
-        "006 MOVE (2/2) | ",
-        "007 IN port11 | ",
-        "008 JZ (skip) | ",
-        "009 TURN R | ",
-        "010 MOVE (1/2) | ",
-        "011 MOVE (2/2) | ",
-        "012 TURN L | ",
+        "001 TURN R | ",
+        "002 MOVE (1/2) | ",
+        "003 MOVE (2/2) | ",
+        "004 MOVE (1/2) | ",
+        "005 MOVE (2/2) | ",
+        "006 MOVE (1/2) | ",
+        "007 MOVE (2/2) | ",
+        "008 TURN L | ",
+        "009 MOVE (1/2) | ",
+        "010 MOVE (2/2) | ",
+        "011 MOVE (1/2) | ",
+        "012 MOVE (2/2) | ",
     ),
     "6-failing" to listOf(
         "001 MOVE (1/2) | ",
@@ -283,12 +291,12 @@ internal val PARITY_GOLDEN_TRACES: Map<String, List<String>> = mapOf(
         "004 MOVE (2/2) | ",
         "005 MOVE (1/2) | ",
         "006 MOVE (2/2) | ",
-        "007 SHOOT (1/3) | ",
-        "008 SHOOT (2/3) | ",
-        "009 SHOOT (3/3) | PACKET BLOCKED EDGE 6,2",
-        "010 JMP 265 | ",
-        "011 SHOOT (1/3) | ",
-        "012 SHOOT (2/3) | ",
+        "007 MOVE (1/2) | ",
+        "008 MOVE (2/2) | ",
+        "009 MOVE (1/2) | ",
+        "010 MOVE (2/2) | ",
+        "011 MOVE (1/2) | ",
+        "012 MOVE (2/2) | ",
     ),
     "wall-lane-move" to listOf(
         "001 MOVE (1/2) | ",

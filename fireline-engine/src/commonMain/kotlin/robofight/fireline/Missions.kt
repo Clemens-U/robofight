@@ -370,78 +370,82 @@ object Missions {
     )
 
     // ---- 9.6 ----
-    // The thin wall mission (PLAN-EDGE-WALLS.md §7 step E5). The layout carries
-    // NO wall cells: the only walls are three thin edges, the same three the
-    // pinned E2 fixture rows carry (`docs/web/fixtures/parity_matrix.tsv`
-    // `wall-lane-move` / `wall-open-lane`: WALL_VERT row 2 char 5, the edge right
-    // of (5,2), plus the spawn cell's north and south edges at WALL_HORIZ rows 1
-    // and 2 char 2). The lane gate is what the mission is named for: it stops the
-    // rover's straight MOVE, it stops a water packet at spawn and absorbs one in
-    // flight, and AHEAD answers 1 across it, exactly like a wall cell would -
-    // while fire spreads across it (decision DW1), so the burning lane cell
-    // (6,2) lights the lane cell on the rover's side of the wall.
+    // GO AROUND, the R4 thin-wall capstone redesign (PLAN-RECONCILE-MAIN-01.md
+    // §10 step R4). One vertical thin wall: vertEdgeSegment(9, 0, 12), 13 edges
+    // on the border between (9,y) and (10,y) for rows 0..12. The rover starts
+    // west at (2,10) facing east: its straight MOVE stops at the walled edge,
+    // every straight SHOOT is refused there ("PACKET BLOCKED EDGE", the Arena
+    // never spawns a packet through a thin wall), and AHEAD answers 1 across
+    // it exactly like a wall cell would. Under the merged rules (§8) the same
+    // edge blocks fire spread, so the west side stays safe behind the wall.
+    // The only west->east crossings are the open rows 13..19 below the wall's
+    // lower end.
     //
-    // Refill cells ring the lane: row 1 and row 3 for x=2..17, plus (4,2) and
-    // (7,2) ON the lane. A refill cell never ignites, so the crossing can only
-    // ever be (6,2) -> (5,2) and back: exactly the two cells the reference
-    // solution drowns, one on each side of the wall, and row 3 is the safe
-    // bypass lane the rover shoots the lane from. Seed 6027 is the seed whose
-    // spread stream crosses the gate at tick 15 (a W attempt westward across the
-    // walled edge) and never relights the source cell after it is drowned.
-    val THIN_WALL = Mission(
+    // The pocket east of the wall holds exactly ONE burning cell (10,13) at
+    // authored level 2 (50 intensity, in the 26..50 band) and no fuel cells.
+    // Terrain walls (10,12), (10,14) and (11,13) plus the west refill cell
+    // (9,13) on its fourth face seal it: walls and refill cells never ignite,
+    // so no spread attempt of the seed-6027 stream can ever ignite any pocket
+    // neighbour - the pocket cannot crawl anywhere, and the exit (17,13) on
+    // the far east side never ignites. The rover drowns it from the refill
+    // firing stand (9,13): the shot line crosses the wall line at row 13,
+    // south of the wall's lower end, where the wall does not sit (measured:
+    // four packets), then the rover walks the open rows to the exit.
+    val GO_AROUND = Mission(
         id = 6,
-        name = "THIN WALL",
-        briefing = "The wall here is only a line between two cells. It stops your MOVE, it stops your water, and it stops the fire too. Read AHEAD, turn into the refill lane, drown the burning cell from the bypass under it, then walk the bypass to the exit.",
+        name = "GO AROUND",
+        briefing = "A thin wall stops your MOVE and your water, and the fire behind it cannot cross it either. Walk around the lower end of the wall, drown the burning cell from the refill lane, then reach the exit.",
         layout = Layout.decode(
             terrainRows = field(
-                2, 2,
-                (2..17).map { Triple(it, 1, GLYPH_REFILL) } +
-                    (2..17).map { Triple(it, 3, GLYPH_REFILL) } +
-                    listOf(
-                        Triple(4, 2, GLYPH_REFILL),                            // lane firebreak west of the gate
-                        Triple(7, 2, GLYPH_REFILL),                           // lane firebreak east of the fire
-                        Triple(17, 2, GLYPH_EXIT),                            // exit at the end of the lane
-                    ),
+                2, 10,
+                listOf(
+                    Triple(10, 12, GLYPH_WALL),                           // pocket shell, north of the fire
+                    Triple(10, 14, GLYPH_WALL),                          // pocket shell, south of the fire
+                    Triple(11, 13, GLYPH_WALL),                          // pocket shell, east of the fire
+                    Triple(17, 13, GLYPH_EXIT),                          // exit, far east on the pocket row
+                ) + (2..9).map { Triple(it, 13, GLYPH_REFILL) },        // west refill lane, ends in the firing stand (9,13)
             ),
-            fireRows = fireAt(listOf(Triple(6, 2, '1'))),
+            fireRows = fireAt(listOf(Triple(10, 13, '2'))),              // the single pocket cell, level 2 = 50
             roverDir = DIR_E,
-            vertEdgeRows = vertEdgeRows(2 to 5),                              // the lane gate right of (5,2)
-            horizEdgeRows = horizEdgeRows(1 to 2, 2 to 2),                    // the spawn cell cannot be left north or south
+            vertEdgeRows = vertEdgeRows(*vertEdgeSegment(9, 0, 12).toTypedArray()),
         ),
         seed = 6027,
         objectives = Objectives.EXTINGUISH_ALL or Objectives.REACH_EXIT,
-        timeLimit = 120,
+        timeLimit = 90,
         startingWater = 100,
         windDir = DIR_W,
         windForce = 0,
         referenceSource =
-            "       MOVE\n       MOVE\n       MOVE\n" +                    // (2,2) -> (5,2): the lane cell west of the thin wall
-                "       IN     AHEAD\n" +                                // the thin wall answers 1, the same sentinel a wall cell gives (§6.2)
-                "       JZ     straight\n" +                            // empty ahead: go straight. Here the lane is closed
-                "       TURN   R\n" +                                  // E -> S: the wall is not negotiable, the bypass is
-                "straight:\n       MOVE\n" +                            // (5,2) -> (5,3) onto the refill lane
-                "       TURN   L\n       MOVE\n" +                     // S -> E, step to (6,3) under the burning cell
-                "       TURN   L\n" +                                  // E -> N
-                "       SHOOT\n       SHOOT\n" +                       // drown (6,2): the packet spawns on it, no edge to cross
-                "       TURN   L\n       MOVE\n" +                     // N -> W, back to (5,3)
-                "       TURN   R\n" +                                  // W -> N
-                "       SHOOT\n       SHOOT\n" +                       // aimed at (5,2): under the merged rule the fire never crossed the gate, so these find no fire and expire at the boundary (06 is slated for redesign)
-                "       TURN   R\n" +                                  // N -> E, walk the refill bypass east
+            "       TURN   R\n" +                                       // E -> S: the thin wall ahead is not negotiable
+                "       MOVE\n       MOVE\n       MOVE\n" +             // (2,10) -> (2,13), onto the west refill lane
+                "       TURN   L\n" +                                   // S -> E
                 "       MOVE\n       MOVE\n       MOVE\n       MOVE\n" +
-                "       MOVE\n       MOVE\n       MOVE\n       MOVE\n" +   // (5,3) -> (17,3)
-                "       MOVE\n       MOVE\n       MOVE\n       MOVE\n" +
-                "       TURN   L\n" +                                  // E -> N
-                "       MOVE\n" +                                      // (17,3) -> (17,2) the exit
+                "       MOVE\n       MOVE\n       MOVE\n" +             // (2,13) -> (9,13), the refill firing stand
+                "       SHOOT\n       SHOOT\n       SHOOT\n       SHOOT\n" +   // 4 x 25 drown the grown pocket cell (measured)
+                "       TURN   R\n" +                                   // E -> S
+                "       MOVE\n       MOVE\n" +                          // (9,13) -> (9,15)
+                "       TURN   L\n" +                                   // S -> E
+                "       MOVE\n       MOVE\n       MOVE\n" +             // (10,15) -> (12,15), crossing the open rows
+                "       TURN   L\n" +                                   // E -> N
+                "       MOVE\n       MOVE\n" +                          // (12,14) -> (12,13), north of the pocket shell
+                "       TURN   R\n" +                                   // N -> E
+                "       MOVE\n       MOVE\n       MOVE\n       MOVE\n       MOVE\n" +   // (13,13) -> (17,13), the exit
                 "       WAIT\n       JMP    fin\nfin:   WAIT\n       JMP    fin",
         failingSources = listOf(
-            Triple("spray through the thin wall",
-                "       MOVE\n       MOVE\n       MOVE\nloop:  SHOOT\n       JMP    loop",
+            Triple("spray straight at the wall",
+                // The naive bot walks to the thin wall and sprays east. Every SHOOT is refused at
+                // the walled edge ("PACKET BLOCKED EDGE", PLAN-EDGE-WALLS.md §3.6); it never drowns
+                // (10,13) and never leaves the wall, so it runs out of time. Its AHEAD answers 1
+                // across the edge, exactly like a wall cell would.
+                "       MOVE\n       MOVE\n       MOVE\n       MOVE\n" +
+                "       MOVE\n       MOVE\n       MOVE\n" +             // (2,10) -> (9,10), stopped by the walled edge
+                "loop:  SHOOT\n       JMP    loop",
                 FailureReason.TIME_EXPIRED),
         ),
         maxTicks = 300,
     )
 
-    val ALL: List<Mission> = listOf(NOZZLE_CHECK, CORRIDOR, FIRST_RESPONSE, DOWNWIND, HOT_ZONE, THIN_WALL)
+    val ALL: List<Mission> = listOf(NOZZLE_CHECK, CORRIDOR, FIRST_RESPONSE, DOWNWIND, HOT_ZONE, GO_AROUND)
         .map { it.requireValid() }
 
     fun byId(id: Int): Mission? = ALL.firstOrNull { it.id == id }

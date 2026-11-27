@@ -21,7 +21,7 @@ class MissionPickerModelTest {
         val cards = MissionPickerModel.cards { null }
         assertEquals(listOf("01", "02", "03", "04", "05", "06"), cards.map { it.idLabel })
         assertEquals(
-            listOf("NOZZLE CHECK", "CORRIDOR", "FIRST RESPONSE", "DOWNWIND", "HOT ZONE", "THIN WALL"),
+            listOf("NOZZLE CHECK", "CORRIDOR", "FIRST RESPONSE", "DOWNWIND", "HOT ZONE", "GO AROUND"),
             cards.map { it.name },
         )
         assertEquals(listOf(1, 2, 3, 4, 5, 6), cards.map { it.missionId })
@@ -55,7 +55,7 @@ class MissionPickerModelTest {
         val cards = MissionPickerModel.cards { null }
         // time_limit / seed / wind_dir x wind_force / starting_water per
         // docs/web/fixtures/parity_matrix.tsv rows 1..6-reference.
-        assertEquals(listOf(60, 120, 120, 500, 200, 120), cards.map { it.timeLimit })
+        assertEquals(listOf(60, 120, 120, 500, 200, 90), cards.map { it.timeLimit })
         assertEquals(listOf(1001, 2002, 3003, 4004, 5005, 6027), cards.map { it.seedLabel.removePrefix("SEED ").removeSuffix(" (FIXED)").toInt() })
         assertEquals(listOf("W x0", "W x0", "W x0", "E x2", "N x0", "W x0"), cards.map { it.windLabel })
         assertEquals(listOf(100, 100, 100, 100, 60, 100), cards.map { it.startingWater })
