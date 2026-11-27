@@ -50,3 +50,7 @@ The Circuit screenshots were captured from the signed Pro flavor running in
 the Android emulator at the Play-compliant 1080×2160 resolution; the free
 screenshots are the current 1080×1920 device captures. Upload images are
 24-bit RGB PNGs without alpha; store icons are 32-bit PNGs.
+
+`release/fireline/` contains the Opcode FIRELINE release disclosure draft,
+the selected Helmet Rover 512×512 Play icon, its 1024×500 feature graphic, and
+authentic 1080×2400 phone captures under `release/fireline/screenshots/`.
