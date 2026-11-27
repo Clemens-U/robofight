@@ -648,6 +648,25 @@ The migration is complete only when all are true:
 
 ## 13. Decisions deliberately deferred
 
+Five-cell water range implemented (2026-11-08): FIRELINE engine 3 counts the
+adjacent cell as distance 1, checks fire at distance 5 before expiring, and never
+reaches distance 6. Other discharge costs, timing, and collision rules are
+unchanged. See FIRELINE-DESIGN.md section 3.6.
+
+Thin-wall follow-up implemented (2026-11-08): FIRELINE engine 2 supports Arena's
+vertical/horizontal edge geometry alongside full-cell blocks. Layout authoring,
+reachability validation, MOVE/AHEAD, water emission/flight, spread, canonical
+hashing, headless/Android rendering, and all five authored missions are updated.
+See FIRELINE-DESIGN.md sections 3.2 and 9 for geometry and compatibility rules.
+
+FIRELINE usability backlog (2026-11-08; see FIRELINE-DESIGN.md section 15):
+
+- [ ] Add optional commented starter firmware and a brief programming-loop
+  introduction for new players. Startup behavior remains unchanged for now.
+- [ ] Add evidence-based failure explanations that retain relevant earlier
+  events, such as repeated blocked shots, alongside the final reason and log.
+  Failure summaries remain unchanged for now.
+
 These are not blockers for starting phases 0-5:
 
 - FIRELINE paid/free editions.

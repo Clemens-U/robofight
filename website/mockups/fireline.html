@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Opcode FIRELINE is an offline programming game about coding an RF-8 firefighting rover through three deterministic rescue missions.">
+  <meta name="theme-color" content="#16100e">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://opcode-fireline.appsystems.at/">
+  <link rel="icon" href="/assets/fireline-helmet-rover.png" type="image/png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Opcode FIRELINE">
+  <meta property="og:title" content="Opcode FIRELINE — Program the response">
+  <meta property="og:description" content="Write RF-8 firmware for an autonomous firefighting rover. Suppress, navigate, and rescue.">
+  <meta property="og:url" content="https://opcode-fireline.appsystems.at/">
+  <meta property="og:image" content="https://opcode-fireline.appsystems.at/assets/fireline-helmet-rover.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>Opcode FIRELINE — Program the response</title>
+  <script>document.documentElement.classList.add('js')</script>
+  <script src="/site.js" defer></script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Opcode FIRELINE",
+    "operatingSystem": "Android",
+    "applicationCategory": "GameApplication",
+    "description": "An offline programming game about coding an autonomous RF-8 firefighting rover through deterministic rescue missions."
+  }
+  </script>
+  <style>
+    :root{color-scheme:dark;--field:#100b09;--screen:#16100e;--panel:#211512;--line:#6c372c;--text:#f2d9b0;--bright:#fff4dc;--dim:#b38362;--yellow:#ffd23f;--orange:#f2921e;--red:#e63946;--cyan:#35d6d6;--green:#34ec5b;--cols:82rem}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--field);color:var(--text);font:clamp(14px,1.35vw,17px)/1.55 "Courier New",Courier,monospace;text-shadow:0 0 7px rgba(242,146,30,.12)}body:before{content:"";position:fixed;inset:0;z-index:20;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0,rgba(0,0,0,.16) 1px,transparent 1px,transparent 4px)}a{color:var(--cyan);text-decoration:none}a:hover,a:focus{text-decoration:underline;text-underline-offset:3px;color:#a9ffff}.skip{position:absolute;left:-9999px}.skip:focus{left:1rem;top:1rem;background:var(--yellow);color:#100b09;padding:.5em .8em;z-index:30;text-shadow:none}.shell{width:min(var(--cols),calc(100% - 2rem));margin:0 auto;padding:1.2rem 0 4rem}.rule{border:0;border-top:1px solid var(--line);margin:1rem 0}.topline{color:var(--yellow)}.right{float:right}.clear{clear:both}.nav{display:flex;flex-wrap:wrap;gap:.4rem 1.2rem;margin:.8rem 0 2.6rem}.nav a:before{content:"["}.nav a:after{content:"]"}.nav a[aria-current="page"]{color:var(--bright)}.nav a[aria-current="page"]:before{content:">["}.nav a[aria-current="page"]:after{content:"]<"}[hidden],.js .panel:not(.is-active){display:none!important}.panel{position:relative;min-height:44rem;margin:0;transform-origin:top}.panel.is-active{animation:terminal-fill .72s steps(16,end) both}.panel.is-active:after{content:"";position:absolute;z-index:4;left:0;right:0;top:0;height:2px;background:var(--yellow);box-shadow:0 0 16px 4px rgba(255,210,63,.58);pointer-events:none;animation:scan-down .72s linear both}.hero{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(260px,.85fr);align-items:center;gap:clamp(2rem,6vw,5rem);min-height:34rem;padding:2rem 0 4rem}.eyebrow{color:var(--orange);letter-spacing:.12em}.hero h1{margin:.35rem 0 1rem;color:var(--bright);font-size:clamp(2.8rem,7.5vw,6.8rem);line-height:.88;letter-spacing:-.07em;text-wrap:balance}.hero h1 span{display:block;color:var(--yellow);font-size:.34em;letter-spacing:.08em;margin-top:.5em}.lede{max-width:58ch;color:var(--text);font-size:1.08em}.prompt{color:var(--green);margin:1.5rem 0}.cursor{display:inline-block;width:.62em;height:1.05em;vertical-align:-.14em;background:var(--green);box-shadow:0 0 9px rgba(52,236,91,.7);animation:blink 1s steps(1,end) infinite}.hero-art{position:relative}.hero-art:before{content:"";position:absolute;inset:9% 5%;background:radial-gradient(circle,rgba(230,57,70,.32),transparent 66%);filter:blur(18px)}.hero-art img{position:relative;display:block;width:100%;max-width:540px;margin:auto;aspect-ratio:1;object-fit:cover;border:1px solid var(--line);box-shadow:0 0 0 7px rgba(108,55,44,.16),0 0 50px rgba(230,57,70,.2)}.command{display:inline-block;margin:.45em .55em .45em 0;padding:.45em .7em;border:1px solid var(--cyan);color:var(--cyan)}.command:hover,.command:focus{background:var(--cyan);color:#071516;text-shadow:none;text-decoration:none}.command.secondary{border-color:var(--line);color:var(--text)}.command.secondary:hover,.command.secondary:focus{background:var(--yellow);border-color:var(--yellow);color:#130d05}.status{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);margin:0 0 3rem}.status div{padding:.7rem .9rem;border-right:1px solid var(--line);color:var(--dim)}.status div:last-child{border:0}.status b{display:block;color:var(--bright)}.section{padding:4rem 0;border-top:1px dashed var(--line)}.section h2{margin:0 0 1.5rem;color:var(--yellow);font:inherit;font-weight:bold;font-size:1.18em}.section h2:before{content:">>> "}.section h2:after{content:" <<<"}.intro{max-width:72ch;font-size:1.08em}.console{border:1px solid var(--orange);background:#0e0908;margin-top:2rem}.titlebar{display:flex;justify-content:space-between;padding:.45rem .8rem;border-bottom:1px solid var(--orange);color:var(--yellow)}.consolebody{padding:1rem;display:grid;grid-template-columns:minmax(320px,1fr) minmax(260px,.8fr);gap:2rem}.map,.source{white-space:pre;overflow:auto;margin:0;font-size:clamp(9px,1.2vw,14px);line-height:1.35}.map{color:var(--dim)}.map .wind{color:var(--cyan)}.map .wall{color:var(--text)}.map .rover{color:var(--yellow)}.map .refill,.map .packet{color:var(--cyan)}.map .fire{color:var(--red);text-shadow:0 0 8px rgba(230,57,70,.75)}.map .fuel{color:var(--orange)}.map .civilian{color:var(--bright)}.map .exit{color:var(--green)}.source{color:var(--dim)}.source mark{display:block;background:#382017;color:var(--bright)}.telemetry{grid-column:1/-1;padding-top:.75rem;border-top:1px dashed var(--line);color:var(--cyan)}.missions{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;counter-reset:mission}.mission{position:relative;border:1px solid var(--line);background:var(--panel);padding:1.2rem;min-height:18rem}.mission:before{counter-increment:mission;content:"0" counter(mission);color:var(--red);font-weight:bold}.mission h3{margin:.8rem 0;color:var(--bright);font:inherit;font-weight:bold}.mission p{color:var(--dim)}.mission ul{padding-left:1.2rem;color:var(--text)}.mission li::marker{color:var(--cyan)}.tool-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}.tool{border-left:3px solid var(--cyan);padding:.35rem 1rem}.tool h3{font:inherit;color:var(--bright);margin:0 0 .4rem}.tool p{margin:0;color:var(--dim)}.privacy{display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-items:start;border:1px solid var(--cyan);padding:clamp(1.2rem,4vw,2.2rem);background:linear-gradient(135deg,rgba(53,214,214,.08),transparent 55%)}.privacy h2{margin-top:0;color:var(--cyan)}.privacy ul{margin:0;padding-left:1.2rem}.privacy li{margin:.55rem 0}.privacy-code{color:var(--green);border-left:2px solid var(--green);padding-left:1rem}.cta{text-align:center;border-block:1px solid var(--orange);padding:2rem 1rem;margin:2rem 0}.cta strong{display:block;color:var(--yellow);font-size:1.2em}.footer{color:var(--dim);display:flex;flex-wrap:wrap;gap:.5rem 1.5rem}.footer span:first-child{color:var(--yellow)}
+    @keyframes blink{50%{opacity:0}}@keyframes terminal-fill{0%{clip-path:inset(0 0 100% 0);opacity:.1;filter:brightness(1.8)}55%{opacity:.82}100%{clip-path:inset(0);opacity:1;filter:brightness(1)}}@keyframes scan-down{0%{top:0;opacity:1}92%{opacity:.9}100%{top:100%;opacity:0}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.cursor,.panel.is-active{animation:none}.panel.is-active:after{display:none}}@media(max-width:1050px){.consolebody{grid-template-columns:1fr;gap:1rem}}@media(max-width:760px){body{font-size:13px}.shell{width:calc(100% - 1rem)}.right{float:none;display:block}.panel{min-height:46rem}.hero{grid-template-columns:1fr;min-height:0;padding-top:1rem}.hero-art{grid-row:1}.hero-art img{max-width:360px}.status{grid-template-columns:1fr 1fr}.status div:nth-child(2){border-right:0}.status div:nth-child(-n+2){border-bottom:1px solid var(--line)}.privacy{grid-template-columns:1fr}.missions,.tool-grid{grid-template-columns:1fr}.mission{min-height:0}.hero h1{font-size:clamp(2.7rem,15vw,5rem)}}
+  </style>
+</head>
+<body data-product="opcode_fireline">
+  <a class="skip" href="#main">Skip to main content</a>
+  <main class="shell" id="main">
+    <div class="topline">OPCODE FIRELINE RESPONSE SYSTEM <span class="right">RF-8 / STANDBY</span></div>
+    <hr class="rule clear">
+    <nav class="nav" aria-label="Primary">
+      <a href="#home" data-panel="home" aria-controls="home" aria-current="page">HOME</a><a href="#mission" data-panel="mission" aria-controls="mission">MISSION</a><a href="#calls" data-panel="calls" aria-controls="calls">THREE CALLS</a><a href="#tools" data-panel="tools" aria-controls="tools">TOOLS</a><a href="#privacy" data-panel="privacy" aria-controls="privacy">PRIVACY</a><a href="https://opcode-arena.appsystems.at/">ARENA</a>
+    </nav>
+
+    <section class="panel is-active" id="home" data-panel-name="home" aria-label="Home" tabindex="-1">
+    <div class="hero">
+      <div>
+        <div class="eyebrow">AUTONOMOUS EMERGENCY RESPONSE // VERSION 0.1</div>
+        <h1>FIRELINE<span>THE SAME LITTLE COMPUTER. A DIFFERENT JOB.</span></h1>
+        <p class="lede">WRITE RF-8 ASSEMBLY FOR A FIREFIGHTING ROVER. YOUR FIRMWARE AIMS THE NOZZLE, MANAGES HEAT AND WATER, FINDS A ROUTE, RESCUES A CIVILIAN, AND GETS THE MACHINE HOME.</p>
+        <div class="prompt">FL:\&gt; PROGRAM THE RESPONSE <span class="cursor" aria-hidden="true"></span></div>
+        <a class="command" href="#mission" data-panel="mission" aria-controls="mission">VIEW MISSION FEED</a><a class="command secondary" href="#privacy" data-panel="privacy" aria-controls="privacy">READ PRIVACY STATUS</a>
+      </div>
+      <div class="hero-art"><img src="/assets/fireline-helmet-rover.png" alt="Yellow autonomous firefighting rover wearing a helmet-shaped housing and spraying water"></div>
+    </div>
+
+    <div class="status" aria-label="Game facts"><div><b>MISSIONS</b>3 FOCUSED CALLS</div><div><b>CONTROL</b>YOUR FIRMWARE</div><div><b>EXECUTION</b>DETERMINISTIC</div><div><b>NETWORK</b>OFFLINE</div></div>
+    <section class="cta"><p>FL:\&gt; RELEASE STATUS</p><strong>OPCODE FIRELINE 0.1 // PREPARING FOR GOOGLE PLAY</strong><p>FREE. OFFLINE. THREE MISSIONS. YOUR CODE ON THE NOZZLE.</p></section>
+    </section>
+
+    <section class="panel section" id="mission" data-panel-name="mission" tabindex="-1">
+      <h2>PROGRAMMING IS THE ACTION</h2>
+      <p class="intro">FIRELINE IS A PROGRAMMING GAME, NOT A DRIVING GAME. THERE ARE NO DIRECT CONTROLS WHILE A MISSION RUNS. READ THE WORLD THROUGH RF-8 PORTS, MAKE DECISIONS WITH BRANCHES AND MEMORY, THEN WATCH THE ROVER EXECUTE YOUR CODE ONE INSTRUCTION AT A TIME.</p>
+      <div class="console" aria-label="Example FIRELINE mission monitor">
+        <div class="titlebar"><span>THERMAL://DOWNWIND</span><span>T+000086</span></div>
+        <div class="consolebody"><pre class="map" aria-hidden="true"><span class="wind">WIND E  &gt;&gt;&gt;&gt;&gt;&gt;  FORCE 2</span>                 WATER 040
+
+      00 01 02 03 04 05 06 07 08 09 10 11 12
+01             <span class="wall">╔═══════════════════════════╗</span>
+02        <span class="rover">R&gt;</span> <span class="refill">W</span>  <span class="packet">*</span>  <span class="fire">2</span>  <span class="refill">W  W</span>  <span class="fuel">F</span>  <span class="refill">W  W</span>  <span class="fuel">F</span>  <span class="refill">W</span>
+03             <span class="wall">╚═══════════════════════════╝</span>
+04        ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·
+05        ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·
+06        <span class="civilian">C</span>  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·
+07        ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·
+08        ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·
+09        ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·
+10        ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·
+11        ·  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·
+12        <span class="exit">E</span>  ·  ·  ·  ·  ·  ·  ·  ·  ·  ·
+
+<span class="fire">FIRE 04,02  LEVEL 50</span>       <span class="packet">PACKET 03,02 &gt; 04,02</span>
+<span class="civilian">CIV  02,06  WAITING</span>        <span class="exit">EXIT   02,12  OPEN</span></pre><pre class="source">scan:  IN    FIRE_DIST
+       JZ    seek_exit
+       IN    FIRE_ANGLE
+turn:  JZ    suppress
+       TURN  R
+       DEC   A
+       JNZ   turn
+<mark>&gt; suppress: SHOOT</mark>
+       IN    HEAT
+       CMP   70
+       JG    cooldown
+       JMP   scan</pre><div class="telemetry">HP 088 | WATER 040 | HEAT 052 | WIND EAST/2 | CIV 1 | EVENT: REFILL +10</div></div>
+      </div>
+    </section>
+
+    <section class="panel section" id="calls" data-panel-name="calls" tabindex="-1">
+      <h2>THREE CALLS. ONE COMPLETE LOOP.</h2>
+      <div class="missions">
+        <article class="mission"><h3>NOZZLE CHECK</h3><p>LEARN WHAT A SHOT COSTS BEFORE THE BUILDING STARTS MOVING AROUND YOU.</p><ul><li>AIM AND SUPPRESS</li><li>LEARN NOZZLE RANGE</li><li>MANAGE HEAT</li></ul></article>
+        <article class="mission"><h3>CORRIDOR</h3><p>THE TARGET IS NO LONGER STRAIGHT AHEAD. TURN SENSOR READINGS INTO A ROUTE.</p><ul><li>NAVIGATE WALLS</li><li>REFILL WATER</li><li>EXTINGUISH AND EXIT</li></ul></article>
+        <article class="mission"><h3>DOWNWIND</h3><p>EVERY SYSTEM IS LIVE. YOUR PROGRAM MUST BALANCE THE FIRE WITH THE RESCUE.</p><ul><li>READ WIND</li><li>SUPPRESS AND REFILL</li><li>RESCUE AND REACH SAFETY</li></ul></article>
+      </div>
+    </section>
+
+    <section class="panel section" id="tools" data-panel-name="tools" tabindex="-1">
+      <h2>BUILD. STEP. READ. REVISE.</h2>
+      <div class="tool-grid"><article class="tool"><h3>SOURCE EDITOR + ASSEMBLER</h3><p>WRITE RF-8 FIRMWARE AND SEE LINE-LEVEL ERRORS BEFORE DEPLOYMENT.</p></article><article class="tool"><h3>SINGLE-STEP DEBUGGER</h3><p>ADVANCE ONE WORLD TICK AND WATCH THE PROGRAM COUNTER, REGISTERS, SENSORS, HEAT, AND WATER.</p></article><article class="tool"><h3>EVENT LOG</h3><p>FOLLOW RESCUES, REFILLS, FIRE DAMAGE, WATER HITS, AND THE REASON A RUN ENDED.</p></article><article class="tool"><h3>REPEATABLE RUNS</h3><p>THE SAME MISSION AND FIRMWARE PRODUCE THE SAME RESULT—DOWN TO THE LAST TICK.</p></article></div>
+    </section>
+
+    <section class="panel section" id="privacy" data-panel-name="privacy" tabindex="-1">
+      <div class="privacy"><div><h2>PRIVATE BY DESIGN</h2><p>OPCODE FIRELINE WORKS OFFLINE. IT HAS NO ACCOUNT, ADS, ANALYTICS, TRACKING, OR INTERNET PERMISSION. THE DEVELOPER DOES NOT COLLECT OR SHARE APP DATA.</p><a class="command" href="/privacy/">FULL PRIVACY POLICY / DATENSCHUTZ</a></div><div><ul><li>FIRMWARE, SETTINGS, AND RUN RECORDS STAY IN APP-PRIVATE LOCAL STORAGE.</li><li>IMPORT AND EXPORT USE ANDROID'S USER-CONTROLLED DOCUMENT PICKER.</li><li>FILES CAN BE DELETED IN THE APP; CLEARING STORAGE OR UNINSTALLING REMOVES LOCAL APP DATA.</li><li>ANDROID SYSTEM BACKUPS DEPEND ON YOUR DEVICE AND BACKUP-PROVIDER SETTINGS.</li></ul><p class="privacy-code">APP NETWORK ACCESS: NONE<br>DEVELOPER DATA COLLECTION: NONE<br>THIRD-PARTY TRACKING: NONE</p></div></div>
+    </section>
+
+    <footer class="footer"><span>OPCODE FIRELINE</span><a href="#home" data-panel="home" aria-controls="home">TOP</a><a href="https://opcode-arena.appsystems.at/">OPCODE ARENA</a><a href="/privacy/">PRIVACY</a><a href="mailto:office@appsystems.at">SUPPORT</a><a href="https://github.com/Clemens-U/robofight">SOURCE</a><span>NO ADS / NO THIRD-PARTY TRACKING</span></footer>
+  </main>
+  <script>
+    (() => {
+      const buttons = [...document.querySelectorAll('[data-panel]')];
+      const panels = [...document.querySelectorAll('[data-panel-name]')];
+      const names = new Set(panels.map(panel => panel.dataset.panelName));
+
+      function showPanel(name, updateHistory = true) {
+        if (!names.has(name)) name = 'home';
+
+        for (const panel of panels) {
+          const active = panel.dataset.panelName === name;
+          panel.hidden = !active;
+          panel.classList.remove('is-active');
+          if (active) {
+            void panel.offsetWidth;
+            panel.classList.add('is-active');
+          }
+        }
+
+        for (const button of buttons) {
+          const active = button.dataset.panel === name;
+          if (active) button.setAttribute('aria-current', 'page');
+          else button.removeAttribute('aria-current');
+        }
+
+        if (updateHistory) history.pushState({ panel: name }, '', `#${name}`);
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      }
+
+      for (const button of buttons) {
+        button.addEventListener('click', event => {
+          event.preventDefault();
+          showPanel(button.dataset.panel);
+        });
+      }
+
+      window.addEventListener('popstate', () => showPanel(location.hash.slice(1), false));
+      showPanel(location.hash.slice(1) || 'home', false);
+    })();
+  </script>
+</body>
+</html>

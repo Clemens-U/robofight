@@ -12,7 +12,8 @@ package robofight.fireline
  *  - the first burning cell it contacts loses [PACKET_FIRE_REDUCE] intensity
  *    and the packet is consumed (intensity floors at 0);
  *  - maximum life is [PACKET_LIFE] water-resolution steps, counting the tick it
- *    was created on, so the packet list stays bounded (§13.4).
+ *    was created on: adjacent cell = distance 1; check cell 5 before expiring.
+ *    No packet from SHOOT reaches distance 6 (§13.4).
  *
  * Civilians, exits, refill cells and the rover do not consume a packet.
  */

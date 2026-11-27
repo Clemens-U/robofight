@@ -145,6 +145,41 @@ class Step2WaterShootPacketsTest {
     }
 
     @Test
+    fun shootHitsCellsOneThroughFiveButCannotReachCellSixInAnyDirection() {
+        assertEquals(5, WATER_RANGE)
+        for (dir in 0..3) for (distance in listOf(1, 5, 6)) {
+            val tx = 10 + dirDx(dir) * distance
+            val ty = 10 + dirDy(dir) * distance
+            // Refills surrounding the target cannot ignite, so a nearer fire
+            // cannot intercept the packet and mask an off-by-one range error.
+            val terrain = editRows(List(GRID) { "W".repeat(GRID) }, listOf(
+                Triple(10, 10, GLYPH_ROVER), Triple(tx, ty, GLYPH_FLOOR),
+            ))
+            val w = worldOf(terrain = terrain, fire = fireRows(listOf(Triple(tx, ty, '4'))),
+                dir = dir, firmwareSource = "SHOOT\nidle: WAIT\nJMP idle")
+            repeat(2) { w.tickOnce() }
+            assertEquals(0, w.packetCount(), "no packet before SHOOT completes")
+            w.tickOnce()
+            assertEquals(90, w.rover.water)
+            assertEquals(20, w.rover.heat)
+            assertEquals(1, w.rover.shots)
+            if (distance > 1) {
+                assertEquals(10 + dirDx(dir), w.packetsSnapshot().single().x)
+                assertEquals(10 + dirDy(dir), w.packetsSnapshot().single().y)
+            }
+            repeat(minOf(distance, WATER_RANGE) - 1) { w.tickOnce() }
+            assertEquals(if (distance <= WATER_RANGE) 75 else 100, w.fireAt(tx, ty),
+                "direction $dir, distance $distance")
+            assertEquals(0, w.packetCount(), "packet is consumed or expires at cell 5")
+            if (distance == 6) {
+                assertTrue(w.lastEvents.any { it.startsWith("PACKET EXPIRED") })
+                w.tickOnce()
+                assertEquals(100, w.fireAt(tx, ty), "no deferred hit at distance 6")
+            }
+        }
+    }
+
+    @Test
     fun civiliansExitsAndRefillsDoNotConsumePackets() {
         val w = worldOf(
             terrain = editRows(

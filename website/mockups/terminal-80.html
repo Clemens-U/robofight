@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Opcode Arena in a pure monochrome 80-column terminal style">
+  <title>Opcode Arena — Terminal 80</title>
+  <script>document.documentElement.classList.add('js')</script>
+  <style>
+    :root{color-scheme:dark;--screen:#000400;--phosphor:#79ff89;--bright:#b6ffbd;--dim:#4e9d57;--faint:#244c29;--cols:80ch}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#000;color:var(--phosphor);font:clamp(12px,1.45vw,16px)/1.48 "Courier New",Courier,monospace;letter-spacing:0;text-shadow:0 0 7px rgba(86,255,109,.32)}body:before{content:"";position:fixed;inset:0;z-index:20;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0,rgba(0,0,0,.14) 1px,transparent 1px,transparent 4px)}a{color:var(--bright);text-decoration:none}a:hover,a:focus{text-decoration:underline;text-underline-offset:3px;color:#fff}.skip{position:absolute;left:-9999px}.skip:focus{left:1rem;top:1rem;background:var(--phosphor);color:#000;padding:.4em .7em;z-index:30;text-shadow:none}
+    .terminal{width:min(var(--cols),calc(100% - 2rem));margin:0 auto;background:var(--screen);min-height:100vh;padding:1.2em 0 5em}.line{border:0;border-top:1px dashed var(--dim);margin:1.15em 0}.solid{border-top-style:solid}.dim{color:var(--dim)}.bright{color:var(--bright)}.center{text-align:center}.right{float:right}.clear{clear:both}.block{margin:3em 0}.prompt{color:var(--bright)}.cursor{display:inline-block;width:.62em;height:1.05em;vertical-align:-.14em;background:var(--phosphor);box-shadow:0 0 9px rgba(121,255,137,.7);animation:blink 1s steps(1,end) infinite}.command{display:inline-block;margin:.35em .45em .35em 0;padding:.2em .45em;border:1px solid var(--dim)}.command:hover,.command:focus{background:var(--phosphor);color:#001502;text-shadow:none;text-decoration:none}.nav{display:flex;flex-wrap:wrap;gap:.25em 1.2em;margin:.65em 0}.nav a:before{content:"["}.nav a:after{content:"]"}.nav a[aria-current="page"]{color:#fff;text-decoration:underline;text-underline-offset:3px}.nav a[aria-current="page"]:before{content:">["}.nav a[aria-current="page"]:after{content:"]<"}
+    [hidden],.js .panel:not(.is-active){display:none!important}.panel{position:relative;min-height:38em;margin:2.4em 0;transform-origin:top}.panel.is-active{animation:terminal-fill .72s steps(16,end) both}.panel.is-active:after{content:"";position:absolute;z-index:4;left:0;right:0;top:0;height:2px;background:var(--bright);box-shadow:0 0 14px 4px rgba(121,255,137,.55);pointer-events:none;animation:scan-down .72s linear both}
+    .masthead{white-space:pre;overflow:hidden;color:var(--bright);font-weight:bold;line-height:1.08;margin:2.4em 0 1.2em}.lede{max-width:68ch;color:var(--bright);margin:1.5em 0}.status{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--dim);margin:2em 0}.status div{padding:.55em .7em;border-right:1px solid var(--dim)}.status div:last-child{border:0}.status b{display:block;color:var(--bright)}
+    .window{border:1px solid var(--phosphor);margin:2em 0}.titlebar{padding:.35em .7em;border-bottom:1px solid var(--phosphor);color:var(--bright);display:flex;justify-content:space-between}.windowbody{padding:1em}.monitor{display:grid;grid-template-columns:42ch 1fr;gap:2ch}.arena,.source{white-space:pre;overflow:hidden;margin:0}.arena{color:var(--bright);line-height:1.18}.source{color:var(--dim);line-height:1.42}.source mark{display:block;background:var(--faint);color:var(--bright)}.telemetry{border-top:1px solid var(--dim);margin-top:1em;padding-top:.7em;color:var(--bright)}
+    .section-title{color:var(--bright);font-weight:bold;margin:0 0 1.5em}.section-title:before{content:">>> "}.section-title:after{content:" <<<"}.flow{display:grid;grid-template-columns:repeat(3,1fr);gap:2ch}.flow article{border:1px dashed var(--dim);padding:1em;min-height:14em}.flow h3{font:inherit;color:var(--bright);margin:0 0 1em}.flow h3:before{content:"0" counter(flow) ": ";counter-increment:flow}.flow{counter-reset:flow}.flow p{margin:0 0 1em;color:var(--dim)}.ports{color:var(--bright)}
+    .codebox{border-left:2px solid var(--phosphor);padding:.2em 0 .2em 2ch;word-break:break-all;color:var(--bright);margin:1.5em 0}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:.5em 1ch;border-bottom:1px dotted var(--dim);text-align:left;vertical-align:top}.table th{color:var(--bright);font-weight:normal}.table td{color:var(--dim)}.table td:first-child{color:var(--bright);width:19ch}
+    .story{border:1px solid var(--dim);padding:1em;margin-top:1.5em}.story legend{padding:0 1ch;color:var(--bright)}.cta{text-align:center;border-block:1px solid var(--phosphor);padding:2em 1ch;margin:4em 0 2em}.cta p{margin:.5em 0}.footer{color:var(--dim);display:flex;flex-wrap:wrap;gap:.4em 2ch}.switcher{position:fixed;right:1rem;bottom:1rem;z-index:25;background:#000;border:1px solid var(--dim);padding:.35em .6em;font-size:12px}
+    @keyframes blink{50%{opacity:0}}@keyframes terminal-fill{0%{clip-path:inset(0 0 100% 0);opacity:.1;filter:brightness(1.8)}55%{opacity:.82}100%{clip-path:inset(0);opacity:1;filter:brightness(1)}}@keyframes scan-down{0%{top:0;opacity:1}92%{opacity:.9}100%{top:100%;opacity:0}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.cursor{animation:none}.panel.is-active{animation:none}.panel.is-active:after{display:none}}
+    @media(max-width:760px){body{font-size:12px}.terminal{width:calc(100% - 1rem)}.panel{min-height:42em}.masthead{font-size:clamp(7px,2.05vw,12px)}.status{grid-template-columns:1fr 1fr}.status div:nth-child(2){border-right:0}.status div:nth-child(-n+2){border-bottom:1px solid var(--dim)}.monitor{grid-template-columns:1fr}.arena{font-size:clamp(8px,2.4vw,12px)}.source{border-top:1px dashed var(--dim);padding-top:1em}.flow{grid-template-columns:1fr}.flow article{min-height:0}.right{float:none;display:block}.table,.table tbody,.table tr,.table td,.table th{display:block}.table thead{position:absolute;left:-9999px}.table tr{border-bottom:1px dotted var(--dim);padding:.6em 0}.table td{border:0;padding:.2em 0}.table td:first-child{width:auto}.switcher{position:static;display:inline-block;margin:0 0 1em 1em}}
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to main content</a>
+  <main class="terminal" id="main">
+    <div>OPCODE ARENA NETWORK SERVICE <span class="right">RF-8 / ONLINE</span></div>
+    <hr class="line solid clear">
+    <nav class="nav" aria-label="Primary">
+      <a href="#home" data-panel="home" aria-controls="home" aria-current="page">HOME</a><a href="#about" data-panel="about" aria-controls="about">ABOUT</a><a href="#system" data-panel="system" aria-controls="system">SYSTEM</a><a href="#codes" data-panel="codes" aria-controls="codes">CODES</a><a href="#editions" data-panel="editions" aria-controls="editions">EDITIONS</a><a href="#circuit" data-panel="circuit" aria-controls="circuit">CIRCUIT</a><a href="https://opcode-fireline.appsystems.at/">FIRELINE</a><a href="https://github.com/Clemens-U/robofight/blob/main/MANUAL.md">MANUAL</a>
+    </nav>
+    <section class="panel is-active" id="home" data-panel-name="home" aria-label="Home" tabindex="-1">
+    <pre class="masthead" aria-label="Opcode Arena">
+  ___  ____   ____ ___  ____  _____      _    ____  _____ _   _    _
+ / _ \|  _ \ / ___/ _ \|  _ \| ____|    / \  |  _ \| ____| \ | |  / \
+| | | | |_) | |  | | | | | | |  _|     / _ \ | |_) |  _| |  \| | / _ \
+| |_| |  __/| |__| |_| | |_| | |___   / ___ \|  _ &lt;| |___| |\  |/ ___ \
+ \___/|_|    \____\___/|____/|_____| /_/   \_\_| \_\_____|_| \_/_/   \_\</pre>
+    <div class="prompt">RF:\&gt; TYPE ABOUT <span class="cursor" aria-hidden="true"></span></div>
+    <p class="lede">WRITE FIRMWARE FOR AN 8-BIT ROBOT. SEND IT INTO A 20x20 ARENA. WATCH YOUR CODE FIGHT ONE INSTRUCTION AT A TIME.</p>
+    <a class="command" href="https://github.com/Clemens-U/robofight/blob/main/MANUAL.md">READ MANUAL</a><a class="command" href="https://play.google.com/store/apps/details?id=robofight.android&amp;pcampaignid=web_share">GET FREE APP</a><a class="command" href="https://play.google.com/store/apps/details?id=robofight.android.pro&amp;pcampaignid=web_share">GET THE CIRCUIT</a><a class="command" href="https://opcode-fireline.appsystems.at/">VIEW FIRELINE</a>
+    <div class="status" aria-label="Game facts"><div><b>GRID</b>20 x 20</div><div><b>CLOCK</b>1-3 TICKS / OP</div><div><b>ARENAS</b>5 FREE</div><div><b>INPUT</b>YOUR CODE</div></div>
+
+    <section class="window" aria-label="RF-8 execution monitor">
+      <div class="titlebar"><span>RUN://MATCH_001</span><span>T+000042</span></div>
+      <div class="windowbody"><div class="monitor"><pre class="arena" aria-hidden="true">+------------------------------------+
+| . . . . . . . . . . . . . . . . . .|
+| . . H &gt; * * * . . . . . . █ . . . .|
+| . . . . . . . . . █ . . . . . . . .|
+| . . . █ . . . . . . . . . . . . . .|
+| . . . . . . . . . . . . . █ . . . .|
+| . . . . . █ . . . . . . . . . . . .|
+| . . . . . . . . . . . . . . T &lt; . .|
+| . . . . . . . . █ . . . . . . . . .|
++------------------------------------+</pre><pre class="source">top:   IN    DIST
+       JZ    idle
+       IN    ANGLE
+turn:  JZ    face
+<mark>&gt;      TURN  R</mark>       DEC   A
+       JNZ   turn
+face:  MOVE
+       SHOOT
+       JMP   top</pre></div><div class="telemetry">A:HUNTER HP:090 HEAT:042 PC:0012  |  B:TURTLE HP:100 SHIELD:1 PC:0009</div></div>
+    </section>
+    </section>
+
+    <section class="panel block" id="panel-about" data-panel-name="about" tabindex="-1" hidden><h2 class="section-title">ABOUT</h2><p>OPCODE ARENA IS A PROGRAMMING GAME, NOT A REFLEX GAME. THE ROBOT HAS NO INSTINCTS. EVERY TURN, SHOT, PAUSE, AND MISTAKE COMES FROM THE FIRMWARE YOU WROTE.</p><hr class="line"><p class="dim">WRITE FIRMWARE. ASSEMBLE IT. LOAD IT INTO A ROBOT. THEN WATCH THE MACHINE EXECUTE YOUR DECISIONS IN A DETERMINISTIC 20 x 20 ARENA.</p><p>AVAILABLE NOW FOR ANDROID:</p><a class="command" href="https://play.google.com/store/apps/details?id=robofight.android&amp;pcampaignid=web_share">GET FREE APP</a><a class="command" href="https://play.google.com/store/apps/details?id=robofight.android.pro&amp;pcampaignid=web_share">GET THE CIRCUIT</a></section>
+
+    <section class="panel block" id="panel-system" data-panel-name="system" tabindex="-1" hidden><h2 class="section-title">THE RF-8 LOOP</h2><p class="dim">INSTRUCTION COST: MOST OPS = 1 TICK / MOVE = 2 TICKS / SHOOT + SHIELD = 3 TICKS.</p><div class="flow"><article><h3>SENSE</h3><p>READ THE WORLD THROUGH MEMORY-MAPPED PORTS.</p><div class="ports">IN DIST<br>IN ANGLE<br>IN HEAT<br>IN AHEAD</div></article><article><h3>DECIDE</h3><p>TURN INPUT INTO BEHAVIOR WITH BRANCHES AND ROUTINES.</p><div class="ports">CMP<br>JZ / JNZ<br>CALL<br>RET</div></article><article><h3>ACT</h3><p>EXECUTE ONE ROBOT ACTION AT A TIME.</p><div class="ports">MOVE<br>TURN R<br>SHIELD<br>SHOOT</div></article></div></section>
+
+    <section class="panel block" id="panel-codes" data-panel-name="codes" tabindex="-1" hidden><h2 class="section-title">CHALLENGE CODES</h2><p>A CHALLENGE CODE IS A SELF-CONTAINED FIGHT DESCRIPTION. IT CARRIES THE ARENA, RULES, SEED, AND PINNED FIRMWARE. ANOTHER PHONE CAN REPLAY THE SAME SETUP WITHOUT AN ACCOUNT OR SERVER.</p><div class="codebox">RF1-AB7C-2Q9M-K4DT-8N3P-X7FA-00CE-91JM-4R2K-7WQ8-EN5A-...</div><div class="prompt">RF:\CODES&gt; STATUS</div><div>CANONICAL: YES<br>DETERMINISTIC: YES<br>READY TO SHARE: YES</div></section>
+
+    <section class="panel block" id="panel-editions" data-panel-name="editions" tabindex="-1" hidden><h2 class="section-title">EDITIONS</h2><table class="table"><thead><tr><th>EDITION</th><th>CONTENTS</th><th>INSTALL</th></tr></thead><tbody><tr><td>OPCODE ARENA</td><td>FIVE HAND-BUILT TRAINING ARENAS, RF-8 EDITOR, FIGHTS, CHALLENGE CODES.</td><td><a href="https://play.google.com/store/apps/details?id=robofight.android&amp;pcampaignid=web_share">[GET FREE APP]</a></td></tr><tr><td>THE CIRCUIT</td><td>THE COMPLETE GAME PLUS CURATED AND SEED-GENERATED ARENA PACK 1.</td><td><a href="https://play.google.com/store/apps/details?id=robofight.android.pro&amp;pcampaignid=web_share">[GET THE CIRCUIT]</a></td></tr><tr><td>OPCODE FIRELINE</td><td>A SIBLING RF-8 PROGRAMMING GAME: SUPPRESSION, NAVIGATION, REFILLS, WIND, AND RESCUE.</td><td><a href="https://opcode-fireline.appsystems.at/">[VIEW FIRELINE]</a></td></tr></tbody></table></section>
+
+    <section class="panel block" id="panel-circuit" data-panel-name="circuit" tabindex="-1" hidden><h2 class="section-title">UNAUTHORIZED SIGNAL</h2><fieldset class="story"><legend>MESSAGE 0001</legend><p>FIVE ARENAS TRAIN YOU. THE CIRCUIT IS WHERE TRAINING BEGINS FOR REAL.</p><p class="dim">BENEATH THE FLOORS: MAINTENANCE LEVELS. LOCKED DOORS. A ROUTE THE SYSTEM NEVER INCLUDED IN ITS BRIEFING.</p><p>&gt; SOURCE: BELOW TRAINING FLOOR<br>&gt; CONTENT: [REDACTED]<br>&gt; CONNECTION: ACTIVE</p></fieldset><p><a class="command" href="https://play.google.com/store/apps/details?id=robofight.android.pro&amp;pcampaignid=web_share">GET THE CIRCUIT</a></p></section>
+
+    <section class="cta"><p>RF:\&gt; LOAD MANUAL</p><p class="bright">SYSTEM READY. YOUR MOVE.</p><p><a class="command" href="https://github.com/Clemens-U/robofight/blob/main/MANUAL.md">EXECUTE</a></p></section>
+    <footer class="footer"><span>OPCODE ARENA</span><a href="https://github.com/Clemens-U/robofight/blob/main/MANUAL.md">MANUAL</a><a href="https://play.google.com/store/apps/details?id=robofight.android&amp;pcampaignid=web_share">FREE APP</a><a href="https://play.google.com/store/apps/details?id=robofight.android.pro&amp;pcampaignid=web_share">THE CIRCUIT</a><a href="https://opcode-fireline.appsystems.at/">FIRELINE</a><a href="/privacy/">PRIVACY</a><a href="https://github.com/Clemens-U/robofight">SOURCE</a><span>NO ADS / NO THIRD-PARTY TRACKING</span></footer>
+  </main>
+  <a class="switcher" href="index.html">[BACK TO 3 DIRECTIONS]</a>
+  <script>
+    (() => {
+      const buttons = [...document.querySelectorAll('[data-panel]')];
+      const panels = [...document.querySelectorAll('[data-panel-name]')];
+      const names = new Set(panels.map(panel => panel.dataset.panelName));
+
+      function showPanel(name, updateHistory = true) {
+        if (!names.has(name)) name = 'home';
+
+        for (const panel of panels) {
+          const active = panel.dataset.panelName === name;
+          panel.hidden = !active;
+          panel.classList.remove('is-active');
+          if (active) {
+            void panel.offsetWidth;
+            panel.classList.add('is-active');
+          }
+        }
+
+        for (const button of buttons) {
+          const active = button.dataset.panel === name;
+          if (active) button.setAttribute('aria-current', 'page');
+          else button.removeAttribute('aria-current');
+        }
+
+        if (updateHistory) history.pushState({ panel: name }, '', `#${name}`);
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      }
+
+      for (const button of buttons) {
+        button.addEventListener('click', event => {
+          event.preventDefault();
+          showPanel(button.dataset.panel);
+        });
+      }
+
+      window.addEventListener('popstate', () => showPanel(location.hash.slice(1), false));
+      showPanel(location.hash.slice(1) || 'home', false);
+    })();
+  </script>
+</body>
+</html>
